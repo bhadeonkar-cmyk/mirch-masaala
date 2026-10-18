@@ -425,6 +425,18 @@ button, input, select, textarea { font: inherit; }
   .kds { max-width: 1000px; margin: 0 auto; }
   .wrap { max-width: 520px; }
 }
+/* UX upgrades: swipeable table cards, food filters and progress animations */
+#tables.table-grid{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;padding:8px 4px 16px;margin:10px -2px 14px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(212,168,75,.55) transparent}
+#tables .table-carousel-card{flex:0 0 116px;min-width:116px;aspect-ratio:auto;height:126px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;scroll-snap-align:start;border-radius:20px;background:linear-gradient(155deg,rgba(212,168,75,.17),rgba(38,28,24,.96) 70%);box-shadow:0 10px 24px rgba(0,0,0,.18);animation:tableCardIn .42s both}
+#tables .table-carousel-card:nth-child(2n){animation-delay:.045s}#tables .table-carousel-card:nth-child(3n){animation-delay:.09s}
+.table-card-kicker{font-size:10px;letter-spacing:2px;color:var(--muted);font-weight:800}#tables .table-carousel-card strong{font-size:30px;line-height:1;color:var(--gold2)}.table-card-hint{font-size:10px;color:var(--muted);font-weight:600}
+@keyframes tableCardIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.diet-filters{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}.diet-filters::-webkit-scrollbar{display:none}
+.diet-filter{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;padding:8px 13px;background:var(--surface);color:var(--muted);font-size:12px;font-weight:800;cursor:pointer;transition:transform .16s,background .16s}.diet-filter:active{transform:scale(.96)}.diet-filter.on{background:var(--gold2);color:#1a1208;border-color:transparent}
+#guide-role-tabs{display:flex;gap:7px;overflow-x:auto;padding:4px 0 12px}.guide-role-tab{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:8px 11px;white-space:nowrap;font-weight:700;font-size:12px}.guide-role-tab.on{background:var(--gold2);color:#1a1208}
+.order-progress{background:linear-gradient(135deg,rgba(212,168,75,.12),rgba(38,28,24,.95));border:1px solid var(--line);border-radius:18px;padding:14px;margin:18px 0;text-align:left;overflow:hidden}.progress-heading{display:flex;align-items:center;gap:9px}.progress-chef{font-size:27px;display:inline-block;animation:chefBounce 2.4s ease-in-out infinite}.progress-title{font-size:14px;font-weight:800;flex:1}.progress-percent{color:var(--gold2);font-size:15px;font-weight:900;font-variant-numeric:tabular-nums}.progress-track{height:9px;background:rgba(255,255,255,.09);border-radius:999px;overflow:hidden;margin:12px 0 8px}.progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#bd822b,#f0d78c);transition:width .6s cubic-bezier(.2,.8,.2,1);position:relative}.progress-fill:after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);animation:progressShine 2.2s linear infinite}@keyframes progressShine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}.progress-steps{display:flex;justify-content:space-between;gap:4px;color:var(--muted);font-size:10px;font-weight:700}.progress-caption{color:var(--muted);font-size:12px;margin-top:9px;line-height:1.45}.waiting-joke{font-size:12px;color:var(--gold2);margin-top:10px;min-height:18px;animation:fade .3s ease}
+.admin-menu-row{flex-direction:column;gap:9px}.admin-menu-row .price-edit-row{display:flex;align-items:center;gap:7px}.admin-menu-row input{min-width:0;width:95px;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:9px;padding:9px;color:#fff;font-weight:800}.admin-menu-row .price-save{width:auto;padding:9px 12px;font-size:12px}.qr-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}.qr-actions .btn{flex:1 1 150px}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -466,20 +478,14 @@ button, input, select, textarea { font: inherit; }
     <div id="status-pill" class="pill open">● Open now</div>
     <div class="tip-banner" id="home-tip">
       <span class="ic">👋</span>
-      <div class="tx"><b>Welcome!</b> Pick your table number below — same as the number on your table. Or type it if you prefer.</div>
+      <div class="tx"><b>Welcome!</b> Scan the QR sticker on your table with your phone camera, or swipe below to choose your table.</div>
       <button type="button" class="x" onclick="this.parentElement.style.display='none'">×</button>
     </div>
-    <p class="muted" style="margin-bottom:4px"><b style="color:var(--text)">Choose your table</b> (tap number)</p>
-    <div class="table-grid" id="tables"></div>
-    <div class="manual-table-box">
-      <p class="muted" style="font-size:12px;margin-bottom:8px"><b style="color:#fff">Or type table number</b></p>
-      <div style="display:flex;gap:8px">
-        <input class="search" id="home-manual-table" placeholder="e.g. 7 or 07" style="margin:0;text-align:center;flex:1" inputmode="numeric" maxlength="2" onkeydown="if(event.key==='Enter'){event.preventDefault();goManualHomeTable();}">
-        <button type="button" class="btn btn-main btn-sm" style="width:auto;padding:12px 18px" onclick="goManualHomeTable()">Go</button>
-      </div>
-    </div>
-    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="openScan()">📷 Scan table QR instead</button>
+    <p class="muted" style="margin-bottom:4px"><b style="color:var(--text)">Choose your table</b></p>
+    <p class="muted" style="font-size:12px">Swipe the cards · one tap opens your menu</p>
+    <div class="table-grid" id="tables" aria-label="Swipe to choose your table"></div>
     <p class="muted" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
+    <button type="button" class="btn btn-soft" style="margin-top:12px" onclick="openGuide()">📖 How to use this app</button>
 
     <!-- Staff entry hidden from customers — long-press logo or tap footer 5× -->
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line)">
@@ -2177,7 +2183,9 @@ function renderHomeTables() {
   g.innerHTML = '';
   MENU.tables.forEach(function(t) {
     var b = document.createElement('button');
-    b.type = 'button'; b.className = 'tbtn'; b.textContent = t.number;
+    b.type = 'button'; b.className = 'tbtn table-carousel-card';
+    b.innerHTML = '<span class="table-card-kicker">TABLE</span><strong>' + t.number + '</strong><span class="table-card-hint">Tap to order →</span>';
+    b.setAttribute('aria-label', 'Open menu for Table ' + t.number);
     b.onclick = (function(num) { return function() { startTable(num); }; })(t.number);
     g.appendChild(b);
   });
