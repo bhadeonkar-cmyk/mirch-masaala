@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "Mirch Masaala Digital Menu",
+  "short_name": "Mirch Masaala",
+  "description": "QR-based digital menu and ordering for Mirch Masaala.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#120c0a",
+  "theme_color": "#120c0a",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
