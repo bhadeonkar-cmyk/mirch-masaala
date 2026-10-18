@@ -1494,6 +1494,7 @@ function paymentAppLink(method,pa,amount,orderId){
   var query=upiParams(pa,amount,orderId),ua=navigator.userAgent||'';
   var isIOS=/iPad|iPhone|iPod/.test(ua)&&!window.MSStream,isAndroid=/Android/i.test(ua);
   if(method==='gpay'&&isIOS)return 'gpay://upi/pay?'+query;
+  if(method==='phonepe'&&isIOS)return 'phonepe://upi/pay?'+query;
   if(isAndroid){
     var pkg=method==='gpay'?'com.google.android.apps.nbu.paisa.user':'com.phonepe.app';
     return 'intent://pay?'+query+'#Intent;scheme=upi;package='+pkg+';end';
