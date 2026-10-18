@@ -509,29 +509,6 @@ button, input, select, textarea { font: inherit; }
     </div>
 
     
-    <div class="setup" style="margin-top:16px;border-color:rgba(110,182,255,.35)">
-      <h3 style="color:var(--blue)">📱 iPhone / Admin on phone</h3>
-      <ol>
-        <li>Host this folder online (HTTPS) — e.g. Netlify, Vercel, or GitHub Pages.</li>
-        <li>Open the link in <b>Safari</b> on iPhone.</li>
-        <li>Tap the <b>Share</b> button → <b>Add to Home Screen</b>.</li>
-        <li>Open the home-screen icon → full-screen app (no Safari bar).</li>
-        <li>Keep owner and staff login details private; never display them to guests.</li>
-      </ol>
-      <p style="margin-top:8px;font-size:12px">Same Wi‑Fi is not required if hosted online. Use Admin icon on the home screen every day.</p>
-    </div>
-
-    <div class="setup" style="margin-top:20px">
-      <h3>How to set up (simple)</h3>
-      <ol>
-        <li>Open this file on a phone, tablet, or computer browser.</li>
-        <li><b>Customers:</b> scan the sticker on their table or swipe the table cards.</li>
-        <li><b>Staff:</b> open Staff access and use the login details given privately by the owner.</li>
-        <li>Guests can use the menu without signing in or installing anything.</li>
-        <li>Admin → QR tab → download QR stickers for each table.</li>
-        <li>Same Wi‑Fi / same browser profile keeps orders in sync on one device. For multi-device, use one shared admin/kitchen tablet.</li>
-      </ol>
-    </div>
   </div>
 </div>
 
@@ -2453,9 +2430,9 @@ function drawSettings() {
     '<div class="settings-row"><label>Restaurant name</label><input id="set-name" value="' + esc(s.restaurantName) + '"></div>' +
     '<div class="settings-row"><label>Tagline</label><input id="set-tag" value="' + esc(s.tagline) + '"></div>' +
     '<div class="settings-row"><label>Admin contact phone</label><input id="set-phone" value="' + esc(s.adminPhone) + '"></div>' +
-    '<div class="settings-row"><label>Waiter password (all waiters)</label><input id="set-pw" type="password" autocomplete="new-password" value="' + esc(s.passWaiter) + '"></div>' +
-    '<div class="settings-row"><label>Kitchen password</label><input id="set-pk" type="password" autocomplete="new-password" value="' + esc(s.passKitchen) + '"></div>' +
-    '<div class="settings-row"><label>Admin password</label><input id="set-pa" value="' + esc(s.passAdmin) + '" type="password"></div>' +
+    '<div class="settings-row"><label>Change waiter password (optional)</label><input id="set-pw" type="password" autocomplete="new-password" placeholder="Leave blank to keep current"></div>' +
+    '<div class="settings-row"><label>Change kitchen password (optional)</label><input id="set-pk" type="password" autocomplete="new-password" placeholder="Leave blank to keep current"></div>' +
+    '<div class="settings-row"><label>Change admin password (optional)</label><input id="set-pa" type="password" autocomplete="new-password" placeholder="Leave blank to keep current"></div>' +
     '<div class="settings-row"><label>Closed message</label><input id="set-closed" value="' + esc(s.closedMessage) + '"></div>' +
     '<div class="settings-row"><label>Number of tables (1–50)</label><input id="set-tables" type="number" min="1" max="50" value="' + (s.tableCount || 20) + '"></div>' +
     '<div class="settings-row"><label>Main UPI ID (GPay default)</label><input id="set-upi" placeholder="yourname@okaxis" value="' + esc(s.upiId || '') + '"></div>' +
@@ -2482,9 +2459,9 @@ function saveSettings() {
   SETTINGS.restaurantName = document.getElementById('set-name').value.trim() || 'MIRCH MASAALA';
   SETTINGS.tagline = document.getElementById('set-tag').value.trim() || 'INDIAN RESTAURANT';
   SETTINGS.adminPhone = document.getElementById('set-phone').value.trim();
-  SETTINGS.passWaiter = document.getElementById('set-pw').value.trim() || 'waiter123';
-  SETTINGS.passKitchen = document.getElementById('set-pk').value.trim() || 'kitchen123';
-  SETTINGS.passAdmin = document.getElementById('set-pa').value.trim() || 'admin123';
+  SETTINGS.passWaiter = document.getElementById('set-pw').value.trim() || SETTINGS.passWaiter || 'waiter123';
+  SETTINGS.passKitchen = document.getElementById('set-pk').value.trim() || SETTINGS.passKitchen || 'kitchen123';
+  SETTINGS.passAdmin = document.getElementById('set-pa').value.trim() || SETTINGS.passAdmin || 'admin123';
   SETTINGS.closedMessage = document.getElementById('set-closed').value.trim();
   SETTINGS.dataUrl = document.getElementById('set-url').value.trim();
   SETTINGS.tableCount = parseInt(document.getElementById('set-tables').value, 10) || 20;
