@@ -574,6 +574,7 @@ button, input, select, textarea { font: inherit; }
     <p style="font-size:12px;font-weight:700;color:var(--gold2);margin:4px 0 6px">✨ Suggested for you</p>
     <div class="specials-row" id="specials"></div>
     <input class="search" id="search" placeholder="Search food…" oninput="drawMenu()">
+    <div class="diet-filters" id="diet-filters" role="group" aria-label="Filter by food type"></div>
     <div class="cats" id="cats"></div>
     <div id="menu"></div>
   </div>
@@ -664,6 +665,7 @@ button, input, select, textarea { font: inherit; }
     <div class="table-grid" id="w-tables"></div>
     <div id="w-area" style="display:none">
       <input class="search" id="w-search" placeholder="Search menu…" oninput="wMenu()">
+      <div class="diet-filters" id="w-diet-filters" role="group" aria-label="Filter by food type"></div>
       <div class="cats" id="w-cats"></div>
       <div id="w-menu" style="max-height:32vh;overflow:auto;margin-bottom:10px"></div>
       <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px">
@@ -895,7 +897,8 @@ var PASS = { waiter: 'waiter123', kitchen: 'kitchen123', admin: 'admin123' };
 var CANCEL_MS = 7 * 60 * 1000;
 var ADMIN_PHONE = '+91 98765 43210';
 
-var role = null, pendingRole = null, table = '01', cart = [], cat = 'all';
+var role = null, pendingRole = null, table = '01', cart = [], cat = 'all', dietFilter = 'all', wDietFilter = 'all';
+var waitingTimer = null, waitingJokeIndex = 0, lastPlacedOrderId = null;
 var orders = load('mm_o', []);
 var notifs = load('mm_n', []);
 var reviews = load('mm_r', []);
@@ -1121,10 +1124,10 @@ function startTable(n) {
   if (!isOpen) { toast(SETTINGS.closedMessage || 'Restaurant is closed'); return; }
   table = String(n).padStart(2, '0');
   cart = load('mm_c_' + table, []);
-  cat = 'all';
+  cat = 'all'; dietFilter = 'all';
   document.getElementById('search').value = '';
   document.getElementById('tbl-label').textContent = 'Table ' + table;
-  drawCats(); drawMenu(); drawSpecials(); updCart();
+  drawDietFilters(); drawCats(); drawMenu(); drawSpecials(); updCart();
   restoreTips();
   go('customer');
   maybeSuggestSpecial();
@@ -1284,11 +1287,24 @@ function drawCats() {
   });
   document.getElementById('cats').innerHTML = h;
 }
+function renderDietButtons(hostId, selected, setterName) {
+  var el = document.getElementById(hostId); if (!el) return;
+  var options = [{key:'all',label:'🍽️ All foods'},{key:'veg',label:'🟢 Veg only'},{key:'nonveg',label:'🔴 Non-veg only'}];
+  el.innerHTML = options.map(function(o) {
+    return '<button type="button" class="diet-filter' + (selected === o.key ? ' on' : '') + '" aria-pressed="' + (selected === o.key) + '" onclick="' + setterName + '(\'' + o.key + '\')">' + o.label + '</button>';
+  }).join('');
+}
+function drawDietFilters() { renderDietButtons('diet-filters', dietFilter, 'setDietFilter'); }
+function setDietFilter(s) { dietFilter = s; drawDietFilters(); drawMenu(); }
+function drawWDietFilters() { renderDietButtons('w-diet-filters', wDietFilter, 'setWDietFilter'); }
+function setWDietFilter(s) { wDietFilter = s; drawWDietFilters(); wMenu(); }
 function setCat(s) { cat = s; drawCats(); drawMenu(); }
 function drawMenu() {
   var q = (document.getElementById('search').value || '').toLowerCase();
   var items = MENU.menu_items.filter(function(i){ return i.is_available; });
   if (cat !== 'all') items = items.filter(function(i){ return i.category_slug === cat; });
+  if (dietFilter === 'veg') items = items.filter(function(i){ return i.is_veg; });
+  if (dietFilter === 'nonveg') items = items.filter(function(i){ return !i.is_veg; });
   if (q) items = items.filter(function(i){ return i.name.toLowerCase().indexOf(q) >= 0; });
   document.getElementById('menu').innerHTML = items.map(function(item) {
     var inC = cart.find(function(c){ return c.id === item.id; });
@@ -1778,11 +1794,11 @@ function enterWaiter() {
   wCart = []; wTable = null;
 }
 function pickW(n) {
-  wTable = n; wCart = []; wCat = 'all';
+  wTable = n; wCart = []; wCat = 'all'; wDietFilter = 'all';
   document.getElementById('w-tbl').textContent = 'Table ' + n;
   document.getElementById('w-area').style.display = 'block';
   document.getElementById('w-search').value = '';
-  wCats(); wMenu(); wDrawCart();
+  drawWDietFilters(); wCats(); wMenu(); wDrawCart();
 }
 function wCats() {
   var h = '<button type="button" class="cat' + (wCat==='all'?' on':'') + '" onclick="setWC(\'all\')">All</button>';
@@ -1796,6 +1812,8 @@ function wMenu() {
   var q = (document.getElementById('w-search').value || '').toLowerCase();
   var items = MENU.menu_items.filter(function(i){ return i.is_available; });
   if (wCat !== 'all') items = items.filter(function(i){ return i.category_slug === wCat; });
+  if (wDietFilter === 'veg') items = items.filter(function(i){ return i.is_veg; });
+  if (wDietFilter === 'nonveg') items = items.filter(function(i){ return !i.is_veg; });
   if (q) items = items.filter(function(i){ return i.name.toLowerCase().indexOf(q) >= 0; });
   document.getElementById('w-menu').innerHTML = items.map(function(item) {
     var inC = wCart.find(function(c){ return c.id === item.id; });
@@ -2034,14 +2052,14 @@ function doneNotif(id) {
   if (n) { n.done = true; save('mm_n', notifs); drawAlerts(); }
 }
 function drawQR() {
-  document.getElementById('a-qr').innerHTML = '<p class="muted" style="margin-bottom:10px">Download QR for each table. Stick on table. Guest scans to order.</p><div class="table-grid">' +
+  document.getElementById('a-qr').innerHTML = '<p class="muted" style="margin-bottom:10px">Each QR opens the exact table menu directly. Print all table stickers or download an individual QR.</p><div class="qr-actions"><button type="button" class="btn btn-main" onclick="downloadAllQRCodes()">⬇️ Download printable QR sheet</button></div><div class="table-grid">' +
     MENU.tables.map(function(t) {
       return '<button type="button" class="tbtn" style="font-size:12px;flex-direction:column" onclick="showQR(\'' + t.number + '\')">' + t.number + '<br>QR</button>';
     }).join('') + '</div>';
 }
 function showQR(t) {
   document.getElementById('qr-lab').textContent = t;
-  var url = location.href.split('?')[0].split('#')[0] + '?table=' + t;
+  var url = tableURL(t);
   var box = document.getElementById('qr-code'); box.innerHTML = '<div class="muted" style="padding:55px 8px">Preparing QR…</div>';
   document.getElementById('qr-modal').classList.add('on');
   ensureQRCode().then(function(QR) {
@@ -2053,10 +2071,43 @@ function showQR(t) {
     });
   }).catch(function(){ box.innerHTML = '<div class="muted" style="padding:55px 8px">QR unavailable — copy the table link instead.</div>'; });
 }
+function tableURL(t) {
+  return location.origin + location.pathname + '?table=' + encodeURIComponent(String(t).padStart(2, '0'));
+}
 function dlQR() {
   var c = document.getElementById('qr-cv'); if (!c) return;
-  var a = document.createElement('a'); a.download = 'table-qr.png'; a.href = c.toDataURL(); a.click();
-  toast('Downloaded');
+  var n = (document.getElementById('qr-lab').textContent || 'table').replace(/[^0-9]/g, '');
+  var a = document.createElement('a'); a.download = 'mirch-masaala-table-' + n + '-qr.png'; a.href = c.toDataURL('image/png'); a.click();
+  toast('Table ' + n + ' QR downloaded');
+}
+function downloadAllQRCodes() {
+  var win = window.open('', '_blank');
+  if (!win) { toast('Allow pop-ups to create the printable QR sheet'); return; }
+  win.document.open();
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mirch Masaala · Table QR codes</title><style>body{font-family:Arial,sans-serif;color:#21160f;padding:22px}h1{text-align:center;margin:0 0 4px}p{text-align:center;margin:0 0 20px;color:#665}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.item{border:1px solid #b9a889;border-radius:12px;padding:10px;text-align:center;break-inside:avoid}.item img{width:100%;max-width:190px;display:block;margin:8px auto}.item strong{font-size:19px;letter-spacing:2px}.url{font-size:9px;overflow-wrap:anywhere;color:#555}@media print{body{padding:0}.grid{gap:8px}.item{padding:6px}}</style></head><body><h1>MIRCH MASAALA</h1><p>Scan your table QR to open the menu · Cut out and place on the matching table</p><div id="qr-sheet-status">Preparing table QR codes…</div></body></html>');
+  win.document.close();
+  ensureQRCode().then(function(QR) {
+    var tasks = MENU.tables.map(function(t) {
+      return new Promise(function(resolve) {
+        QR.toDataURL(tableURL(t.number), {width:240,margin:2,errorCorrectionLevel:'H'}, function(err, data) {
+          resolve(err ? null : {number:t.number,url:tableURL(t.number),data:data});
+        });
+      });
+    });
+    return Promise.all(tasks);
+  }).then(function(items) {
+    if (win.closed) return;
+    var usable = items.filter(Boolean);
+    var body = '<div class="grid">' + usable.map(function(it) {
+      return '<div class="item"><strong>TABLE ' + it.number + '</strong><img alt="QR for Table ' + it.number + '" src="' + it.data + '"><div class="url">' + it.url + '</div></div>';
+    }).join('') + '</div><p style="margin-top:18px">Print this page or choose Save as PDF. Check each sticker matches its table.</p>';
+    win.document.getElementById('qr-sheet-status').outerHTML = body;
+    setTimeout(function(){ try { win.focus(); win.print(); } catch(e) {} }, 650);
+    toast('Printable QR sheet ready · ' + usable.length + ' tables');
+  }).catch(function(err) {
+    try { win.document.body.innerHTML = '<p>Could not generate QR codes. Check your internet connection and try again.</p>'; } catch(e) {}
+    console.warn(err); toast('Could not generate QR sheet');
+  });
 }
 function drawStats() {
   var today = new Date().toISOString().slice(0,10);
