@@ -1306,7 +1306,7 @@ function renderDietButtons(hostId, selected, setterName) {
   var el = document.getElementById(hostId); if (!el) return;
   var options = [{key:'all',label:'🍽️ All foods'},{key:'veg',label:'🟢 Veg only'},{key:'nonveg',label:'🔴 Non-veg only'}];
   el.innerHTML = options.map(function(o) {
-    return '<button type="button" class="diet-filter' + (selected === o.key ? ' on' : '') + '" aria-pressed="' + (selected === o.key) + '" onclick="' + setterName + '(\'' + o.key + '\')">' + o.label + '</button>';
+    return '<button type="button" class="diet-filter' + (selected === o.key ? ' on' : '') + '" aria-pressed="' + (selected === o.key) + '" onclick="' + setterName + '(&quot;' + o.key + '&quot;)">' + o.label + '</button>';
   }).join('');
 }
 function drawDietFilters() { renderDietButtons('diet-filters', dietFilter, 'setDietFilter'); }
