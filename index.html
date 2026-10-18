@@ -1833,9 +1833,16 @@ function downloadQRImage(imageURL,fileName) {
   if(imageURL.indexOf('data:image/')===0){
     var a=document.createElement('a');a.href=imageURL;a.download=fileName;a.click();toast('QR downloaded');return;
   }
+  // Open a window synchronously from the user's tap; if CORS download fails, show the image there.
+  var backupWindow=window.open('about:blank','_blank');
   fetch(imageURL,{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('QR image download failed');return r.blob();}).then(function(blob){
+    if(backupWindow&&!backupWindow.closed)backupWindow.close();
     var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fileName;a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},3000);toast('QR downloaded');
-  }).catch(function(){window.open(imageURL,'_blank');toast('Opened QR image. Use Share → Save Image if download did not start.');});
+  }).catch(function(){
+    if(backupWindow&&!backupWindow.closed)backupWindow.location.href=imageURL;
+    else window.open(imageURL,'_blank');
+    toast('Opened QR image. Use Share → Save Image if download did not start.');
+  });
 }
 function ensureHtml5Qrcode() {
   if(typeof Html5Qrcode!=='undefined')return Promise.resolve(Html5Qrcode);
