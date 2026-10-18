@@ -612,6 +612,7 @@ button, input, select, textarea { font: inherit; }
     <h1 class="gold" style="margin:8px 0">Order placed!</h1>
     <p class="muted">Order <b id="sid" style="color:#fff"></b> · Table <span id="stbl"></span></p>
     <p class="muted" style="margin:10px 0 18px">You can cancel within <b class="gold">7 minutes</b> if kitchen has not started.</p>
+    <div id="success-progress-host"></div>
     <button type="button" class="btn btn-main" onclick="backMenu()">Order more</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="myOrders()">Track / Cancel</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="openReview()">⭐ Rate us</button>
@@ -1371,6 +1372,69 @@ function drawCart() {
   }).join('');
   document.getElementById('total').textContent = '₹' + cart.reduce(function(s,c){ return s + c.price*c.qty; }, 0);
 }
+
+function orderProgressState(o) {
+  var s = String((o && o.status) || 'NEW').toUpperCase();
+  if (s === 'CANCELLED') return {percent:0,title:'Order cancelled',caption:'The kitchen has stopped this ticket. Ask your waiter if you need help.',emoji:'🙈'};
+  if (s === 'PREPARING' || s === 'COOKING') return {percent:55,title:'Chef is cooking!',caption:'The kitchen is working on your order. Good things take a little sizzle. 🔥',emoji:'👨‍🍳'};
+  if (s === 'READY') return {percent:85,title:'Fresh and ready!',caption:'Your food is ready. Your waiter can bring it over now. 🍽️',emoji:'🍲'};
+  if (s === 'SERVED' || s === 'PAID') return {percent:100,title:s === 'SERVED' ? 'Served — enjoy!' : 'All settled — enjoy!',caption:'Mission delicious: complete. Enjoy your meal! 🎉',emoji:'😋'};
+  return {percent:18,title:'Order received!',caption:'The kitchen has your ticket. We are warming up the spice squad. 🌶️',emoji:'📨'};
+}
+function progressMarkup(o) {
+  var p = orderProgressState(o);
+  var safeId = String(o.id || 'order').replace(/[^a-zA-Z0-9_-]/g, '');
+  return '<div class="order-progress" data-progress-order="' + safeId + '">' +
+    '<div class="progress-heading"><span class="progress-chef" data-progress-emoji>' + p.emoji + '</span><strong class="progress-title" data-progress-title>' + p.title + '</strong><span class="progress-percent" data-progress-percent>' + p.percent + '%</span></div>' +
+    '<div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + p.percent + '"><div class="progress-fill" data-progress-fill style="width:' + p.percent + '%"></div></div>' +
+    '<div class="progress-steps"><span>Received</span><span>Cooking</span><span>Ready</span><span>Served</span></div><p class="progress-caption" data-progress-caption>' + p.caption + '</p></div>';
+}
+function refreshProgressViews() {
+  var stored = load('mm_o', orders);
+  if (Array.isArray(stored)) orders = stored;
+  document.querySelectorAll('[data-progress-order]').forEach(function(el) {
+    var id = el.getAttribute('data-progress-order');
+    var order = orders.find(function(o){ return String(o.id).replace(/[^a-zA-Z0-9_-]/g, '') === id; });
+    if (!order) return;
+    var p = orderProgressState(order);
+    var title = el.querySelector('[data-progress-title]'), pct = el.querySelector('[data-progress-percent]');
+    var fill = el.querySelector('[data-progress-fill]'), caption = el.querySelector('[data-progress-caption]');
+    var emoji = el.querySelector('[data-progress-emoji]'), track = el.querySelector('[role="progressbar"]');
+    if (title) title.textContent = p.title;
+    if (pct) pct.textContent = p.percent + '%';
+    if (fill) fill.style.width = p.percent + '%';
+    if (caption) caption.textContent = p.caption;
+    if (emoji) emoji.textContent = p.emoji;
+    if (track) track.setAttribute('aria-valuenow', p.percent);
+  });
+}
+function startWaitFun(id) {
+  if (waitingTimer) clearInterval(waitingTimer);
+  var jokes = [
+    'The chef is negotiating with the chilli. 🌶️🤝',
+    'Your naan is having a tiny glow-up. 🫓✨',
+    'The spice squad has entered the kitchen. 🧑‍🍳',
+    'Plot twist: the biryani is the main character. 🍚🎬',
+    'Please remain calm. Deliciousness is loading… ⏳😋',
+    'Your taste buds are about to get promoted. 🎉'
+  ];
+  waitingJokeIndex = 0;
+  waitingTimer = setInterval(function() {
+    if (!document.getElementById('success').classList.contains('on')) {
+      clearInterval(waitingTimer); waitingTimer = null; return;
+    }
+    refreshProgressViews();
+    var order = orders.find(function(o){ return o.id === id; });
+    var joke = document.getElementById('waiting-joke');
+    if (joke && order && ['READY','SERVED','PAID','CANCELLED'].indexOf(String(order.status).toUpperCase()) >= 0) {
+      joke.textContent = order.status === 'CANCELLED' ? 'That ticket was cancelled. Need help? Wave to your waiter. 🙋' : 'The suspense is delicious. Thanks for waiting! 😋';
+    } else if (joke) {
+      joke.textContent = jokes[waitingJokeIndex % jokes.length];
+      waitingJokeIndex++;
+    }
+  }, 4500);
+}
+
 function placeOrder() {
   if (!cart.length) return;
   var date = new Date();
@@ -1388,8 +1452,12 @@ function placeOrder() {
   document.getElementById('sid').textContent = id;
   document.getElementById('stbl').textContent = table;
   updCart();
+  lastPlacedOrderId = id;
   go('success');
-  if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
+  var host = document.getElementById('success-progress-host');
+  if (host) host.innerHTML = progressMarkup(orders[0]) + '<p class="waiting-joke" id="waiting-joke">Chef has received your mission. 🍳</p>';
+  startWaitFun(id);
+  if (typeof confetti === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
   toast('Order sent to kitchen!');
 }
 
@@ -1681,6 +1749,7 @@ function myOrders() {
     if (o.status === 'CANCELLED') cbtn = '<p style="color:var(--bad);font-size:13px;margin-top:8px">Cancelled</p>';
     else if (canCancel(o)) cbtn = '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span class="gold">⏱ ' + fmt(rem) + '</span><button type="button" class="btn-bad" onclick="cancelOrder(\'' + o.id + '\')">Cancel order</button></div>';
     return '<div class="card" style="flex-direction:column"><div style="display:flex;justify-content:space-between"><b>' + o.id + '</b><span class="gold">' + o.status + '</span></div>' +
+      progressMarkup(o) +
       o.items.map(function(i){ return '<div class="muted">' + i.qty + '× ' + i.name + '</div>'; }).join('') +
       '<b class="gold" style="margin-top:6px">₹' + o.total + '</b>' + cbtn + '</div>';
   }).join('');
@@ -1878,7 +1947,7 @@ function enterKitchen() {
 }
 function setStatus(id, st) {
   var o = orders.find(function(x){ return x.id === id; }); if (!o) return;
-  o.status = st; save('mm_o', orders); drawK(); toast(st);
+  o.status = st; save('mm_o', orders); drawK(); drawAdminOrders(); refreshProgressViews(); toast(st);
 }
 function drawK() {
   document.getElementById('k-time').textContent = new Date().toLocaleTimeString();
