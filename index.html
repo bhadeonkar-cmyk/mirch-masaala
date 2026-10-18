@@ -2330,7 +2330,7 @@ function defaultSettings() {
     passAdmin: 'admin123',
     dataUrl: '',
     closedMessage: 'Restaurant is closed',
-    tableCount: 16,
+    tableCount: 20,
     upiId: 'mirchmasaala@upi',
     upiName: 'Mirch Masaala',
     payNote: 'Pay via UPI — show this QR to guest',
@@ -2347,7 +2347,7 @@ var SETTINGS = Object.assign(defaultSettings(), load('mm_settings', {}));
 
 function tableCount() {
   var n = parseInt(SETTINGS.tableCount, 10);
-  if (!n || n < 1) n = 16;
+  if (!n || n < 1) n = 20;
   if (n > 50) n = 50;
   return n;
 }
@@ -2457,7 +2457,7 @@ function drawSettings() {
     '<div class="settings-row"><label>Kitchen password</label><input id="set-pk" type="password" autocomplete="new-password" value="' + esc(s.passKitchen) + '"></div>' +
     '<div class="settings-row"><label>Admin password</label><input id="set-pa" value="' + esc(s.passAdmin) + '" type="password"></div>' +
     '<div class="settings-row"><label>Closed message</label><input id="set-closed" value="' + esc(s.closedMessage) + '"></div>' +
-    '<div class="settings-row"><label>Number of tables (1–50)</label><input id="set-tables" type="number" min="1" max="50" value="' + (s.tableCount || 16) + '"></div>' +
+    '<div class="settings-row"><label>Number of tables (1–50)</label><input id="set-tables" type="number" min="1" max="50" value="' + (s.tableCount || 20) + '"></div>' +
     '<div class="settings-row"><label>Main UPI ID (GPay default)</label><input id="set-upi" placeholder="yourname@okaxis" value="' + esc(s.upiId || '') + '"></div>' +
     '<div class="settings-row"><label>UPI display name</label><input id="set-upiname" value="' + esc(s.upiName || '') + '"></div>' +
     '<div class="settings-row"><label>PhonePe UPI (optional, else uses main)</label><input id="set-phonepe" placeholder="yourname@ybl" value="' + esc(s.phonepeUpi || '') + '"></div>' +
@@ -2487,7 +2487,7 @@ function saveSettings() {
   SETTINGS.passAdmin = document.getElementById('set-pa').value.trim() || 'admin123';
   SETTINGS.closedMessage = document.getElementById('set-closed').value.trim();
   SETTINGS.dataUrl = document.getElementById('set-url').value.trim();
-  SETTINGS.tableCount = parseInt(document.getElementById('set-tables').value, 10) || 16;
+  SETTINGS.tableCount = parseInt(document.getElementById('set-tables').value, 10) || 20;
   if (SETTINGS.tableCount < 1) SETTINGS.tableCount = 1;
   if (SETTINGS.tableCount > 50) SETTINGS.tableCount = 50;
   SETTINGS.upiId = document.getElementById('set-upi').value.trim();
