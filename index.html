@@ -1895,12 +1895,62 @@ function availRow(item) {
     '<button type="button" class="btn-sm" style="background:' + (item.is_available?'rgba(62,207,142,.2)':'rgba(232,106,106,.2)') + ';color:' + (item.is_available?'var(--ok)':'var(--bad)') + ';border:none;font-weight:700;cursor:pointer" onclick="toggleItem(' + item.id + ')">' +
     (item.is_available ? 'Available' : 'Sold out') + '</button></div>';
 }
+function adminMenuRow(item) {
+  return '<div class="card admin-menu-row"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><div style="flex:1;min-width:0"><b>' + esc(item.name) + '</b><div class="muted" style="font-size:11px;margin-top:3px">' + (item.is_veg ? '🟢 Vegetarian' : '🔴 Non-vegetarian') + ' · ' + (item.is_available ? 'Available' : 'Sold out') + '</div></div><span class="muted" style="font-size:11px">ID ' + item.id + '</span></div>' +
+    '<div class="price-edit-row"><label for="price-edit-' + item.id + '" class="muted">Price ₹</label><input type="number" min="0" max="999999" step="1" id="price-edit-' + item.id + '" inputmode="numeric" value="' + Number(item.price || 0) + '" aria-label="Price for ' + esc(item.name) + '"><button type="button" class="btn btn-main price-save" onclick="saveItemPrice(' + item.id + ')">Save price</button></div>' +
+    '<button type="button" class="btn btn-soft btn-sm" onclick="toggleItem(' + item.id + ')">' + (item.is_available ? 'Mark sold out' : 'Mark available') + '</button></div>';
+}
+function drawAdminMenu() {
+  var el = document.getElementById('a-menu');
+  if (!el) return;
+  el.innerHTML = '<div class="setup"><h3>Owner menu controls</h3><p>Change a price, save it, or mark an item available / sold out. <b>Current limitation:</b> edits are stored in this browser only. Connect Supabase before expecting all customer phones to receive the changes.</p><button type="button" class="btn btn-soft btn-sm" onclick="exportConfig()">Export menu backup</button></div>' +
+    '<input class="search" id="admin-menu-search" placeholder="Find a dish to edit…" oninput="filterAdminMenu()" aria-label="Search menu for price editing">' +
+    '<div id="admin-menu-rows">' + MENU.menu_items.map(adminMenuRow).join('') + '</div>';
+}
+function filterAdminMenu() {
+  var input = document.getElementById('admin-menu-search');
+  var q = (input ? input.value : '').toLowerCase();
+  document.querySelectorAll('#admin-menu-rows .admin-menu-row').forEach(function(row) {
+    row.style.display = row.textContent.toLowerCase().indexOf(q) >= 0 ? 'flex' : 'none';
+  });
+}
+function saveItemPrice(id) {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
+  var item = MENU.menu_items.find(function(i){ return i.id === id; });
+  var input = document.getElementById('price-edit-' + id);
+  if (!item || !input) return;
+  var price = Number(input.value);
+  if (!Number.isFinite(price) || price < 0 || price > 999999) { toast('Enter a valid price'); input.focus(); return; }
+  item.price = Math.round(price);
+  persistMenuEdits();
+  cart.forEach(function(c){ var m = MENU.menu_items.find(function(x){ return x.id === c.id; }); if (m) c.price = m.price; });
+  wCart.forEach(function(c){ var m = MENU.menu_items.find(function(x){ return x.id === c.id; }); if (m) c.price = m.price; });
+  save('mm_c_' + table, cart); updCart();
+  drawAdminMenu();
+  toast(item.name + ' price saved on this device');
+}
+function persistMenuEdits() { save('mm_menu_items', MENU.menu_items); }
+function applySavedMenuEdits() {
+  var saved = load('mm_menu_items', []);
+  if (!Array.isArray(saved) || !saved.length) return;
+  var byId = {};
+  saved.forEach(function(item){ byId[String(item.id)] = item; });
+  MENU.menu_items = MENU.menu_items.map(function(item) {
+    var savedItem = byId[String(item.id)];
+    if (!savedItem) return item;
+    var merged = Object.assign({}, item);
+    if (Number.isFinite(Number(savedItem.price)) && Number(savedItem.price) >= 0) merged.price = Number(savedItem.price);
+    if (typeof savedItem.is_available === 'boolean') merged.is_available = savedItem.is_available;
+    return merged;
+  });
+}
 function toggleItem(id) {
   if (role !== 'admin' && role !== 'kitchen') return;
   var item = MENU.menu_items.find(function(i){ return i.id === id; });
   if (!item) return;
   item.is_available = !item.is_available;
-  if (document.getElementById('a-menu').style.display !== 'none') document.getElementById('a-menu').innerHTML = MENU.menu_items.map(availRow).join('');
+  persistMenuEdits();
+  if (document.getElementById('a-menu').style.display !== 'none') drawAdminMenu();
   if (document.getElementById('kitchen').classList.contains('on')) drawKMenu();
   toast(item.is_available ? 'Available' : 'Sold out');
 }
@@ -2015,7 +2065,7 @@ function tab(btn, name) {
     document.getElementById('a-' + t).style.display = t === name ? 'block' : 'none';
   });
   if (name === 'alerts') drawAlerts();
-  if (name === 'menu') document.getElementById('a-menu').innerHTML = MENU.menu_items.map(availRow).join('');
+  if (name === 'menu') drawAdminMenu();
   if (name === 'qr') drawQR();
   if (name === 'stats') drawStats();
   if (name === 'party') drawParty();
@@ -2598,12 +2648,21 @@ window.dismissTip = dismissTip;
 
 function bootApp() {
   try {
+    if (typeof applySavedMenuEdits === 'function') applySavedMenuEdits();
     if (typeof applySettings === 'function') applySettings();
     if (typeof rebuildTables === 'function') rebuildTables();
     if (typeof renderHomeTables === 'function') renderHomeTables();
+    if (typeof drawDietFilters === 'function') drawDietFilters();
     if (typeof drawPlaces === 'function') drawPlaces();
     if (typeof setOpenPill === 'function') setOpenPill();
     if (typeof bindStaffSecrets === 'function') bindStaffSecrets();
+    var params = new URLSearchParams(window.location.search);
+    var fromQR = params.get('table');
+    if (fromQR) {
+      var validTable = parseTable(window.location.search);
+      if (validTable) startTable(validTable);
+      else toast('Invalid table QR. Please select your table.');
+    }
   } catch (e) { console.error('boot', e); }
 }
 if (document.readyState === 'loading') {
@@ -2614,6 +2673,13 @@ if (document.readyState === 'loading') {
 
 /* Service worker intentionally disabled in the single-file build to prevent stale mobile caches. */
 
+window.drawAdminMenu = drawAdminMenu;
+window.saveItemPrice = saveItemPrice;
+window.filterAdminMenu = filterAdminMenu;
+window.downloadAllQRCodes = downloadAllQRCodes;
+window.showRoleGuide = showRoleGuide;
+window.setDietFilter = setDietFilter;
+window.setWDietFilter = setWDietFilter;
 </script>
 </body>
 </html>
