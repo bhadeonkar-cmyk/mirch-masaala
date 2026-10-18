@@ -1482,49 +1482,59 @@ function showPayQR(amount, orderId) {
 function closePayQR() {
   document.getElementById('pay-modal').classList.remove('on');
 }
-function upiLink(pa, amount, orderId) {
-  var pn = encodeURIComponent(SETTINGS.upiName || SETTINGS.restaurantName || 'Mirch Masaala');
-  var url = 'upi://pay?pa=' + encodeURIComponent(pa) + '&pn=' + pn + '&cu=INR';
-  if (amount) url += '&am=' + encodeURIComponent(String(amount));
-  if (orderId) url += '&tn=' + encodeURIComponent(orderId);
-  return url;
+function upiParams(pa,amount,orderId){
+  var pn=encodeURIComponent(SETTINGS.upiName||SETTINGS.restaurantName||'Mirch Masaala');
+  var q='pa='+encodeURIComponent(pa)+'&pn='+pn+'&cu=INR';
+  if(amount)q+='&am='+encodeURIComponent(String(amount));
+  if(orderId)q+='&tn='+encodeURIComponent(orderId);
+  return q;
+}
+function upiLink(pa,amount,orderId){return 'upi://pay?'+upiParams(pa,amount,orderId);}
+function paymentAppLink(method,pa,amount,orderId){
+  var query=upiParams(pa,amount,orderId),ua=navigator.userAgent||'';
+  var isIOS=/iPad|iPhone|iPod/.test(ua)&&!window.MSStream,isAndroid=/Android/i.test(ua);
+  if(method==='gpay'&&isIOS)return 'gpay://upi/pay?'+query;
+  if(isAndroid){
+    var pkg=method==='gpay'?'com.google.android.apps.nbu.paisa.user':'com.phonepe.app';
+    return 'intent://pay?'+query+'#Intent;scheme=upi;package='+pkg+';end';
+  }
+  // On iOS, let the system handle the standard UPI scheme if a specific app handler isn't available.
+  return 'upi://pay?'+query;
 }
 function selectPayMethod(method) {
-  payContext.method = method;
-  document.getElementById('pay-upi-area').style.display = 'none';
-  document.getElementById('pay-cash-area').style.display = 'none';
-  document.getElementById('pay-card-area').style.display = 'none';
-  if (method === 'gpay' || method === 'phonepe') {
-    var pa = SETTINGS.upiId || 'mirchmasaala@upi';
-    if (method === 'phonepe' && SETTINGS.phonepeUpi) pa = SETTINGS.phonepeUpi;
-    var url = upiLink(pa, payContext.amount, payContext.orderId || ('Table ' + table));
-    // Prefer intent that opens GPay when possible (Android); still standard UPI
-    document.getElementById('pay-link').href = url;
-    document.getElementById('pay-link').textContent = method === 'gpay' ? 'Open Google Pay' : 'Open PhonePe';
-    document.getElementById('pay-upi').textContent = pa + ' · ' + (SETTINGS.upiName || '');
-    document.getElementById('pay-upi-area').style.display = 'block';
-    var box = document.getElementById('pay-qr');
-    box.innerHTML = '<div class="muted" style="font-size:12px;padding:55px 8px">Preparing QR…</div>';
-    ensureQRCode().then(function(QR) {
-      if (!document.getElementById('pay-modal').classList.contains('on')) return;
-      box.innerHTML = '';
-      QR.toCanvas(document.createElement('canvas'), url, { width: 170, margin: 2 }, function(err, canvas) {
-        if (!err && canvas) box.appendChild(canvas);
-        else box.innerHTML = '<div class="muted" style="font-size:12px;padding:55px 8px">QR unavailable. Use Open payment app.</div>';
-      });
-    }).catch(function() {
-      box.innerHTML = '<div class="muted" style="font-size:12px;padding:55px 8px">QR unavailable. Use Open payment app.</div>';
-    });
-    toast(method === 'gpay' ? 'Google Pay ready' : 'PhonePe ready');
-  } else if (method === 'cash') {
-    document.getElementById('pay-cash-area').style.display = 'block';
-    toast('Pay cash at counter');
-  } else if (method === 'card') {
-    document.getElementById('pay-card-area').style.display = 'block';
-    toast('Card at counter');
+  payContext.method=method;
+  document.getElementById('pay-upi-area').style.display='none';
+  document.getElementById('pay-cash-area').style.display='none';
+  document.getElementById('pay-card-area').style.display='none';
+  if(method==='gpay'||method==='phonepe'){
+    var pa=String((method==='phonepe'&&SETTINGS.phonepeUpi)||SETTINGS.upiId||'').trim();
+    var box=document.getElementById('pay-qr'),link=document.getElementById('pay-link');
+    document.getElementById('pay-upi-area').style.display='block';box.innerHTML='';
+    if(!pa){
+      document.getElementById('pay-note').textContent='Digital UPI payment is not configured yet.';
+      document.getElementById('pay-upi').textContent='Please ask staff for help. The owner must add the restaurant UPI ID in Admin → Settings.';
+      link.style.display='none';box.innerHTML='<p class="muted" style="font-size:12px;padding:30px 12px">UPI is not set up for this restaurant yet.</p>';
+      toast('Owner must add the restaurant UPI ID in Settings');return;
+    }
+    document.getElementById('pay-note').textContent=SETTINGS.payNote||'Review the amount in your payment app before paying.';
+    var genericUrl=upiLink(pa,payContext.amount,payContext.orderId||('Table '+table));
+    link.href=paymentAppLink(method,pa,payContext.amount,payContext.orderId||('Table '+table));
+    link.style.display='flex';link.textContent=method==='gpay'?'Open Google Pay':'Open PhonePe / UPI app';
+    document.getElementById('pay-upi').textContent=pa+' · '+(SETTINGS.upiName||SETTINGS.restaurantName||'Mirch Masaala');
+    box.innerHTML='<div class="muted" style="font-size:12px;padding:45px 8px">Preparing payment QR…</div>';
+    makeQRImage(genericUrl,200).then(function(src){
+      if(!document.getElementById('pay-modal').classList.contains('on'))return;
+      box.innerHTML='';var img=document.createElement('img');img.alt='UPI payment QR';img.width=190;img.height=190;
+      img.style.cssText='width:190px;height:190px;max-width:100%;object-fit:contain;background:#fff;padding:6px;border-radius:8px';img.src=src;
+      img.onerror=function(){box.innerHTML='<p class="muted" style="font-size:12px;padding:35px 8px">Payment QR could not load. Use the payment app button instead.</p>';};box.appendChild(img);
+    }).catch(function(){box.innerHTML='<p class="muted" style="font-size:12px;padding:35px 8px">Payment QR unavailable. Use the payment app button instead.</p>';});
+    toast(method==='gpay'?'Google Pay ready':'PhonePe ready');
+  }else if(method==='cash'){
+    document.getElementById('pay-cash-area').style.display='block';toast('Pay cash at counter');
+  }else if(method==='card'){
+    document.getElementById('pay-card-area').style.display='block';toast('Card at counter');
   }
-}
-function markPaidMethod(method) {
+}function markPaidMethod(method) {
   payContext.method = method || payContext.method;
   markPaidFromPay();
 }
@@ -1788,13 +1798,51 @@ function loadOptionalScript(src, globalName, timeoutMs) {
   });
   return MM_SCRIPT_PROMISES[src];
 }
+function loadGlobalFromAny(urls,globalName,validate) {
+  function attempt(index){
+    if(typeof window[globalName]!=='undefined'&&(!validate||validate(window[globalName])))return Promise.resolve(window[globalName]);
+    if(index>=urls.length)return Promise.reject(new Error(globalName+' could not be loaded from available CDNs'));
+    return loadOptionalScript(urls[index],globalName,7000).then(function(value){
+      if(value&&(!validate||validate(value)))return value;
+      throw new Error('Library did not expose the expected browser API');
+    }).catch(function(){return attempt(index+1);});
+  }
+  return attempt(0);
+}
 function ensureQRCode() {
-  if (typeof QRCode !== 'undefined') return Promise.resolve(QRCode);
-  return loadOptionalScript('https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js', 'QRCode', 7000);
+  if(typeof QRCode!=='undefined'&&typeof QRCode.toDataURL==='function')return Promise.resolve(QRCode);
+  return loadGlobalFromAny([
+    'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js',
+    'https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js',
+    'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/lib/browser.min.js',
+    'https://unpkg.com/qrcode@1.5.4/lib/browser.min.js'
+  ],'QRCode',function(q){return typeof q.toDataURL==='function';});
+}
+function qrApiURL(text,size) {
+  return 'https://api.qrserver.com/v1/create-qr-code/?size='+size+'x'+size+'&margin=8&format=png&data='+encodeURIComponent(text);
+}
+function makeQRImage(text,size) {
+  return ensureQRCode().then(function(QR){
+    return new Promise(function(resolve,reject){
+      QR.toDataURL(text,{width:size,margin:2,errorCorrectionLevel:'H'},function(err,data){if(err)reject(err);else resolve(data);});
+    });
+  }).catch(function(){return qrApiURL(text,size);});
+}
+function downloadQRImage(imageURL,fileName) {
+  if(!imageURL){toast('QR is not ready yet');return;}
+  if(imageURL.indexOf('data:image/')===0){
+    var a=document.createElement('a');a.href=imageURL;a.download=fileName;a.click();toast('QR downloaded');return;
+  }
+  fetch(imageURL,{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('QR image download failed');return r.blob();}).then(function(blob){
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fileName;a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},3000);toast('QR downloaded');
+  }).catch(function(){window.open(imageURL,'_blank');toast('Opened QR image. Use Share → Save Image if download did not start.');});
 }
 function ensureHtml5Qrcode() {
-  if (typeof Html5Qrcode !== 'undefined') return Promise.resolve(Html5Qrcode);
-  return loadOptionalScript('https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js', 'Html5Qrcode', 9000);
+  if(typeof Html5Qrcode!=='undefined')return Promise.resolve(Html5Qrcode);
+  return loadGlobalFromAny([
+    'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
+    'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
+  ],'Html5Qrcode',function(q){return typeof q==='function';});
 }
 
 /* Scan */
@@ -2180,56 +2228,41 @@ function drawQR() {
     }).join('') + '</div>';
 }
 function showQR(t) {
-  document.getElementById('qr-lab').textContent = t;
-  var url = tableURL(t);
-  var box = document.getElementById('qr-code'); box.innerHTML = '<div class="muted" style="padding:55px 8px">Preparing QR…</div>';
+  document.getElementById('qr-lab').textContent=t;
+  var url=tableURL(t),box=document.getElementById('qr-code');
+  box.innerHTML='<div class="muted" style="padding:55px 8px">Preparing QR…</div>';
   document.getElementById('qr-modal').classList.add('on');
-  ensureQRCode().then(function(QR) {
-    if (!document.getElementById('qr-modal').classList.contains('on')) return;
-    box.innerHTML = '';
-    QR.toCanvas(document.createElement('canvas'), url, { width: 180, margin: 2 }, function(err, c) {
-      if (!err && c) { c.id = 'qr-cv'; box.appendChild(c); }
-      else box.innerHTML = '<div class="muted" style="padding:55px 8px">QR unavailable</div>';
-    });
-  }).catch(function(){ box.innerHTML = '<div class="muted" style="padding:55px 8px">QR unavailable — copy the table link instead.</div>'; });
-}
-function tableURL(t) {
-  return location.origin + location.pathname + '?table=' + encodeURIComponent(String(t).padStart(2, '0'));
+  makeQRImage(url,240).then(function(src){
+    if(!document.getElementById('qr-modal').classList.contains('on'))return;
+    box.innerHTML='';
+    var img=document.createElement('img');img.id='qr-image';img.alt='QR code for Table '+t;img.width=220;img.height=220;
+    img.style.cssText='width:220px;height:220px;max-width:100%;object-fit:contain;background:#fff;padding:8px;border-radius:8px';
+    img.src=src;
+    img.onerror=function(){box.innerHTML='<p class="muted" style="padding:30px 8px">QR service could not load. Check connection and try again.</p>';};
+    box.appendChild(img);
+  }).catch(function(){box.innerHTML='<p class="muted" style="padding:30px 8px">QR could not be generated. Check your connection and retry.</p>';});
 }
 function dlQR() {
-  var c = document.getElementById('qr-cv'); if (!c) return;
-  var n = (document.getElementById('qr-lab').textContent || 'table').replace(/[^0-9]/g, '');
-  var a = document.createElement('a'); a.download = 'mirch-masaala-table-' + n + '-qr.png'; a.href = c.toDataURL('image/png'); a.click();
-  toast('Table ' + n + ' QR downloaded');
+  var img=document.getElementById('qr-image');
+  var n=(document.getElementById('qr-lab').textContent||'table').replace(/[^0-9]/g,'');
+  if(!img||!img.src){toast('QR is still being prepared');return;}
+  downloadQRImage(img.src,'mirch-masaala-table-'+n+'-qr.png');
 }
 function downloadAllQRCodes() {
-  var win = window.open('', '_blank');
-  if (!win) { toast('Allow pop-ups to create the printable QR sheet'); return; }
+  var win=window.open('','_blank');
+  if(!win){toast('Allow pop-ups to create the printable QR sheet');return;}
   win.document.open();
-  win.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mirch Masaala · Table QR codes</title><style>body{font-family:Arial,sans-serif;color:#21160f;padding:22px}h1{text-align:center;margin:0 0 4px}p{text-align:center;margin:0 0 20px;color:#665}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.item{border:1px solid #b9a889;border-radius:12px;padding:10px;text-align:center;break-inside:avoid}.item img{width:100%;max-width:190px;display:block;margin:8px auto}.item strong{font-size:19px;letter-spacing:2px}.url{font-size:9px;overflow-wrap:anywhere;color:#555}@media print{body{padding:0}.grid{gap:8px}.item{padding:6px}}</style></head><body><h1>MIRCH MASAALA</h1><p>Scan your table QR to open the menu · Cut out and place on the matching table</p><div id="qr-sheet-status">Preparing table QR codes…</div></body></html>');
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mirch Masaala · Table QR codes</title><style>body{font-family:Arial,sans-serif;color:#21160f;padding:22px}h1{text-align:center;margin:0 0 4px}p{text-align:center;margin:0 0 20px;color:#665}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.item{border:1px solid #b9a889;border-radius:12px;padding:10px;text-align:center;break-inside:avoid}.item img{width:100%;max-width:190px;display:block;margin:8px auto;background:#fff}.item strong{font-size:19px;letter-spacing:2px}.url{font-size:9px;overflow-wrap:anywhere;color:#555}@media print{body{padding:0}.grid{gap:8px}.item{padding:6px}}</style></head><body><h1>MIRCH MASAALA</h1><p>Scan your table QR to open the menu · Place on the matching table</p><div id="qr-sheet-status">Preparing table QR codes…</div></body></html>');
   win.document.close();
-  ensureQRCode().then(function(QR) {
-    var tasks = MENU.tables.map(function(t) {
-      return new Promise(function(resolve) {
-        QR.toDataURL(tableURL(t.number), {width:240,margin:2,errorCorrectionLevel:'H'}, function(err, data) {
-          resolve(err ? null : {number:t.number,url:tableURL(t.number),data:data});
-        });
-      });
-    });
-    return Promise.all(tasks);
-  }).then(function(items) {
-    if (win.closed) return;
-    var usable = items.filter(Boolean);
-    var body = '<div class="grid">' + usable.map(function(it) {
-      return '<div class="item"><strong>TABLE ' + it.number + '</strong><img alt="QR for Table ' + it.number + '" src="' + it.data + '"><div class="url">' + it.url + '</div></div>';
-    }).join('') + '</div><p style="margin-top:18px">Print this page or choose Save as PDF. Check each sticker matches its table.</p>';
-    win.document.getElementById('qr-sheet-status').outerHTML = body;
-    setTimeout(function(){ try { win.focus(); win.print(); } catch(e) {} }, 650);
-    toast('Printable QR sheet ready · ' + usable.length + ' tables');
-  }).catch(function(err) {
-    try { win.document.body.innerHTML = '<p>Could not generate QR codes. Check your internet connection and try again.</p>'; } catch(e) {}
-    console.warn(err); toast('Could not generate QR sheet');
-  });
+  Promise.all(MENU.tables.map(function(t){return makeQRImage(tableURL(t.number),240).then(function(src){return{number:t.number,url:tableURL(t.number),src:src};});}))
+    .then(function(items){
+      if(win.closed)return;
+      win.document.getElementById('qr-sheet-status').outerHTML='<div class="grid">'+items.map(function(it){return '<div class="item"><strong>TABLE '+it.number+'</strong><img alt="QR for Table '+it.number+'" src="'+it.src+'"><div class="url">'+it.url+'</div></div>';}).join('')+'</div><p style="margin-top:18px">Print this page or choose Save as PDF. Test each sticker on a phone before placing it.</p>';
+      var imgs=Array.prototype.slice.call(win.document.images);
+      Promise.all(imgs.map(function(img){return new Promise(function(resolve){if(img.complete){resolve();return;}img.onload=resolve;img.onerror=resolve;setTimeout(resolve,8000);});}))
+        .then(function(){if(!win.closed){win.focus();win.print();}});
+      toast('Printable QR sheet ready · '+items.length+' tables');
+    }).catch(function(err){console.warn(err);if(!win.closed)win.document.body.innerHTML='<p>Could not build the sheet. Check your connection and retry.</p>';toast('Could not generate QR sheet');});
 }
 function drawStats() {
   var today = new Date().toISOString().slice(0,10);
@@ -2320,7 +2353,7 @@ function defaultSettings() {
     dataUrl: '',
     closedMessage: 'Restaurant is closed',
     tableCount: 20,
-    upiId: 'mirchmasaala@upi',
+    upiId: '',
     upiName: 'Mirch Masaala',
     payNote: 'Pay via UPI — show this QR to guest',
     whatsappNumber: '919876543210',
@@ -2333,6 +2366,7 @@ function defaultSettings() {
   };
 }
 var SETTINGS = Object.assign(defaultSettings(), load('mm_settings', {}));
+if (SETTINGS.upiId === 'mirchmasaala@upi') SETTINGS.upiId = '';
 
 function tableCount() {
   var n = parseInt(SETTINGS.tableCount, 10);
@@ -2455,9 +2489,10 @@ function drawSettings() {
     '<div class="settings-row"><label>Change admin password (optional)</label><input id="set-pa" type="password" autocomplete="new-password" placeholder="Leave blank to keep current"></div>' +
     '<div class="settings-row"><label>Closed message</label><input id="set-closed" value="' + esc(s.closedMessage) + '"></div>' +
     '<div class="settings-row"><label>Number of tables (1–50)</label><input id="set-tables" type="number" min="1" max="50" value="' + (s.tableCount || 20) + '"></div>' +
-    '<div class="settings-row"><label>Main UPI ID (GPay default)</label><input id="set-upi" placeholder="yourname@okaxis" value="' + esc(s.upiId || '') + '"></div>' +
+    (!s.upiId ? '<div class="setup" style="border-color:rgba(232,106,106,.55)"><h3>⚠️ Payment setup required</h3><p>Owner: enter the restaurant’s real merchant UPI ID below before enabling digital payments. Do not use a sample ID.</p></div>' : '') +
+    '<div class="settings-row"><label>Restaurant merchant UPI ID (required for UPI)</label><input id="set-upi" placeholder="e.g. restaurant@bank" value="' + esc(s.upiId || '') + '"></div>' +
     '<div class="settings-row"><label>UPI display name</label><input id="set-upiname" value="' + esc(s.upiName || '') + '"></div>' +
-    '<div class="settings-row"><label>PhonePe UPI (optional, else uses main)</label><input id="set-phonepe" placeholder="yourname@ybl" value="' + esc(s.phonepeUpi || '') + '"></div>' +
+    '<div class="settings-row"><label>PhonePe merchant UPI ID (optional override)</label><input id="set-phonepe" placeholder="Leave blank to use main UPI ID" value="' + esc(s.phonepeUpi || '') + '"></div>' +
     '<div class="settings-row"><label>Payment note</label><input id="set-paynote" value="' + esc(s.payNote || '') + '"></div>' +
     '<div class="settings-row"><label>WhatsApp number (with country code, no +)</label><input id="set-wa" placeholder="919876543210" value="' + esc(s.whatsappNumber || '') + '"></div>' +
     '<div class="settings-row"><label>WhatsApp display name</label><input id="set-waname" value="' + esc(s.whatsappName || '') + '"></div>' +
@@ -2490,6 +2525,8 @@ function saveSettings() {
   SETTINGS.upiId = document.getElementById('set-upi').value.trim();
   SETTINGS.upiName = document.getElementById('set-upiname').value.trim();
   SETTINGS.phonepeUpi = document.getElementById('set-phonepe').value.trim();
+  if (SETTINGS.upiId && !/^[^@\\s]+@[^@\\s]+$/.test(SETTINGS.upiId)) { toast('Enter a valid merchant UPI ID, e.g. restaurant@bank'); document.getElementById('set-upi').focus(); return; }
+  if (SETTINGS.phonepeUpi && !/^[^@\\s]+@[^@\\s]+$/.test(SETTINGS.phonepeUpi)) { toast('Enter a valid PhonePe UPI ID or leave it blank'); document.getElementById('set-phonepe').focus(); return; }
   SETTINGS.payNote = document.getElementById('set-paynote').value.trim();
   SETTINGS.whatsappNumber = document.getElementById('set-wa').value.trim().replace(/[^0-9]/g, '');
   SETTINGS.whatsappName = document.getElementById('set-waname').value.trim();
