@@ -489,20 +489,20 @@ button, input, select, textarea { font: inherit; }
 
     <!-- Staff entry hidden from customers — long-press logo or tap footer 5× -->
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line)">
-      <button type="button" class="btn btn-soft" id="staff-open-btn" style="font-size:13px;opacity:.85" onclick="showStaffPanel()">Staff login</button>
+      <button type="button" class="btn btn-soft" id="staff-open-btn" style="font-size:13px;opacity:.85" onclick="showStaffPanel()">🔐 Staff access</button>
       <div id="staff-panel" style="display:none;margin-top:12px">
-        <p class="muted" style="font-size:12px;margin-bottom:8px">Staff only — guests please use table numbers above</p>
+        <p class="muted" style="font-size:12px;margin-bottom:8px">Authorised team only. Ask the owner for your login details.</p>
         <button type="button" class="big-link" onclick="openLogin('waiter')">
           <span class="ic">🛎️</span>
-          <span>Waiter Pad<small>Password: waiter123</small></span>
+          <span>Waiter Pad<small>Staff login required</small></span>
         </button>
         <button type="button" class="big-link" onclick="openLogin('kitchen')">
           <span class="ic">👨‍🍳</span>
-          <span>Kitchen<small>Password: kitchen123</small></span>
+          <span>Kitchen<small>Staff login required</small></span>
         </button>
         <button type="button" class="big-link" onclick="openLogin('admin')">
           <span class="ic">🎛️</span>
-          <span>Admin<small>Password: admin123</small></span>
+          <span>Owner / Admin<small>Authorised staff only</small></span>
         </button>
         <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="hideStaffPanel()">Hide</button>
       </div>
@@ -516,7 +516,7 @@ button, input, select, textarea { font: inherit; }
         <li>Open the link in <b>Safari</b> on iPhone.</li>
         <li>Tap the <b>Share</b> button → <b>Add to Home Screen</b>.</li>
         <li>Open the home-screen icon → full-screen app (no Safari bar).</li>
-        <li>Admin login password default: <code>admin123</code> (change in Settings).</li>
+        <li>Keep owner and staff login details private; never display them to guests.</li>
       </ol>
       <p style="margin-top:8px;font-size:12px">Same Wi‑Fi is not required if hosted online. Use Admin icon on the home screen every day.</p>
     </div>
@@ -525,9 +525,9 @@ button, input, select, textarea { font: inherit; }
       <h3>How to set up (simple)</h3>
       <ol>
         <li>Open this file on a phone, tablet, or computer browser.</li>
-        <li><b>Customers:</b> tap table number or Scan QR.</li>
-        <li>Staff: long-press the logo (or tap “Guest ordering only” 5 times) for Waiter / Kitchen / Admin.</li>
-        <li>Staff passwords are set by Admin in Settings (not shown to guests).</li>
+        <li><b>Customers:</b> scan the sticker on their table or swipe the table cards.</li>
+        <li><b>Staff:</b> open Staff access and use the login details given privately by the owner.</li>
+        <li>Guests can use the menu without signing in or installing anything.</li>
         <li>Admin → QR tab → download QR stickers for each table.</li>
         <li>Same Wi‑Fi / same browser profile keeps orders in sync on one device. For multi-device, use one shared admin/kitchen tablet.</li>
       </ol>
@@ -1160,9 +1160,9 @@ function openLogin(r) {
   pendingRole = r;
   var titles = { waiter: 'Waiter login', kitchen: 'Kitchen login', admin: 'Admin login' };
   var hints = {
-    waiter: 'Default password: waiter123',
-    kitchen: 'Default password: kitchen123',
-    admin: 'Default password: admin123'
+    waiter: 'Staff only · Enter the password provided privately by the owner',
+    kitchen: 'Staff only · Enter the password provided privately by the owner',
+    admin: 'Owner/Admin only · Enter the password provided privately by the owner'
   };
   document.getElementById('login-title').textContent = titles[r] || 'Staff login';
   document.getElementById('login-hint').textContent = hints[r] || 'Enter password';
@@ -1183,12 +1183,10 @@ function doLogin() {
     showStaffPanel();
     return;
   }
-  // Defaults always work; Settings can override
-  var expected = (PASS && PASS[r]) ? PASS[r] : '';
-  var defaults = { waiter: 'waiter123', kitchen: 'kitchen123', admin: 'admin123' };
-  if (!expected) expected = defaults[r];
-  // Accept either current PASS or factory default (in case settings wiped password)
-  if (p !== expected && p !== defaults[r]) {
+  // Check only the active configured password. Do not accept an old factory
+  // password as a fallback after the owner changes their settings.
+  var expected = (PASS && PASS[r]) ? String(PASS[r]) : '';
+  if (!expected || p !== expected) {
     var err = document.getElementById('login-err');
     if (err) { err.style.display = 'block'; err.textContent = 'Wrong password for ' + r; }
     toast('Wrong password');
@@ -2455,8 +2453,8 @@ function drawSettings() {
     '<div class="settings-row"><label>Restaurant name</label><input id="set-name" value="' + esc(s.restaurantName) + '"></div>' +
     '<div class="settings-row"><label>Tagline</label><input id="set-tag" value="' + esc(s.tagline) + '"></div>' +
     '<div class="settings-row"><label>Admin contact phone</label><input id="set-phone" value="' + esc(s.adminPhone) + '"></div>' +
-    '<div class="settings-row"><label>Waiter password (all waiters)</label><input id="set-pw" value="' + esc(s.passWaiter) + '"></div>' +
-    '<div class="settings-row"><label>Kitchen password</label><input id="set-pk" value="' + esc(s.passKitchen) + '"></div>' +
+    '<div class="settings-row"><label>Waiter password (all waiters)</label><input id="set-pw" type="password" autocomplete="new-password" value="' + esc(s.passWaiter) + '"></div>' +
+    '<div class="settings-row"><label>Kitchen password</label><input id="set-pk" type="password" autocomplete="new-password" value="' + esc(s.passKitchen) + '"></div>' +
     '<div class="settings-row"><label>Admin password</label><input id="set-pa" value="' + esc(s.passAdmin) + '" type="password"></div>' +
     '<div class="settings-row"><label>Closed message</label><input id="set-closed" value="' + esc(s.closedMessage) + '"></div>' +
     '<div class="settings-row"><label>Number of tables (1–50)</label><input id="set-tables" type="number" min="1" max="50" value="' + (s.tableCount || 16) + '"></div>' +
