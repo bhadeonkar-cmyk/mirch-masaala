@@ -437,6 +437,18 @@ button, input, select, textarea { font: inherit; }
 .order-progress{background:linear-gradient(135deg,rgba(212,168,75,.12),rgba(38,28,24,.95));border:1px solid var(--line);border-radius:18px;padding:14px;margin:18px 0;text-align:left;overflow:hidden}.progress-heading{display:flex;align-items:center;gap:9px}.progress-chef{font-size:27px;display:inline-block;animation:chefBounce 2.4s ease-in-out infinite}.progress-title{font-size:14px;font-weight:800;flex:1}.progress-percent{color:var(--gold2);font-size:15px;font-weight:900;font-variant-numeric:tabular-nums}.progress-track{height:9px;background:rgba(255,255,255,.09);border-radius:999px;overflow:hidden;margin:12px 0 8px}.progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#bd822b,#f0d78c);transition:width .6s cubic-bezier(.2,.8,.2,1);position:relative}.progress-fill:after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);animation:progressShine 2.2s linear infinite}@keyframes progressShine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}.progress-steps{display:flex;justify-content:space-between;gap:4px;color:var(--muted);font-size:10px;font-weight:700}.progress-caption{color:var(--muted);font-size:12px;margin-top:9px;line-height:1.45}.waiting-joke{font-size:12px;color:var(--gold2);margin-top:10px;min-height:18px;animation:fade .3s ease}
 .admin-menu-row{flex-direction:column;gap:9px}.admin-menu-row .price-edit-row{display:flex;align-items:center;gap:7px}.admin-menu-row input{min-width:0;width:95px;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:9px;padding:9px;color:#fff;font-weight:800}.admin-menu-row .price-save{width:auto;padding:9px 12px;font-size:12px}.qr-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}.qr-actions .btn{flex:1 1 150px}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+
+/* Clear, accessible horizontal table picker */
+#tables.table-grid{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;padding:12px 5px 18px;margin:8px -4px 10px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(212,168,75,.6) transparent}
+#tables .table-carousel-card{flex:0 0 120px;min-width:120px;aspect-ratio:auto;height:132px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;scroll-snap-align:center;border-radius:20px;background:linear-gradient(155deg,rgba(212,168,75,.17),rgba(38,28,24,.96) 72%);box-shadow:0 10px 24px rgba(0,0,0,.18);transform:scale(.96);opacity:.88;transition:transform .24s,box-shadow .24s,border-color .24s,opacity .24s;animation:tableCardIn .42s both}
+#tables .table-carousel-card:nth-child(2n){animation-delay:.04s}#tables .table-carousel-card:nth-child(3n){animation-delay:.08s}
+#tables .table-carousel-card.selected{transform:scale(1.045);opacity:1;border-color:var(--gold2);box-shadow:0 0 0 3px rgba(240,215,140,.13),0 14px 28px rgba(212,168,75,.24);background:linear-gradient(155deg,rgba(212,168,75,.34),rgba(38,28,24,.98) 75%)}
+.table-card-kicker{font-size:10px;letter-spacing:2px;color:var(--muted);font-weight:800}#tables .table-carousel-card strong{font-size:31px;line-height:1;color:var(--gold2)}.table-card-hint{font-size:10px;color:var(--muted);font-weight:700}
+.table-swipe-guide{display:flex;align-items:center;justify-content:center;gap:8px;margin:9px 0 2px;color:var(--gold2);font-size:12px;font-weight:750}
+.swipe-side{display:inline-block;font-size:22px;animation:swipeNudge 1.35s ease-in-out infinite}.swipe-hand{display:inline-block;animation:handSlide 1.35s ease-in-out infinite}
+@keyframes swipeNudge{0%,100%{transform:translateX(-4px);opacity:.65}50%{transform:translateX(5px);opacity:1}}@keyframes handSlide{0%,100%{transform:translateX(-3px)}50%{transform:translateX(5px)}}
+@keyframes tableCardIn{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:.88;transform:translateY(0) scale(.96)}}
+@media(prefers-reduced-motion:reduce){.swipe-side,.swipe-hand,#tables .table-carousel-card{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -482,8 +494,10 @@ button, input, select, textarea { font: inherit; }
       <button type="button" class="x" onclick="this.parentElement.style.display='none'">×</button>
     </div>
     <p class="muted" style="margin-bottom:4px"><b style="color:var(--text)">Choose your table</b></p>
-    <p class="muted" style="font-size:12px">Swipe the cards · one tap opens your menu</p>
-    <div class="table-grid" id="tables" aria-label="Swipe to choose your table"></div>
+    <div class="table-swipe-guide" id="table-swipe-guide" aria-live="polite"><span class="swipe-side">↔</span><span>Swipe sideways to find your table</span><span class="swipe-hand">👆</span></div>
+    <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
+    <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
+    <button type="button" class="btn btn-soft" id="scan-table-btn" style="margin-top:10px" onclick="openScan()">📷 Scan table QR with camera</button>
     <p class="muted" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
     <button type="button" class="btn btn-soft" style="margin-top:12px" onclick="openGuide()">📖 How to use this app</button>
 
@@ -523,6 +537,7 @@ button, input, select, textarea { font: inherit; }
     <h2 class="gold" id="login-title" style="margin:8px 0">Staff Login</h2>
     <p class="muted" id="login-hint">Enter password</p>
     <input type="password" id="pass" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin();}">
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="openStaffGuide()">📖 How to use this staff screen</button>
     <p id="login-err" style="color:var(--bad);font-size:13px;display:none;margin-bottom:8px"></p>
     <button type="button" class="btn btn-main" onclick="doLogin()">Login</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="go('home');showStaffPanel();">← Back to staff menu</button>
@@ -714,8 +729,6 @@ button, input, select, textarea { font: inherit; }
     <p class="muted" style="margin:8px 0">Point camera at QR on the table</p>
     <div id="qr-reader"></div>
     <p class="muted" id="scan-st" style="margin:8px 0;min-height:18px"></p>
-    <input class="search" id="manual-t" placeholder="Or type table no. e.g. 7" style="text-align:center">
-    <button type="button" class="btn btn-main" onclick="manualTable()">Go to table</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeScan()">Close</button>
   </div>
 </div>
@@ -847,12 +860,7 @@ button, input, select, textarea { font: inherit; }
       <button type="button" class="back" onclick="closeGuide()">Close</button>
     </div>
     <p class="muted" style="font-size:12px;margin-bottom:8px">Choose the guide for your role.</p>
-    <div id="guide-role-tabs">
-      <button type="button" class="guide-role-tab on" data-guide="customer" onclick="showRoleGuide('customer')">🍽️ Customer</button>
-      <button type="button" class="guide-role-tab" data-guide="waiter" onclick="showRoleGuide('waiter')">🛎️ Waiter</button>
-      <button type="button" class="guide-role-tab" data-guide="kitchen" onclick="showRoleGuide('kitchen')">👨‍🍳 Kitchen</button>
-      <button type="button" class="guide-role-tab" data-guide="admin" onclick="showRoleGuide('admin')">🎛️ Owner / Admin</button>
-    </div>
+    <div id="guide-role-tabs" style="display:none"></div>
     <div id="guide-content"></div>
     <button type="button" class="btn btn-main" style="margin-top:12px" onclick="closeGuide()">Got it</button>
   </div>
@@ -878,6 +886,7 @@ var CANCEL_MS = 7 * 60 * 1000;
 var ADMIN_PHONE = '+91 98765 43210';
 
 var role = null, pendingRole = null, table = '01', cart = [], cat = 'all', dietFilter = 'all', wDietFilter = 'all';
+var selectedHomeTable = null;
 var waitingTimer = null, waitingJokeIndex = 0, lastPlacedOrderId = null;
 var orders = load('mm_o', []);
 var notifs = load('mm_n', []);
@@ -1034,8 +1043,15 @@ function restoreTips() {
   });
 }
 function openGuide() {
+  var tabs=document.getElementById('guide-role-tabs'); if(tabs) tabs.style.display='none';
   document.getElementById('guide-sheet').classList.add('on');
   showRoleGuide('customer');
+}
+function openStaffGuide() {
+  if (!pendingRole || ['waiter','kitchen','admin'].indexOf(pendingRole)<0) { toast('Choose staff access first'); return; }
+  var tabs=document.getElementById('guide-role-tabs'); if(tabs) tabs.style.display='none';
+  document.getElementById('guide-sheet').classList.add('on');
+  showRoleGuide(pendingRole);
 }
 function showRoleGuide(roleName) {
   var guides = {
@@ -1809,26 +1825,22 @@ function parseTable(text) {
 }
 function startScan() {
   stopScan();
-  var status = document.getElementById('scan-st');
-  status.textContent = 'Loading camera scanner…';
-  ensureHtml5Qrcode().then(function(H5) {
-    scanner = new H5('qr-reader');
+  var status=document.getElementById('scan-st');
+  status.textContent='Loading camera scanner…';
+  ensureHtml5Qrcode().then(function(H5){
+    scanner=new H5('qr-reader');
     return H5.getCameras();
-  }).then(function(cams) {
-    if (!cams.length) { status.textContent = 'No camera — type table number'; return; }
-    var id = cams[0].id;
-    var back = cams.find(function(c){ return /back|rear|environment/i.test(c.label||''); });
-    if (back) id = back.id;
-    scanner.start(id, { fps: 8, qrbox: { width: 200, height: 200 } }, function(txt) {
-      var t = parseTable(txt);
-      if (t) { closeScan(); startTable(t); toast('Table ' + t); }
-    }, function(){}).then(function(){
-      status.textContent = 'Point at QR code';
-    }).catch(function(){
-      status.textContent = 'Allow camera or type table number';
+  }).then(function(cams){
+    if(!cams.length){status.textContent='No camera detected. Use your phone Camera app on the table sticker or swipe table cards.';return;}
+    var id=cams[0].id,back=cams.find(function(c){return /back|rear|environment/i.test(c.label||'');});
+    if(back)id=back.id;
+    scanner.start(id,{fps:8,qrbox:{width:220,height:220}},function(txt){
+      var t=parseTable(txt);if(t){closeScan();startTable(t);toast('Table '+t);}
+    },function(){}).then(function(){status.textContent='Point at the table QR code';}).catch(function(){
+      status.textContent='Allow camera access, or use your phone Camera app on the table QR sticker.';
     });
   }).catch(function(){
-    status.textContent = 'Camera scanner unavailable — type table number';
+    status.textContent='Scanner library did not load. Use the phone Camera app on the table sticker, or swipe table cards.';
   });
 }
 function manualTable() {
@@ -2337,18 +2349,26 @@ function rebuildTables() {
   MENU.tables = tables;
   return tables;
 }
+function selectHomeTable(num, card) {
+  selectedHomeTable=String(num).padStart(2,'0');
+  document.querySelectorAll('#tables .table-carousel-card').forEach(function(b){b.classList.remove('selected');});
+  if(card){card.classList.add('selected');try{card.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}catch(e){}}
+  var btn=document.getElementById('table-continue');
+  if(btn){btn.style.display='flex';btn.textContent='Continue to Table '+selectedHomeTable+' →';}
+  var hint=document.getElementById('table-swipe-guide');
+  if(hint){hint.innerHTML='<span class="swipe-side">✓</span><span>Table '+selectedHomeTable+' selected</span>';hint.style.color='var(--ok)';}
+}
+function continueHomeTable(){if(!selectedHomeTable){toast('Select a table first');return;}startTable(selectedHomeTable);}
 function renderHomeTables() {
   rebuildTables();
-  var g = document.getElementById('tables');
-  if (!g) return;
-  g.innerHTML = '';
-  MENU.tables.forEach(function(t) {
-    var b = document.createElement('button');
-    b.type = 'button'; b.className = 'tbtn table-carousel-card';
-    b.innerHTML = '<span class="table-card-kicker">TABLE</span><strong>' + t.number + '</strong><span class="table-card-hint">Tap to order →</span>';
-    b.setAttribute('aria-label', 'Open menu for Table ' + t.number);
-    b.onclick = (function(num) { return function() { startTable(num); }; })(t.number);
-    g.appendChild(b);
+  var g=document.getElementById('tables');if(!g)return;
+  g.innerHTML='';selectedHomeTable=null;
+  var btn=document.getElementById('table-continue');if(btn)btn.style.display='none';
+  MENU.tables.forEach(function(t){
+    var b=document.createElement('button');b.type='button';b.className='tbtn table-carousel-card';
+    b.innerHTML='<span class="table-card-kicker">TABLE</span><strong>'+t.number+'</strong><span class="table-card-hint">Tap to select</span>';
+    b.setAttribute('aria-label','Select Table '+t.number);
+    b.onclick=(function(num,card){return function(){selectHomeTable(num,card);};})(t.number,b);g.appendChild(b);
   });
 }
 function upiPayUrl(amount, orderId) {
