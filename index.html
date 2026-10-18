@@ -2414,7 +2414,9 @@ function renderHomeTables() {
   });
 }
 function upiPayUrl(amount, orderId) {
-  var pa = encodeURIComponent(SETTINGS.upiId || 'mirchmasaala@upi');
+  var merchantVpa = String(SETTINGS.upiId || '').trim();
+  if (!merchantVpa) return '';
+  var pa = encodeURIComponent(merchantVpa);
   var pn = encodeURIComponent(SETTINGS.upiName || SETTINGS.restaurantName || 'Mirch Masaala');
   var am = amount ? String(amount) : '';
   var tn = encodeURIComponent(orderId || 'Order');
