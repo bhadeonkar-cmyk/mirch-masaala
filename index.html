@@ -3,15 +3,2558 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#17110d">
-<title>Mirch Masaala — Digital Menu</title>
-<meta name="description" content="QR-based digital menu and ordering for Mirch Masaala.">
+<meta name="format-detection" content="telephone=no">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Masaala">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#120c0a">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+
+<title>Mirch Masaala</title>
+<!-- Optional CDN features (QR generation, camera scanner, confetti) are lazy-loaded after the app is usable. -->
+<style>
+:root {
+  --bg: #120c0a; --card: #1e1512; --surface: #261c18;
+  --gold: #d4a84b; --gold2: #f0d78c; --text: #faf6f0; --muted: #a89888;
+  --ok: #3ecf8e; --warn: #f0a04b; --bad: #e86a6a; --line: rgba(212,168,75,.25);
+  --blue: #6eb6ff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+  -webkit-tap-highlight-color: transparent; line-height: 1.4;
+}
+button, input, select, textarea { font: inherit; }
+.screen { display: none; min-height: 100vh; }
+.screen.on { display: block; animation: fade .28s ease; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+@keyframes stir {
+  0%,100%{ transform: rotate(-8deg) translateY(0); }
+  50%{ transform: rotate(10deg) translateY(-4px); }
+}
+@keyframes steam {
+  0%{ opacity: 0; transform: translateY(8px) scale(.8); }
+  40%{ opacity: .7; }
+  100%{ opacity: 0; transform: translateY(-28px) scale(1.2); }
+}
+@keyframes potGlow {
+  0%,100%{ filter: drop-shadow(0 0 4px rgba(212,168,75,.3)); }
+  50%{ filter: drop-shadow(0 0 12px rgba(240,215,140,.55)); }
+}
+@keyframes chefBounce {
+  0%,100%{ transform: translateY(0) rotateY(-12deg); }
+  50%{ transform: translateY(-8px) rotateY(12deg); }
+}
+
+/* Ratatouille-inspired little chef (generic chef mouse) */
+.chef-scene {
+  position: relative; width: 110px; height: 110px; margin: 0 auto 8px;
+  perspective: 400px;
+}
+.chef-3d {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  animation: chefBounce 2.8s ease-in-out infinite;
+  transform-style: preserve-3d;
+}
+.chef-body { font-size: 52px; line-height: 1; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); }
+.chef-pot {
+  position: absolute; bottom: 2px; right: -4px; font-size: 28px;
+  animation: stir 1.4s ease-in-out infinite, potGlow 2s ease-in-out infinite;
+  transform-origin: 40% 80%;
+}
+.steam {
+  position: absolute; top: 8px; right: 8px; font-size: 14px; opacity: 0;
+  animation: steam 2s ease-in-out infinite;
+}
+.steam.s2 { right: 22px; animation-delay: .6s; }
+.steam.s3 { right: 0; animation-delay: 1.2s; }
+.logo-row {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  flex-wrap: wrap; margin-bottom: 6px;
+}
+.brand-name {
+  font-size: 1.75rem; font-weight: 800; color: var(--gold2);
+  letter-spacing: 1px; text-align: left;
+}
+.brand-sub { font-size: 11px; color: var(--muted); letter-spacing: 2px; margin-top: 2px; }
+
+.gold { color: var(--gold2); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: none; border-radius: 14px; padding: 14px 18px; font-weight: 700;
+  font-size: 16px; cursor: pointer; width: 100%; transition: transform .15s;
+}
+.btn:active { transform: scale(.97); }
+.btn-main {
+  background: linear-gradient(135deg, #c4922e, #f0d78c); color: #1a1208;
+  box-shadow: 0 6px 20px rgba(212,168,75,.3);
+}
+.btn-soft {
+  background: var(--surface); color: var(--gold2); border: 1px solid var(--line);
+}
+.btn-ok { background: var(--ok); color: #062016; }
+.btn-warn { background: var(--warn); color: #1a1000; }
+.btn-bad { background: transparent; color: var(--bad); border: 1px solid rgba(232,106,106,.5); border-radius: 10px; padding: 8px 12px; font-size: 13px; width: auto; }
+.btn-sm { padding: 10px 14px; font-size: 14px; border-radius: 12px; width: auto; }
+
+.wrap { padding: 16px; max-width: 480px; margin: 0 auto; }
+.center { text-align: center; }
+.muted { color: var(--muted); font-size: 14px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+  border-radius: 999px; font-size: 13px; font-weight: 600; margin: 8px 0 14px;
+}
+.pill.open { background: rgba(62,207,142,.15); color: var(--ok); }
+.pill.closed { background: rgba(232,106,106,.15); color: var(--bad); }
+
+.table-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0;
+}
+.tbtn {
+  aspect-ratio: 1; border-radius: 14px; border: 2px solid var(--line);
+  background: var(--card); color: var(--gold2); font-size: 18px; font-weight: 800;
+  cursor: pointer;
+}
+.tbtn:active, .tbtn.on { background: rgba(212,168,75,.2); border-color: var(--gold2); }
+
+.big-link {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 16px; margin: 8px 0; border-radius: 16px;
+  background: var(--card); border: 1px solid var(--line); color: var(--text);
+  text-align: left; cursor: pointer; font-weight: 600; font-size: 15px;
+}
+.big-link span.ic { font-size: 28px; }
+.big-link small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 20; padding: 12px 14px;
+  background: rgba(18,12,10,.95); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  backdrop-filter: blur(8px);
+}
+.back {
+  border: 1px solid var(--line); background: var(--surface); color: var(--gold2);
+  border-radius: 10px; padding: 8px 12px; font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.search {
+  width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: rgba(0,0,0,.35); color: #fff; margin: 8px 0; font-size: 15px;
+}
+.cats { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+.cats::-webkit-scrollbar { display: none; }
+.cat {
+  flex-shrink: 0; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.cat.on { background: var(--gold2); color: #1a1208; border-color: transparent; }
+
+.card {
+  display: flex; gap: 12px; padding: 14px; margin: 8px 0;
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+}
+.card .pic {
+  width: 56px; height: 56px; border-radius: 12px; background: var(--surface);
+  display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0;
+}
+.card .name { font-weight: 700; font-size: 15px; }
+.card .desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.card .row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.price { font-weight: 800; color: var(--gold2); font-size: 16px; }
+.add {
+  background: var(--gold2); color: #1a1208; border: none; border-radius: 10px;
+  padding: 8px 14px; font-weight: 800; font-size: 13px; cursor: pointer;
+}
+.qty { display: flex; align-items: center; gap: 8px; }
+.qty button {
+  width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--surface); color: #fff; font-size: 18px; cursor: pointer;
+}
+.qty button.p { background: var(--gold2); color: #1a1208; border: none; }
+
+.bottom {
+  position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 14px;
+  background: linear-gradient(transparent, var(--bg) 30%); z-index: 25;
+}
+.bottom .btn-main { animation: none; box-shadow: 0 4px 24px rgba(212,168,75,.35); }
+
+.drawer {
+  position: fixed; inset: 0; z-index: 40; background: var(--bg);
+  display: none; flex-direction: column;
+}
+.drawer.on { display: flex; }
+.drawer .body { flex: 1; overflow-y: auto; padding: 14px; }
+.drawer .foot { padding: 14px; border-top: 1px solid var(--line); }
+
+.login-box { max-width: 360px; margin: 40px auto; padding: 20px; }
+.login-box input {
+  width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: rgba(0,0,0,.35); color: #fff; margin: 10px 0 14px; font-size: 16px;
+}
+
+.tabs { display: flex; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.tabs button {
+  flex: 1; min-width: 70px; padding: 12px 8px; border: none; background: none;
+  color: var(--muted); font-weight: 600; font-size: 12px; border-bottom: 3px solid transparent; cursor: pointer;
+}
+.tabs button.on { color: var(--gold2); border-bottom-color: var(--gold2); }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px; }
+.stat {
+  background: var(--card); border-radius: 12px; padding: 12px 6px; text-align: center;
+  border: 1px solid var(--line);
+}
+.stat b { display: block; font-size: 1.3rem; color: var(--gold2); }
+
+.kds { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 10px; }
+.kcol { background: #161210; border-radius: 12px; padding: 8px; min-height: 40vh; }
+.kcol h3 { text-align: center; font-size: 13px; padding: 8px; border-radius: 8px; margin-bottom: 8px; }
+.kcard {
+  background: var(--card); border-radius: 10px; padding: 10px; margin-bottom: 8px;
+  border-left: 4px solid var(--gold);
+}
+.kcard button { width: 100%; margin-top: 8px; padding: 10px; font-size: 13px; border-radius: 10px; border: none; font-weight: 800; cursor: pointer; }
+
+.place {
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  padding: 16px; margin: 10px 0;
+}
+.place .hero {
+  height: 88px; border-radius: 12px; background: linear-gradient(135deg, #2a1c14, #3d2a1a);
+  display: flex; align-items: center; justify-content: center; font-size: 42px; margin-bottom: 10px;
+}
+.place h3 { font-size: 17px; color: var(--gold2); margin-bottom: 4px; }
+.place .tag { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.place p { font-size: 14px; color: #ddd; margin-bottom: 8px; }
+.place .tip { font-size: 12px; color: var(--warn); background: rgba(240,160,75,.1); padding: 8px 10px; border-radius: 8px; }
+
+.modal {
+  display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.88);
+  align-items: center; justify-content: center; padding: 16px;
+}
+.modal.on { display: flex; }
+.modal .box {
+  background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+  padding: 20px; width: 100%; max-width: 360px; max-height: 90vh; overflow-y: auto;
+}
+.modal input, .modal select, .modal textarea {
+  width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: rgba(0,0,0,.3); color: #fff; margin: 6px 0 10px;
+}
+.modal textarea { min-height: 70px; resize: none; }
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: #2a2018; color: var(--gold2); padding: 12px 18px; border-radius: 12px;
+  border: 1px solid var(--line); font-weight: 600; font-size: 14px; z-index: 80;
+  transition: transform .3s; max-width: 90vw; text-align: center; pointer-events: none;
+}
+.toast.on { transform: translateX(-50%) translateY(0); }
+.splash {
+  position: fixed; inset: 0; z-index: 100; background: #0c0806;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity .45s, visibility .45s;
+  animation: splashAutoHide 1.8s ease 1.0s forwards;
+}
+@keyframes splashAutoHide {
+  0% { opacity: 1; visibility: visible; pointer-events: auto; }
+  99% { opacity: 0; visibility: visible; pointer-events: none; }
+  100% { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+.splash.hide { opacity: 0; visibility: hidden; pointer-events: none; animation: none; }
+.veg, .nonveg { width: 12px; height: 12px; border-radius: 2px; display: inline-block; vertical-align: middle; margin-right: 4px; border: 2px solid; }
+.veg { border-color: #3ecf8e; }
+.veg::after { content: ''; display: block; width: 5px; height: 5px; margin: 1.5px auto; background: #3ecf8e; border-radius: 50%; }
+.nonveg { border-color: #e86a6a; }
+
+.tip-banner {
+  background: linear-gradient(135deg, rgba(212,168,75,.15), rgba(62,207,142,.08));
+  border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
+  margin: 10px 0; display: flex; gap: 10px; align-items: flex-start;
+  animation: fade .4s ease;
+}
+.tip-banner .ic { font-size: 22px; flex-shrink: 0; }
+.tip-banner .tx { font-size: 13px; color: #e8e0d5; flex: 1; }
+.tip-banner .tx b { color: var(--gold2); }
+.tip-banner button.x {
+  border: none; background: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 4px;
+}
+.specials-row {
+  display: flex; gap: 10px; overflow-x: auto; padding: 4px 0 10px;
+  -webkit-overflow-scrolling: touch;
+}
+.specials-row::-webkit-scrollbar { display: none; }
+.special-chip {
+  flex-shrink: 0; width: 140px; padding: 12px; border-radius: 14px;
+  background: var(--card); border: 1px solid var(--line); text-align: left; cursor: pointer;
+}
+.special-chip:active { border-color: var(--gold2); }
+.special-chip .em { font-size: 26px; }
+.special-chip .nm { font-size: 12px; font-weight: 700; margin-top: 4px; color: var(--gold2); }
+.special-chip .pr { font-size: 13px; font-weight: 800; margin-top: 2px; }
+.guide-dot {
+  position: fixed; bottom: 90px; right: 14px; z-index: 30;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: linear-gradient(135deg, #c4922e, #f0d78c); color: #1a1208;
+  border: none; font-size: 22px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(212,168,75,.4);
+}
+.guide-sheet {
+  display: none; position: fixed; inset: 0; z-index: 55;
+  background: rgba(0,0,0,.85); align-items: flex-end; justify-content: center;
+}
+.guide-sheet.on { display: flex; }
+.guide-sheet .inner {
+  background: var(--card); border-radius: 20px 20px 0 0; padding: 20px 16px 28px;
+  width: 100%; max-width: 480px; max-height: 75vh; overflow-y: auto;
+  border: 1px solid var(--line); border-bottom: none;
+}
+.guide-step {
+  display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.guide-step .num {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--gold2); color: #1a1208;
+  font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.manual-table-box {
+  background: var(--card); border: 1px dashed var(--line); border-radius: 14px;
+  padding: 14px; margin: 12px 0;
+}
+
+
+.cook-stage {
+  position: relative; width: 160px; height: 140px; margin: 0 auto 8px;
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.cook-stage .pot-main {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+  font-size: 48px; z-index: 2;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,.4));
+  transition: transform .2s;
+}
+.cook-stage:active .pot-main { transform: translateX(-50%) scale(1.08); }
+.cook-stage .chef-main {
+  position: absolute; bottom: 28px; left: 18px; font-size: 40px; z-index: 3;
+  animation: chefBounce 2.5s ease-in-out infinite;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,.35));
+}
+.cook-stage .chili-main {
+  position: absolute; top: 8px; right: 20px; font-size: 28px; z-index: 3;
+  animation: float 2s ease-in-out infinite;
+}
+.food-fly {
+  position: absolute; font-size: 22px; z-index: 4; pointer-events: none;
+  animation: foodArc .85s ease-out forwards;
+}
+@keyframes foodArc {
+  0% { opacity: 1; transform: translate(0,0) scale(1) rotate(0); }
+  100% { opacity: 0; transform: translate(var(--fx), var(--fy)) scale(.4) rotate(120deg); }
+}
+.steam-puff {
+  position: absolute; bottom: 55px; left: 50%; font-size: 14px; opacity: 0;
+  animation: steamUp 1.6s ease-out infinite; pointer-events: none; z-index: 1;
+}
+@keyframes steamUp {
+  0% { opacity: 0; transform: translateX(-50%) translateY(0) scale(.6); }
+  30% { opacity: .8; }
+  100% { opacity: 0; transform: translateX(calc(-50% + var(--sx, 0px))) translateY(-40px) scale(1.3); }
+}
+.tap-hint {
+  font-size: 11px; color: var(--muted); text-align: center; margin-top: 2px;
+  animation: float 2s ease-in-out infinite;
+}
+.settings-row {
+  margin-bottom: 12px;
+}
+.settings-row label {
+  display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px;
+}
+.settings-row input {
+  width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: rgba(0,0,0,.3); color: #fff; font-size: 15px;
+}
+
+
+.logo-magic {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.logo-magic canvas {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+.logo-magic .chef-scene { position: relative; z-index: 1; }
+.spark-dot {
+  position: absolute; width: 4px; height: 4px; border-radius: 50%;
+  background: var(--gold2); pointer-events: none;
+  box-shadow: 0 0 6px var(--gold2);
+  animation: sparkFly .9s ease-out forwards;
+}
+@keyframes sparkFly {
+  0% { opacity: 1; transform: translate(0,0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--sx), var(--sy)) scale(0); }
+}
+.k-queue-title {
+  font-size: 13px; color: var(--gold2); padding: 8px 12px 0; font-weight: 700;
+  letter-spacing: .5px;
+}
+.k-empty {
+  text-align: center; color: #666; font-size: 13px; padding: 24px 8px;
+}
+
+#qr-reader { width: 100%; max-width: 280px; margin: 0 auto; }
+.setup {
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  padding: 16px; margin: 12px 0; text-align: left; font-size: 13px; color: var(--muted);
+}
+.setup h3 { color: var(--gold2); margin-bottom: 8px; font-size: 15px; }
+.setup ol { padding-left: 18px; }
+.setup li { margin: 6px 0; }
+.setup code { color: var(--gold2); background: rgba(0,0,0,.3); padding: 2px 6px; border-radius: 4px; }
+@media (min-width: 700px) {
+  .kds { max-width: 1000px; margin: 0 auto; }
+  .wrap { max-width: 520px; }
+}
+</style>
 </head>
 <body>
-<main style="font-family:system-ui,sans-serif;max-width:640px;margin:12vh auto;padding:24px;line-height:1.5">
-<h1>Mirch Masaala</h1>
-<p>The original app file is being prepared for deployment. This temporary page confirms GitHub Pages can serve the site.</p>
-<p>Please check back after the existing app has been uploaded and verified.</p>
-</main>
+
+<div class="splash" id="splash">
+  <div class="cook-stage" id="splash-cook" onclick="cookTap(this, event)">
+    <span class="steam-puff" style="--sx:-12px;animation-delay:0s">💨</span>
+    <span class="steam-puff" style="--sx:10px;animation-delay:.5s;left:45%">💨</span>
+    <span class="steam-puff" style="--sx:0;animation-delay:1s;left:55%">✨</span>
+    <span class="chef-main">👨‍🍳</span>
+    <span class="chili-main">🌶️</span>
+    <span class="pot-main">🍲</span>
+  </div>
+  <div style="font-size:26px;font-weight:800;color:var(--gold2);letter-spacing:2px" id="brand-splash">MIRCH MASAALA</div>
+  <div style="font-size:11px;color:#7a6a5a;letter-spacing:3px;margin-top:6px">TAP THE POT · COOKING MAGIC</div>
+  <p class="tap-hint">Tap chef & pot for tasty surprises</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- HOME -->
+<div id="home" class="screen on">
+  <div class="wrap center" style="padding-top:28px;padding-bottom:40px">
+    <div class="logo-row">
+      <div class="cook-stage" id="home-cook" style="width:130px;height:120px" onclick="cookTap(this, event)">
+        <span class="steam-puff" style="--sx:-10px">💨</span>
+        <span class="steam-puff" style="--sx:12px;animation-delay:.7s;left:48%">✨</span>
+        <span class="chef-main" style="font-size:34px;bottom:22px;left:10px">👨‍🍳</span>
+        <span class="chili-main" style="font-size:22px">🌶️</span>
+        <span class="pot-main" style="font-size:40px">🍲</span>
+      </div>
+      <div>
+        <div class="brand-name" id="brand-home">🌶️ MIRCH<br>MASAALA</div>
+        <div class="brand-sub" id="brand-tag">INDIAN RESTAURANT</div>
+      </div>
+    </div>
+    <p class="tap-hint" style="margin-bottom:6px">Tap the pot — food flies out!</p>
+    <p class="muted" style="font-size:12px;margin-top:4px">Premium Indian kitchen · live orders</p>
+    <div id="status-pill" class="pill open">● Open now</div>
+    <div class="tip-banner" id="home-tip">
+      <span class="ic">👋</span>
+      <div class="tx"><b>Welcome!</b> Pick your table number below — same as the number on your table. Or type it if you prefer.</div>
+      <button type="button" class="x" onclick="this.parentElement.style.display='none'">×</button>
+    </div>
+    <p class="muted" style="margin-bottom:4px"><b style="color:var(--text)">Choose your table</b> (tap number)</p>
+    <div class="table-grid" id="tables"></div>
+    <div class="manual-table-box">
+      <p class="muted" style="font-size:12px;margin-bottom:8px"><b style="color:#fff">Or type table number</b></p>
+      <div style="display:flex;gap:8px">
+        <input class="search" id="home-manual-table" placeholder="e.g. 7 or 07" style="margin:0;text-align:center;flex:1" inputmode="numeric" maxlength="2" onkeydown="if(event.key==='Enter'){event.preventDefault();goManualHomeTable();}">
+        <button type="button" class="btn btn-main btn-sm" style="width:auto;padding:12px 18px" onclick="goManualHomeTable()">Go</button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="openScan()">📷 Scan table QR instead</button>
+    <p class="muted" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
+
+    <!-- Staff entry hidden from customers — long-press logo or tap footer 5× -->
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line)">
+      <button type="button" class="btn btn-soft" id="staff-open-btn" style="font-size:13px;opacity:.85" onclick="showStaffPanel()">Staff login</button>
+      <div id="staff-panel" style="display:none;margin-top:12px">
+        <p class="muted" style="font-size:12px;margin-bottom:8px">Staff only — guests please use table numbers above</p>
+        <button type="button" class="big-link" onclick="openLogin('waiter')">
+          <span class="ic">🛎️</span>
+          <span>Waiter Pad<small>Password: waiter123</small></span>
+        </button>
+        <button type="button" class="big-link" onclick="openLogin('kitchen')">
+          <span class="ic">👨‍🍳</span>
+          <span>Kitchen<small>Password: kitchen123</small></span>
+        </button>
+        <button type="button" class="big-link" onclick="openLogin('admin')">
+          <span class="ic">🎛️</span>
+          <span>Admin<small>Password: admin123</small></span>
+        </button>
+        <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="hideStaffPanel()">Hide</button>
+      </div>
+    </div>
+
+    
+    <div class="setup" style="margin-top:16px;border-color:rgba(110,182,255,.35)">
+      <h3 style="color:var(--blue)">📱 iPhone / Admin on phone</h3>
+      <ol>
+        <li>Host this folder online (HTTPS) — e.g. Netlify, Vercel, or GitHub Pages.</li>
+        <li>Open the link in <b>Safari</b> on iPhone.</li>
+        <li>Tap the <b>Share</b> button → <b>Add to Home Screen</b>.</li>
+        <li>Open the home-screen icon → full-screen app (no Safari bar).</li>
+        <li>Admin login password default: <code>admin123</code> (change in Settings).</li>
+      </ol>
+      <p style="margin-top:8px;font-size:12px">Same Wi‑Fi is not required if hosted online. Use Admin icon on the home screen every day.</p>
+    </div>
+
+    <div class="setup" style="margin-top:20px">
+      <h3>How to set up (simple)</h3>
+      <ol>
+        <li>Open this file on a phone, tablet, or computer browser.</li>
+        <li><b>Customers:</b> tap table number or Scan QR.</li>
+        <li>Staff: long-press the logo (or tap “Guest ordering only” 5 times) for Waiter / Kitchen / Admin.</li>
+        <li>Staff passwords are set by Admin in Settings (not shown to guests).</li>
+        <li>Admin → QR tab → download QR stickers for each table.</li>
+        <li>Same Wi‑Fi / same browser profile keeps orders in sync on one device. For multi-device, use one shared admin/kitchen tablet.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="login" class="screen">
+  <div class="login-box center">
+    <button type="button" class="back" onclick="go('home')">← Home</button>
+    <div class="chef-scene" style="margin-top:20px">
+      <div class="steam">💨</div>
+      <div class="chef-3d"><span class="chef-body" style="font-size:44px">👨‍🍳</span><span class="chef-pot" style="font-size:24px">🍳</span></div>
+    </div>
+    <h2 class="gold" id="login-title" style="margin:8px 0">Staff Login</h2>
+    <p class="muted" id="login-hint">Enter password</p>
+    <input type="password" id="pass" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin();}">
+    <p id="login-err" style="color:var(--bad);font-size:13px;display:none;margin-bottom:8px"></p>
+    <button type="button" class="btn btn-main" onclick="doLogin()">Login</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="go('home');showStaffPanel();">← Back to staff menu</button>
+  </div>
+</div>
+
+<!-- CUSTOMER -->
+<div id="customer" class="screen">
+  <div class="topbar">
+    <button type="button" class="back" onclick="go('home')">← Tables</button>
+    <div>
+      <div style="font-weight:800;color:var(--gold2);font-size:14px">🌶️ Mirch Masaala</div>
+      <div class="muted" style="font-size:12px" id="tbl-label">Table</div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button type="button" class="back" onclick="go('home')" title="Change table">🪑</button>
+      <button type="button" class="back" onclick="openCart()">🛒 <span id="badge">0</span></button>
+    </div>
+  </div>
+  <div class="wrap" style="padding-bottom:100px">
+    <div class="tip-banner" id="menu-tip">
+      <span class="ic">🍽️</span>
+      <div class="tx"><b>How to order:</b> Tap <b>ADD</b> on dishes → open <b>Cart</b> → Place order. Need help? Tap the ? button.</div>
+      <button type="button" class="x" onclick="dismissTip('menu-tip')">×</button>
+    </div>
+    <p style="font-size:12px;font-weight:700;color:var(--gold2);margin:4px 0 6px">✨ Suggested for you</p>
+    <div class="specials-row" id="specials"></div>
+    <input class="search" id="search" placeholder="Search food…" oninput="drawMenu()">
+    <div class="cats" id="cats"></div>
+    <div id="menu"></div>
+  </div>
+  <button type="button" class="guide-dot" onclick="openGuide()" title="Help">?</button>
+  <div class="bottom" style="display:flex;gap:8px;flex-wrap:wrap">
+    <button type="button" class="btn btn-soft btn-sm" onclick="callWaiter()">🙋 Waiter</button>
+    <button type="button" class="btn btn-soft btn-sm" onclick="reqBill()">🧾 Bill / Pay</button>
+    <button type="button" class="btn btn-soft btn-sm" onclick="myOrders()">📋 My orders</button>
+    <button type="button" class="btn btn-main" id="cart-bar" style="display:none;flex:1" onclick="openCart()">View cart</button>
+  </div>
+</div>
+
+<div class="drawer" id="cart">
+  <div class="topbar">
+    <button type="button" class="back" onclick="closeCart()">← Back to menu</button>
+    <strong class="gold">Your order</strong>
+    <span></span>
+  </div>
+  <div class="body" id="cart-list"></div>
+  <div class="foot">
+    <label class="muted" style="font-size:12px">Any special request?</label>
+    <textarea id="notes" class="search" style="margin:6px 0;min-height:56px" placeholder="Less spicy…"></textarea>
+    <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:800;margin:10px 0">
+      <span>Total</span><span class="gold" id="total">₹0</span>
+    </div>
+    <button type="button" class="btn btn-main" onclick="placeOrder()">Place order</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeCart()">← Change items</button>
+  </div>
+</div>
+
+<!-- SUCCESS -->
+<div id="success" class="screen">
+  <div class="wrap center" style="padding-top:40px">
+    <div style="font-size:56px">🎉</div>
+    <h1 class="gold" style="margin:8px 0">Order placed!</h1>
+    <p class="muted">Order <b id="sid" style="color:#fff"></b> · Table <span id="stbl"></span></p>
+    <p class="muted" style="margin:10px 0 18px">You can cancel within <b class="gold">7 minutes</b> if kitchen has not started.</p>
+    <button type="button" class="btn btn-main" onclick="backMenu()">Order more</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="myOrders()">Track / Cancel</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="openReview()">⭐ Rate us</button>
+    <button type="button" class="btn btn-main" style="margin-top:8px" onclick="reqBill()">💳 Pay bill</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="openPhoneModal('profile')">📱 Save my number</button>
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line);text-align:left">
+      <p class="muted" style="font-size:12px;margin-bottom:8px;text-align:center">WHILE YOU WAIT</p>
+      <button type="button" class="big-link" onclick="openParty()">
+        <span class="ic">🎉</span><span>Party booking<small>Birthday · Anniversary</small></span>
+      </button>
+      <button type="button" class="big-link" onclick="go('explore')">
+        <span class="ic">🌿</span><span>Places near Kas Plateau<small>6 spots · saved in app</small></span>
+      </button>
+    </div>
+    <button type="button" class="back" style="margin-top:20px" onclick="go('home')">← Home</button>
+  </div>
+</div>
+
+<div id="myorders" class="screen">
+  <div class="topbar">
+    <button type="button" class="back" onclick="backMenu()">← Menu</button>
+    <strong class="gold">My orders</strong>
+    <span></span>
+  </div>
+  <div class="wrap" id="my-list"></div>
+</div>
+
+<!-- EXPLORE (local data) -->
+<div id="explore" class="screen">
+  <div class="topbar">
+    <button type="button" class="back" onclick="go('home')">← Home</button>
+    <strong class="gold">Near Kas Plateau</strong>
+    <span></span>
+  </div>
+  <div class="wrap">
+    <p class="muted" style="margin-bottom:12px">Top 6 places to visit near Kas Plateau — details saved in this app (no external website needed).</p>
+    <div id="places"></div>
+    <p class="muted" style="font-size:11px;margin-top:16px">Guide inspired by public travel notes about Kas region, Satara, Maharashtra.</p>
+  </div>
+</div>
+
+<!-- WAITER -->
+<div id="waiter" class="screen">
+  <div class="topbar">
+    <button type="button" class="back" onclick="logout()">← Exit</button>
+    <strong class="gold">🛎️ Waiter Pad</strong>
+    <span class="muted" id="w-tbl" style="font-size:12px">Pick table</span>
+  </div>
+  <div class="wrap">
+    <p class="muted" style="margin-bottom:8px"><b style="color:#fff">1.</b> Tap guest table &nbsp; <b style="color:#fff">2.</b> Add food &nbsp; <b style="color:#fff">3.</b> Send</p>
+    <div class="table-grid" id="w-tables"></div>
+    <div id="w-area" style="display:none">
+      <input class="search" id="w-search" placeholder="Search menu…" oninput="wMenu()">
+      <div class="cats" id="w-cats"></div>
+      <div id="w-menu" style="max-height:32vh;overflow:auto;margin-bottom:10px"></div>
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px">
+        <div style="display:flex;justify-content:space-between;font-weight:800;margin-bottom:6px">
+          <span>Ticket</span><span class="gold" id="w-total">₹0</span>
+        </div>
+        <div id="w-cart" class="muted" style="font-size:13px;min-height:40px"></div>
+        <textarea id="w-notes" class="search" placeholder="Guest note…" style="min-height:48px"></textarea>
+        <button type="button" class="btn btn-main" onclick="wSend()">Send to kitchen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- KITCHEN -->
+<div id="kitchen" class="screen">
+  <div class="topbar">
+    <button type="button" class="back" onclick="logout()">← Exit</button>
+    <strong class="gold">👨‍🍳 Kitchen</strong>
+    <span class="muted" id="k-time" style="font-size:12px"></span>
+  </div>
+  <p class="k-queue-title">🔴 LIVE ORDER QUEUE — tap button when step is done</p>
+  <div class="stats" id="k-stats"></div>
+  <div class="kds">
+    <div class="kcol"><h3 style="background:var(--gold2);color:#1a1208">① NEW</h3><div id="k-new"></div></div>
+    <div class="kcol"><h3 style="background:var(--warn);color:#1a1208">② COOKING</h3><div id="k-prep"></div></div>
+    <div class="kcol"><h3 style="background:var(--ok);color:#062016">③ READY</h3><div id="k-ready"></div></div>
+  </div>
+  <div class="wrap">
+    <h3 class="gold" style="font-size:14px;margin:8px 0">Menu on / off</h3>
+    <div id="k-menu" style="max-height:160px;overflow:auto"></div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="admin" class="screen">
+  <div class="topbar">
+    <button type="button" class="back" onclick="logout()">← Exit</button>
+    <strong class="gold">Admin</strong>
+    <button type="button" class="back" id="open-btn" onclick="toggleOpen()">OPEN</button>
+  </div>
+  <div class="tabs">
+    <button type="button" class="on" data-t="orders" onclick="tab(this,'orders')">Orders</button>
+    <button type="button" data-t="alerts" onclick="tab(this,'alerts')">Alerts</button>
+    <button type="button" data-t="menu" onclick="tab(this,'menu')">Menu</button>
+    <button type="button" data-t="qr" onclick="tab(this,'qr')">QR</button>
+    <button type="button" data-t="stats" onclick="tab(this,'stats')">Stats</button>
+    <button type="button" data-t="party" onclick="tab(this,'party')">Party</button>
+    <button type="button" data-t="reviews" onclick="tab(this,'reviews')">Reviews</button>
+    <button type="button" data-t="payments" onclick="tab(this,'payments')">Pay log</button>
+    <button type="button" data-t="settings" onclick="tab(this,'settings')">Settings</button>
+  </div>
+  <div id="a-payments" style="display:none;padding:12px"></div>
+  <div id="a-orders"></div>
+  <div id="a-settings" style="display:none;padding:12px"></div>
+  <div id="a-alerts" style="display:none;padding:12px"></div>
+  <div id="a-menu" style="display:none;padding:12px"></div>
+  <div id="a-qr" style="display:none;padding:12px"></div>
+  <div id="a-stats" style="display:none;padding:12px"></div>
+  <div id="a-party" style="display:none;padding:12px"></div>
+  <div id="a-reviews" style="display:none;padding:12px"></div>
+</div>
+
+<!-- MODALS -->
+<div class="modal" id="scan-modal">
+  <div class="box center">
+    <h3 class="gold">Scan table QR</h3>
+    <p class="muted" style="margin:8px 0">Point camera at QR on the table</p>
+    <div id="qr-reader"></div>
+    <p class="muted" id="scan-st" style="margin:8px 0;min-height:18px"></p>
+    <input class="search" id="manual-t" placeholder="Or type table no. e.g. 7" style="text-align:center">
+    <button type="button" class="btn btn-main" onclick="manualTable()">Go to table</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeScan()">Close</button>
+  </div>
+</div>
+<div class="modal" id="party-modal">
+  <div class="box">
+    <h3 class="gold center">🎉 Party booking</h3>
+    <p class="muted center" style="margin-bottom:10px">We will call you</p>
+    <label class="muted" style="font-size:12px">Your name</label>
+    <input id="p-name" placeholder="Name">
+    <label class="muted" style="font-size:12px">Phone</label>
+    <input id="p-phone" placeholder="Phone" type="tel">
+    <label class="muted" style="font-size:12px">Event</label>
+    <select id="p-type"><option>Birthday</option><option>Anniversary</option><option>Family</option><option>Office</option><option>Other</option></select>
+    <label class="muted" style="font-size:12px">Date</label>
+    <input id="p-date" type="date">
+    <label class="muted" style="font-size:12px">Guests</label>
+    <input id="p-guests" type="number" placeholder="e.g. 15">
+    <label class="muted" style="font-size:12px">Notes</label>
+    <textarea id="p-notes" placeholder="Cake, time…"></textarea>
+    <p class="muted" style="font-size:12px">Admin contact: <b class="gold">+91 98765 43210</b></p>
+    <button type="button" class="btn btn-main" onclick="sendParty()">Send request</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeParty()">Close</button>
+  </div>
+</div>
+<div class="modal" id="review-modal">
+  <div class="box center">
+    <h3 class="gold">How was your meal?</h3>
+    <div id="stars" style="font-size:32px;margin:12px 0;letter-spacing:4px">
+      <span onclick="setStar(1)">☆</span><span onclick="setStar(2)">☆</span><span onclick="setStar(3)">☆</span><span onclick="setStar(4)">☆</span><span onclick="setStar(5)">☆</span>
+    </div>
+    <input id="r-name" placeholder="Your name (optional)">
+    <textarea id="r-text" placeholder="Comment (optional)"></textarea>
+    <button type="button" class="btn btn-main" onclick="sendReview()">Submit</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeReview()">Later</button>
+  </div>
+</div>
+<div class="modal" id="qr-modal">
+  <div class="box center">
+    <div style="font-size:28px">🌶️</div>
+    <h3>MIRCH MASAALA</h3>
+    <p class="muted">TABLE <b id="qr-lab"></b></p>
+    <div id="qr-code" style="display:flex;justify-content:center;margin:10px 0"></div>
+    <button type="button" class="btn btn-main" onclick="dlQR()">Download QR</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="document.getElementById('qr-modal').classList.remove('on')">Close</button>
+  </div>
+</div>
+
+<div class="modal" id="pay-modal">
+  <div class="box center">
+    <h3 class="gold">💳 Pay bill</h3>
+    <p class="muted" id="pay-note" style="margin:8px 0"></p>
+    <p style="font-size:22px;font-weight:800" class="gold" id="pay-amt"></p>
+    <p class="muted" style="font-size:12px;margin-bottom:10px">Choose how you want to pay</p>
+    <div style="display:flex;flex-direction:column;gap:8px;text-align:left">
+      <button type="button" class="btn btn-main" onclick="selectPayMethod('gpay')">🟢 Google Pay (default)</button>
+      <button type="button" class="btn btn-soft" onclick="selectPayMethod('phonepe')">🟣 PhonePe</button>
+      <button type="button" class="btn btn-soft" id="pay-card-btn" onclick="selectPayMethod('card')">💳 Card (ask staff)</button>
+      <button type="button" class="btn btn-soft" id="pay-cash-btn" onclick="selectPayMethod('cash')">💵 Cash (pay at counter)</button>
+    </div>
+    <div id="pay-upi-area" style="display:none;margin-top:14px">
+      <div id="pay-qr" style="display:flex;justify-content:center;min-height:160px"></div>
+      <p class="muted" style="font-size:12px;margin-top:6px" id="pay-upi"></p>
+      <a id="pay-link" class="btn btn-main" style="text-decoration:none;margin-top:8px" href="#" target="_blank" rel="noopener">Open payment app</a>
+    </div>
+    <div id="pay-cash-area" style="display:none;margin-top:14px;text-align:left">
+      <p class="muted" style="font-size:13px">Please pay cash at the counter. Staff will confirm when received.</p>
+      <button type="button" class="btn btn-ok" style="margin-top:8px" onclick="markPaidMethod('cash')">Staff: cash received</button>
+    </div>
+    <div id="pay-card-area" style="display:none;margin-top:14px;text-align:left">
+      <p class="muted" style="font-size:13px">Card machine at counter. Staff confirms after swipe/tap.</p>
+      <button type="button" class="btn btn-ok" style="margin-top:8px" onclick="markPaidMethod('card')">Staff: card received</button>
+    </div>
+    <button type="button" class="btn btn-ok" style="margin-top:12px" onclick="afterPaidFlow()">I have paid / Continue</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closePayQR()">Close</button>
+  </div>
+</div>
+
+<div class="modal" id="phone-modal">
+  <div class="box">
+    <h3 class="gold center">Your details</h3>
+    <p class="muted center" style="margin-bottom:10px;font-size:13px">Optional — saves your preferences & receipt</p>
+    <label class="muted" style="font-size:12px">Phone number</label>
+    <input id="cust-phone" type="tel" placeholder="10-digit mobile" inputmode="numeric">
+    <label class="muted" style="font-size:12px">Your name</label>
+    <input id="cust-name" placeholder="Name">
+    <button type="button" class="btn btn-main" onclick="saveCustomerProfile()">Continue</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="skipCustomerProfile()">Skip for now</button>
+  </div>
+</div>
+
+<div class="modal" id="wa-receipt-modal">
+  <div class="box center">
+    <h3 class="gold">WhatsApp receipt?</h3>
+    <p class="muted" style="margin:10px 0;font-size:13px">Do you want a receipt on WhatsApp from <b id="wa-from-name" class="gold">restaurant</b>?</p>
+    <p class="muted" style="font-size:12px;margin-bottom:12px">We only open WhatsApp if you say yes. Nothing is sent without your OK.</p>
+    <button type="button" class="btn btn-main" onclick="sendWhatsAppReceipt(true)">Yes, open WhatsApp</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="sendWhatsAppReceipt(false)">No thanks</button>
+  </div>
+</div>
+
+<div class="modal" id="admin-pay-log-modal">
+  <div class="box">
+    <h3 class="gold center">Record payment</h3>
+    <label class="muted" style="font-size:12px">Amount ₹</label>
+    <input id="plog-amt" type="number" placeholder="Amount">
+    <label class="muted" style="font-size:12px">Method</label>
+    <select id="plog-method">
+      <option value="gpay">Google Pay</option>
+      <option value="phonepe">PhonePe</option>
+      <option value="card">Card</option>
+      <option value="cash">Cash</option>
+      <option value="upi">Other UPI</option>
+    </select>
+    <label class="muted" style="font-size:12px">Table</label>
+    <input id="plog-table" placeholder="e.g. 05">
+    <label class="muted" style="font-size:12px">Note</label>
+    <input id="plog-note" placeholder="Optional">
+    <button type="button" class="btn btn-main" onclick="savePaymentLog()">Save payment</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="document.getElementById('admin-pay-log-modal').classList.remove('on')">Close</button>
+  </div>
+</div>
+
+
+
+<div class="guide-sheet" id="guide-sheet">
+  <div class="inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 class="gold">Quick guide</h3>
+      <button type="button" class="back" onclick="closeGuide()">Close</button>
+    </div>
+    <div class="guide-step"><div class="num">1</div><div><b>Pick food</b><div class="muted" style="font-size:12px">Use categories or search. Tap ADD.</div></div></div>
+    <div class="guide-step"><div class="num">2</div><div><b>Open cart</b><div class="muted" style="font-size:12px">Top right cart or bottom bar.</div></div></div>
+    <div class="guide-step"><div class="num">3</div><div><b>Place order</b><div class="muted" style="font-size:12px">Kitchen gets it instantly. You can cancel for 7 minutes while status is NEW.</div></div></div>
+    <div class="guide-step"><div class="num">4</div><div><b>Need waiter / bill?</b><div class="muted" style="font-size:12px">Use Waiter or Bill / Pay buttons at the bottom.</div></div></div>
+    <div class="guide-step"><div class="num">5</div><div><b>Pay</b><div class="muted" style="font-size:12px">Bill / Pay shows UPI QR — scan with GPay or PhonePe.</div></div></div>
+    <p class="muted" style="font-size:12px;margin-top:12px">Wrong table? Go Home and select the correct number.</p>
+    <button type="button" class="btn btn-main" style="margin-top:12px" onclick="closeGuide()">Got it</button>
+  </div>
+</div>
+<div class="modal" id="special-modal">
+  <div class="box center">
+    <div style="font-size:40px" id="sp-emoji">✨</div>
+    <h3 class="gold" id="sp-title" style="margin:8px 0">Chef special</h3>
+    <p class="muted" id="sp-desc" style="margin-bottom:12px"></p>
+    <p class="gold" style="font-size:22px;font-weight:800" id="sp-price"></p>
+    <button type="button" class="btn btn-main" style="margin-top:12px" id="sp-add">Add to cart</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeSpecial()">Not now</button>
+  </div>
+</div>
+
+<div id="print-area" style="display:none"></div>
+
+<script>
+var MENU = {"restaurant": {"id": 1, "name": "Mirch Masala", "tagline": "Taste of India", "phone": "", "address": "", "is_open": true, "opening_hours": "11:00 AM - 11:00 PM"}, "categories": [{"id": 1, "name": "Soup & Starters", "slug": "soup", "order": 1, "is_visible": true}, {"id": 2, "name": "Mutton Starters", "slug": "mutton-starters", "order": 2, "is_visible": true}, {"id": 3, "name": "Chicken Starters", "slug": "chicken-starters", "order": 3, "is_visible": true}, {"id": 4, "name": "Veg Starters", "slug": "veg-starters", "order": 4, "is_visible": true}, {"id": 5, "name": "Thali", "slug": "thali", "order": 5, "is_visible": true}, {"id": 6, "name": "Non-Veg Main Course", "slug": "non-veg-mains", "order": 6, "is_visible": true}, {"id": 7, "name": "Veg Main Course", "slug": "veg-mains", "order": 7, "is_visible": true}, {"id": 8, "name": "Rice & Breads", "slug": "rice-breads", "order": 8, "is_visible": true}, {"id": 9, "name": "Beverages", "slug": "beverages", "order": 9, "is_visible": true}], "menu_items": [{"id": 1, "name": "Manchow Soup (Chicken)", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 240, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 2, "name": "Manchow Soup (Veg)", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 200, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 3, "name": "Hot & Sour Soup (Chicken)", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 240, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 4, "name": "Hot & Sour Soup (Veg)", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 200, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 5, "name": "Alani Soup (Mutton)", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 260, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 6, "name": "Alani Soup (Chicken)", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 230, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 7, "name": "Mutton Paya Soup", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 270, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 8, "name": "Green Salad", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 110, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 9, "name": "Masala Papad", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 40, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 10, "name": "Fry Papad", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 35, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 11, "name": "Roasted Papad", "category": "Soup & Starters", "category_slug": "soup", "description": "", "price": 35, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 12, "name": "Mineral Water", "category": "Beverages", "category_slug": "beverages", "description": "", "price": 20, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 13, "name": "Soft Drink (Big)", "category": "Beverages", "category_slug": "beverages", "description": "", "price": 40, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 14, "name": "Soft Drink (Small)", "category": "Beverages", "category_slug": "beverages", "description": "", "price": 20, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 15, "name": "Mutton Raan", "category": "Mutton Starters", "category_slug": "mutton-starters", "description": "", "price": 2500, "is_veg": false, "is_non_veg": true, "is_bestseller": true, "is_available": true, "spicy_level": 0, "image": null}, {"id": 16, "name": "Mutton Boti Kebab", "category": "Mutton Starters", "category_slug": "mutton-starters", "description": "", "price": 480, "is_veg": false, "is_non_veg": true, "is_bestseller": true, "is_available": true, "spicy_level": 0, "image": null}, {"id": 17, "name": "Mutton Kharda", "category": "Mutton Starters", "category_slug": "mutton-starters", "description": "", "price": 450, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 18, "name": "Mutton Fry", "category": "Mutton Starters", "category_slug": "mutton-starters", "description": "", "price": 420, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 19, "name": "Mutton Ukad", "category": "Mutton Starters", "category_slug": "mutton-starters", "description": "", "price": 420, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 20, "name": "Wajadi Fry", "category": "Mutton Starters", "category_slug": "mutton-starters", "description": "", "price": 390, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 21, "name": "Chicken Raan", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 500, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 22, "name": "Chicken Tikka", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 310, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 23, "name": "Chicken Banjara Tikka", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 320, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 24, "name": "Chicken Hariyali Tikka", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 310, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 25, "name": "Chicken Kharda", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 280, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 26, "name": "Chicken Fry", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 280, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 27, "name": "Chicken Ukad", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 280, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 28, "name": "Chicken Koliwada Fry", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 280, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 29, "name": "Chicken Chilli Dry", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 280, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 30, "name": "Chicken Manchurian Dry", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 280, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 31, "name": "Chicken 65 Dry", "category": "Chicken Starters", "category_slug": "chicken-starters", "description": "", "price": 280, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 32, "name": "Paneer Tikka", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 280, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 33, "name": "Paneer Banjara Tikka", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 300, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 34, "name": "Paneer Hariyali Tikka", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 280, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 35, "name": "Tandoori Mushroom", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 270, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 36, "name": "Palak Paneer Shami Kebab", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 280, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 37, "name": "Kothimbir Vadi", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 270, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 38, "name": "Thalipeeth", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 260, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 39, "name": "Veg Manchurian Dry", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 260, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 40, "name": "Paneer Chilli Dry", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 280, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 41, "name": "Paneer Manchurian Dry", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 280, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 42, "name": "Mushroom Chilli Dry", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 270, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 43, "name": "Mushroom Manchurian Dry", "category": "Veg Starters", "category_slug": "veg-starters", "description": "", "price": 270, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 44, "name": "Mutton Gawakadchi Thali", "category": "Thali", "category_slug": "thali", "description": "Mutton Fry, Tambda Rassa, Pandhra Rassa, Pulao or Indrayani Rice, Dahi Kanda, Bakari / Chapati / Roti", "price": 580, "is_veg": false, "is_non_veg": true, "is_bestseller": true, "is_available": true, "spicy_level": 0, "image": null}, {"id": 45, "name": "Special Mutton Thali", "category": "Thali", "category_slug": "thali", "description": "Mutton Fry, Mutton Kheema, Tambda Rassa, Pandhra Rassa, Biryani or Alani Rice, Dahi Kanda, Boiled Egg, Bakari / Chapati / Roti", "price": 680, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 46, "name": "Chicken Gawakadchi Thali", "category": "Thali", "category_slug": "thali", "description": "Chicken Fry, Tambda Rassa, Pandhra Rassa, Pulao or Indrayani Rice, Dahi Kanda, Bakari / Chapati / Roti", "price": 490, "is_veg": false, "is_non_veg": true, "is_bestseller": true, "is_available": true, "spicy_level": 0, "image": null}, {"id": 47, "name": "Special Chicken Thali", "category": "Thali", "category_slug": "thali", "description": "Chicken Fry, Chicken Kheema, Tambda Rassa, Pandhra Rassa, Biryani or Alani Rice, Dahi Kanda, Boiled Egg, Bakari / Chapati / Roti", "price": 590, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 48, "name": "Veg Thali", "category": "Thali", "category_slug": "thali", "description": "Sukhi Bhaji, Rassa Bhaji, Dal, Rice, Dahi Kanda, Bakari / Chapati / Roti", "price": 450, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 49, "name": "Mutton Handi (Full)", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 670, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 50, "name": "Mutton Handi (Half)", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 550, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 51, "name": "Hyderabadi Paya Korma", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 430, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 52, "name": "Mutton Kheema Masala", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 420, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 53, "name": "Mutton Kolhapuri Lonche", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 400, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 54, "name": "Mutton Kolhapuri Curry", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 390, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 55, "name": "Mutton Kharda (Main)", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 400, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 56, "name": "Mutton Aalni", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 380, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 57, "name": "Chicken Handi (Full)", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 650, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 58, "name": "Chicken Handi (Half)", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 520, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 59, "name": "Chicken Kolhapuri Curry", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 350, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 60, "name": "Chicken Kheema Masala", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 390, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 61, "name": "Chicken Kolhapuri Lonche", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 370, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 62, "name": "Chicken Kharda (Main)", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 370, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 63, "name": "Chicken Aalni", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 340, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 64, "name": "Chicken Tikka Masala", "category": "Non-Veg Main Course", "category_slug": "non-veg-mains", "description": "", "price": 370, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 65, "name": "Paneer Butter Masala", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 350, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 66, "name": "Paneer Bhurji Masala", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 350, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 67, "name": "Paneer Mirch Masala", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 350, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 68, "name": "Paneer Taka Tak", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 320, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 69, "name": "Veg Kolhapuri", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 280, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 70, "name": "Veg Amritsari", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 280, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 71, "name": "Veg Mirch Masala", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 260, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 72, "name": "Paneer Mutter", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 320, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 73, "name": "Mushroom Mutter", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 280, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 74, "name": "Shevga Masala", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 250, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 75, "name": "Methi Besan", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 250, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 76, "name": "Bharli Vangi", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 250, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 77, "name": "Pithla", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 220, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 78, "name": "Dal Fry", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 180, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 79, "name": "Dal Tadka", "category": "Veg Main Course", "category_slug": "veg-mains", "description": "", "price": 200, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 80, "name": "Hyderabadi Degh Biryani (Mutton)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 550, "is_veg": false, "is_non_veg": true, "is_bestseller": true, "is_available": true, "spicy_level": 0, "image": null}, {"id": 81, "name": "Hyderabadi Degh Biryani (Chicken)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 480, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 82, "name": "Alani Rice (Mutton)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 310, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 83, "name": "Alani Rice (Chicken)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 280, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 84, "name": "Plain Rice (Full)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 220, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 85, "name": "Plain Rice (Half)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 180, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 86, "name": "Jeera / Steamed / Indrayani Rice", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 180, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 87, "name": "Schezwan Fried Rice (Chicken)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 270, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 88, "name": "Schezwan Fried Rice (Veg)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 220, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 89, "name": "Schezwan Fried Rice (Egg)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 240, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 90, "name": "Fried Rice (Chicken)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 250, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 91, "name": "Fried Rice (Veg)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 200, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 92, "name": "Fried Rice (Egg)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 220, "is_veg": false, "is_non_veg": true, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 93, "name": "Dal Khichdi", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 250, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 94, "name": "Dal Khichdi Tadka", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 270, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 95, "name": "Roti (Plain)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 30, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 96, "name": "Roti (Butter)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 35, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 97, "name": "Roti (Garlic)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 40, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 98, "name": "Naan (Plain)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 70, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 99, "name": "Naan (Butter)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 90, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 100, "name": "Naan (Garlic)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 100, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 101, "name": "Naan (Cheese)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 120, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 102, "name": "Naan (Cheese Garlic)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 140, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 103, "name": "Chapati (Plain)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 30, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 104, "name": "Chapati (Butter)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 35, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 105, "name": "Bhakri (Plain)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 30, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}, {"id": 106, "name": "Bhakri (Butter)", "category": "Rice & Breads", "category_slug": "rice-breads", "description": "", "price": 35, "is_veg": true, "is_non_veg": false, "is_bestseller": false, "is_available": true, "spicy_level": 0, "image": null}], "tables": [{"id": 1, "number": "01", "name": "Table 01", "is_active": true}, {"id": 2, "number": "02", "name": "Table 02", "is_active": true}, {"id": 3, "number": "03", "name": "Table 03", "is_active": true}, {"id": 4, "number": "04", "name": "Table 04", "is_active": true}, {"id": 5, "number": "05", "name": "Table 05", "is_active": true}, {"id": 6, "number": "06", "name": "Table 06", "is_active": true}, {"id": 7, "number": "07", "name": "Table 07", "is_active": true}, {"id": 8, "number": "08", "name": "Table 08", "is_active": true}, {"id": 9, "number": "09", "name": "Table 09", "is_active": true}, {"id": 10, "number": "10", "name": "Table 10", "is_active": true}, {"id": 11, "number": "11", "name": "Table 11", "is_active": true}, {"id": 12, "number": "12", "name": "Table 12", "is_active": true}, {"id": 13, "number": "13", "name": "Table 13", "is_active": true}, {"id": 14, "number": "14", "name": "Table 14", "is_active": true}, {"id": 15, "number": "15", "name": "Table 15", "is_active": true}, {"id": 16, "number": "16", "name": "Table 16", "is_active": true}, {"id": 17, "number": "17", "name": "Table 17", "is_active": true}, {"id": 18, "number": "18", "name": "Table 18", "is_active": true}, {"id": 19, "number": "19", "name": "Table 19", "is_active": true}, {"id": 20, "number": "20", "name": "Table 20", "is_active": true}]};
+var PLACES = [{"id": 1, "name": "Kaas Lake", "emoji": "🏞️", "distance": "15–20 min walk from Kas Pathar", "tag": "Nature · Picnic", "summary": "A calm lake between hills and flowers. Great for a quiet picnic. Local eateries nearby serve zunka bhakri, vada pav and snacks.", "tips": "Carry a mat and water. Best in good weather."}, {"id": 2, "name": "Vajrai Waterfalls", "emoji": "🌊", "distance": "About 4 km from the plateau", "tag": "Waterfall · Viewpoint", "summary": "One of India’s tallest plunge waterfalls. Peaceful and less crowded. Enjoy the view from safe spots — entry into the falls is restricted.", "tips": "Wear shoes with grip. Do not climb wet rocks."}, {"id": 3, "name": "Thoseghar Waterfalls", "emoji": "💧", "distance": "Near Kas region, Satara", "tag": "Waterfall · Scenic", "summary": "Picturesque falls surrounded by green forest. Easy to reach. Entry into the falls is prohibited due to height — enjoy the view from designated areas.", "tips": "Monsoon rocks are very slippery. Stay on marked paths."}, {"id": 4, "name": "Chalkewadi Windmills", "emoji": "🌬️", "distance": "Near Thoseghar area", "tag": "Viewpoint · Photo", "summary": "Wide open plateau with wind turbines. Very windy and photogenic. Best on clear days for big sky views.", "tips": "Hold on to hats and light items — strong wind."}, {"id": 5, "name": "Bamnoli", "emoji": "🛶", "distance": "On Shivsagar Lake", "tag": "Village · Boating", "summary": "Quiet village on the lake. Boating and rowing available. Peaceful atmosphere with birds and village life. Boats can go toward Tapola (often called mini Kashmir).", "tips": "Ideal for a slow afternoon by the water."}, {"id": 6, "name": "Ajinkyatara Fort", "emoji": "🏰", "distance": "About 1 hour drive · Satara city views", "tag": "History · Fort", "summary": "Historic Maratha fort linked to the era of Chhatrapati Shivaji Maharaj. Strong walls and wide views over Satara. A fine end to a Kas trip. Pune is about 115 km from here.", "tips": "Wear comfortable shoes for walking the fort."}];
+var PASS = { waiter: 'waiter123', kitchen: 'kitchen123', admin: 'admin123' };
+var CANCEL_MS = 7 * 60 * 1000;
+var ADMIN_PHONE = '+91 98765 43210';
+
+var role = null, pendingRole = null, table = '01', cart = [], cat = 'all';
+var orders = load('mm_o', []);
+var notifs = load('mm_n', []);
+var reviews = load('mm_r', []);
+var bookings = load('mm_b', []);
+var isOpen = localStorage.getItem('mm_open') !== 'false';
+var stars = 0, scanner = null, lastN = orders.length;
+var wTable = null, wCart = [], wCat = 'all';
+
+function load(k, d) { try { return JSON.parse(localStorage.getItem(k) || 'null') || d; } catch(e) { return d; } }
+function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e) { console.warn('Storage unavailable:', e); return false; } }
+function toast(m) {
+  var t = document.getElementById('toast');
+  t.textContent = m; t.classList.add('on');
+  setTimeout(function() { t.classList.remove('on'); }, 2500);
+}
+function go(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('on'); });
+  var el = document.getElementById(id);
+  if (!el) {
+    console.error('Screen not found:', id);
+    toast('Page missing: ' + id);
+    el = document.getElementById('home');
+  }
+  if (el) el.classList.add('on');
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+function setOpenPill() {
+  var p = document.getElementById('status-pill');
+  if (isOpen) { p.className = 'pill open'; p.textContent = '● Open now'; }
+  else { p.className = 'pill closed'; p.textContent = '● Closed'; }
+}
+
+
+/* Magic particles */
+function spawnSparks(el, n) {
+  if (!el) return;
+  var r = el.getBoundingClientRect();
+  for (var i = 0; i < (n || 12); i++) {
+    var d = document.createElement('div');
+    d.className = 'spark-dot';
+    var ang = Math.random() * Math.PI * 2;
+    var dist = 30 + Math.random() * 50;
+    d.style.left = (r.left + r.width/2 + (Math.random()-0.5)*20) + 'px';
+    d.style.top = (r.top + r.height/2 + (Math.random()-0.5)*20) + 'px';
+    d.style.setProperty('--sx', (Math.cos(ang)*dist) + 'px');
+    d.style.setProperty('--sy', (Math.sin(ang)*dist - 20) + 'px');
+    d.style.background = ['#f0d78c','#d4a84b','#fff','#ff6b4a'][i%4];
+    document.body.appendChild(d);
+    setTimeout((function(node){ return function(){ node.remove(); }; })(d), 900);
+  }
+}
+function runParticleCanvas(canvasId) {
+  var canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var parts = [];
+  for (var i = 0; i < 18; i++) {
+    parts.push({
+      x: Math.random()*canvas.width, y: Math.random()*canvas.height,
+      r: 1 + Math.random()*2.5, vx: (Math.random()-.5)*.4, vy: -0.2 - Math.random()*.5,
+      a: 0.3 + Math.random()*0.6, hue: 40 + Math.random()*20
+    });
+  }
+  function frame() {
+    if (!document.body.contains(canvas)) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    parts.forEach(function(p) {
+      p.x += p.vx; p.y += p.vy;
+      if (p.y < -5) { p.y = canvas.height + 5; p.x = Math.random()*canvas.width; }
+      if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = 'hsla(' + p.hue + ',80%,70%,' + p.a + ')';
+      ctx.fill();
+    });
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+/* old canvas particles removed — cookTap handles magic */
+
+
+setTimeout(function() { var sp=document.getElementById('splash'); if(sp) sp.classList.add('hide'); }, 1200);
+
+/* tables home — deferred until helpers exist */
+var staffTapCount = 0;
+var staffTapTimer = null;
+function showStaffPanel() {
+  var p = document.getElementById('staff-panel');
+  if (p) p.style.display = 'block';
+  toast('Choose your role, then enter password');
+}
+function hideStaffPanel() {
+  var p = document.getElementById('staff-panel');
+  if (p) p.style.display = 'none';
+}
+function staffSecretTap() {
+  showStaffPanel();
+}
+function bindStaffSecrets() {
+  var btn = document.getElementById('staff-open-btn');
+  if (btn) btn.onclick = function() { showStaffPanel(); };
+  var cook = document.getElementById('home-cook');
+  if (cook) {
+    var pressTimer = null;
+    cook.addEventListener('touchstart', function(e) {
+      pressTimer = setTimeout(function() { showStaffPanel(); }, 900);
+    }, { passive: true });
+    cook.addEventListener('touchend', function() { if (pressTimer) clearTimeout(pressTimer); });
+    cook.addEventListener('touchmove', function() { if (pressTimer) clearTimeout(pressTimer); });
+    cook.addEventListener('mousedown', function() {
+      pressTimer = setTimeout(function() { showStaffPanel(); }, 900);
+    });
+    cook.addEventListener('mouseup', function() { if (pressTimer) clearTimeout(pressTimer); });
+    cook.addEventListener('mouseleave', function() { if (pressTimer) clearTimeout(pressTimer); });
+  }
+  // URL ?staff=1 for bookmarks on staff devices
+  try {
+    if (new URLSearchParams(location.search).get('staff') === '1') showStaffPanel();
+  } catch(e) {}
+}
+bindStaffSecrets();
+
+
+
+
+function goManualHomeTable() {
+  var input = document.getElementById('home-manual-table');
+  var v = (input && input.value ? input.value : '').trim();
+  var n = parseInt(v.replace(/^0+/, '') || v, 10);
+  var max = 16;
+  try { max = tableCount(); } catch (e) {}
+  if (!n || n < 1 || n > max) {
+    toast('Enter a table number from 1 to ' + max);
+    if (input) input.focus();
+    return;
+  }
+  startTable(n);
+}
+function dismissTip(id) {
+  var el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+  try { localStorage.setItem('mm_tip_' + id, '1'); } catch(e) {}
+}
+function restoreTips() {
+  ['menu-tip'].forEach(function(id) {
+    try {
+      if (localStorage.getItem('mm_tip_' + id) === '1') {
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      }
+    } catch(e) {}
+  });
+}
+function openGuide() {
+  document.getElementById('guide-sheet').classList.add('on');
+}
+function closeGuide() {
+  document.getElementById('guide-sheet').classList.remove('on');
+}
+function pickSpecials() {
+  var avail = MENU.menu_items.filter(function(i) { return i.is_available; });
+  // prefer mid-high price popular-style items, shuffle
+  var scored = avail.slice().sort(function(a, b) { return (b.price || 0) - (a.price || 0); });
+  var picks = scored.slice(0, 12);
+  for (var i = picks.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = picks[i]; picks[i] = picks[j]; picks[j] = tmp;
+  }
+  return picks.slice(0, 6);
+}
+function foodEmoji(item) {
+  if (!item) return '🍽️';
+  if (item.is_veg) return ['🥗', '🍛', '🥘', '🍲', '🥦'][item.id % 5];
+  return ['🍖', '🍗', '🥩', '🔥', '😋'][item.id % 5];
+}
+function drawSpecials() {
+  var el = document.getElementById('specials');
+  if (!el) return;
+  var picks = pickSpecials();
+  el.innerHTML = picks.map(function(item) {
+    return '<button type="button" class="special-chip" onclick="openSpecial(' + item.id + ')">' +
+      '<div class="em">' + foodEmoji(item) + '</div>' +
+      '<div class="nm">' + item.name + '</div>' +
+      '<div class="pr">₹' + item.price + '</div></button>';
+  }).join('');
+}
+var specialItemId = null;
+function openSpecial(id) {
+  var item = MENU.menu_items.find(function(i) { return i.id === id; });
+  if (!item) return;
+  specialItemId = id;
+  document.getElementById('sp-emoji').textContent = foodEmoji(item);
+  document.getElementById('sp-title').textContent = item.name;
+  document.getElementById('sp-desc').textContent = item.description || (item.is_veg ? 'Vegetarian chef pick' : 'Chef special recommendation');
+  document.getElementById('sp-price').textContent = '₹' + item.price;
+  document.getElementById('sp-add').onclick = function() {
+    add(id);
+    closeSpecial();
+    toast('Added · ' + item.name);
+  };
+  document.getElementById('special-modal').classList.add('on');
+}
+function closeSpecial() {
+  document.getElementById('special-modal').classList.remove('on');
+  specialItemId = null;
+}
+function maybeSuggestSpecial() {
+  // once per table session, soft after short delay
+  try {
+    if (sessionStorage.getItem('mm_sp_' + table)) return;
+    sessionStorage.setItem('mm_sp_' + table, '1');
+  } catch(e) {}
+  setTimeout(function() {
+    if (!document.getElementById('customer').classList.contains('on')) return;
+    var picks = pickSpecials();
+    if (picks.length) openSpecial(picks[0].id);
+  }, 4500);
+}
+
+
+function startTable(n) {
+  if (!isOpen) { toast(SETTINGS.closedMessage || 'Restaurant is closed'); return; }
+  table = String(n).padStart(2, '0');
+  cart = load('mm_c_' + table, []);
+  cat = 'all';
+  document.getElementById('search').value = '';
+  document.getElementById('tbl-label').textContent = 'Table ' + table;
+  drawCats(); drawMenu(); drawSpecials(); updCart();
+  restoreTips();
+  go('customer');
+  maybeSuggestSpecial();
+  setTimeout(function() {
+    if (!currentCustomer) {
+      // soft optional: small tip only, don't force modal every time
+    }
+  }, 800);
+}
+function backMenu() { startTable(table); }
+
+function openLogin(r) {
+  pendingRole = r;
+  var titles = { waiter: 'Waiter login', kitchen: 'Kitchen login', admin: 'Admin login' };
+  var hints = {
+    waiter: 'Default password: waiter123',
+    kitchen: 'Default password: kitchen123',
+    admin: 'Default password: admin123'
+  };
+  document.getElementById('login-title').textContent = titles[r] || 'Staff login';
+  document.getElementById('login-hint').textContent = hints[r] || 'Enter password';
+  document.getElementById('pass').value = '';
+  document.getElementById('login-err').style.display = 'none';
+  go('login');
+  setTimeout(function() {
+    var el = document.getElementById('pass');
+    if (el) el.focus();
+  }, 200);
+}
+function doLogin() {
+  var p = (document.getElementById('pass').value || '').trim();
+  var r = pendingRole;
+  if (!r) {
+    toast('Choose Waiter, Kitchen or Admin first');
+    go('home');
+    showStaffPanel();
+    return;
+  }
+  // Defaults always work; Settings can override
+  var expected = (PASS && PASS[r]) ? PASS[r] : '';
+  var defaults = { waiter: 'waiter123', kitchen: 'kitchen123', admin: 'admin123' };
+  if (!expected) expected = defaults[r];
+  // Accept either current PASS or factory default (in case settings wiped password)
+  if (p !== expected && p !== defaults[r]) {
+    var err = document.getElementById('login-err');
+    if (err) { err.style.display = 'block'; err.textContent = 'Wrong password for ' + r; }
+    toast('Wrong password');
+    return;
+  }
+  role = r;
+  try { sessionStorage.setItem('mm_role', role); } catch (e) {}
+  toast('Welcome, ' + r);
+  if (r === 'waiter') {
+    go('waiter');
+    enterWaiter();
+  } else if (r === 'kitchen') {
+    go('kitchen');
+    enterKitchen();
+  } else {
+    go('admin');
+    enterAdmin();
+  }
+}
+function logout() { role = null; go('home'); setOpenPill();
+
+/* ===== BOOT: wire everything ===== */
+
+window.go = go;
+window.doLogin = doLogin;
+window.openLogin = openLogin;
+window.showStaffPanel = showStaffPanel;
+window.hideStaffPanel = hideStaffPanel;
+window.goManualHomeTable = goManualHomeTable;
+window.startTable = startTable;
+window.openScan = openScan;
+window.closeScan = closeScan;
+window.manualTable = goManualTable;
+window.goManualTable = goManualTable;
+window.openCart = openCart;
+window.closeCart = closeCart;
+window.placeOrder = placeOrder;
+window.add = add;
+window.qty = qty;
+window.callWaiter = callWaiter;
+window.reqBill = reqBill;
+window.myOrders = myOrders;
+window.cancelOrder = cancelOrder;
+window.backMenu = backMenu;
+window.openGuide = openGuide;
+window.closeGuide = closeGuide;
+window.openSpecial = openSpecial;
+window.closeSpecial = closeSpecial;
+window.openParty = openParty;
+window.closeParty = closeParty;
+window.sendParty = sendParty;
+window.openReview = openReview;
+window.closeReview = closeReview;
+window.sendReview = sendReview;
+window.setStar = setStar;
+window.showPayQR = showPayQR;
+window.closePayQR = closePayQR;
+window.markPaidFromPay = markPaidFromPay;
+window.selectPayMethod = selectPayMethod;
+window.markPaidMethod = markPaidMethod;
+window.afterPaidFlow = afterPaidFlow;
+window.saveCustomerProfile = saveCustomerProfile;
+window.skipCustomerProfile = skipCustomerProfile;
+window.openPhoneModal = openPhoneModal;
+window.sendWhatsAppReceipt = sendWhatsAppReceipt;
+window.openAdminPayLog = openAdminPayLog;
+window.savePaymentLog = savePaymentLog;
+window.drawAdminPayments = drawAdminPayments;
+window.logout = logout;
+window.tab = tab;
+window.toggleOpen = toggleOpen;
+window.setStatus = setStatus;
+window.toggleItem = toggleItem;
+window.showQR = showQR;
+window.dlQR = dlQR;
+window.saveSettings = saveSettings;
+window.loadRemoteData = loadRemoteData;
+window.exportConfig = exportConfig;
+window.cookTap = cookTap;
+window.wAdd = wAdd;
+window.wQty = wQty;
+window.wSend = wSend;
+window.pickW = pickW;
+window.setCat = setCat;
+window.setWC = setWC;
+window.doneNotif = doneNotif;
+window.markParty = markParty;
+window.dismissTip = dismissTip;
+
+function bootApp() {
+  try {
+    if (typeof applySettings === 'function') applySettings();
+    if (typeof rebuildTables === 'function') rebuildTables();
+    if (typeof renderHomeTables === 'function') renderHomeTables();
+    if (typeof drawPlaces === 'function') drawPlaces();
+    if (typeof setOpenPill === 'function') setOpenPill();
+    if (typeof bindStaffSecrets === 'function') bindStaffSecrets();
+  } catch (e) { console.error('boot', e); }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootApp);
+} else {
+  bootApp();
+}
+
+/* Service worker intentionally disabled in the single-file build. This avoids stale mobile caches. */
+ }
+
+function drawCats() {
+  var h = '<button type="button" class="cat' + (cat==='all'?' on':'') + '" onclick="setCat(\'all\')">All</button>';
+  MENU.categories.filter(function(c){return c.is_visible;}).forEach(function(c) {
+    h += '<button type="button" class="cat' + (cat===c.slug?' on':'') + '" onclick="setCat(\'' + c.slug + '\')">' + c.name + '</button>';
+  });
+  document.getElementById('cats').innerHTML = h;
+}
+function setCat(s) { cat = s; drawCats(); drawMenu(); }
+function drawMenu() {
+  var q = (document.getElementById('search').value || '').toLowerCase();
+  var items = MENU.menu_items.filter(function(i){ return i.is_available; });
+  if (cat !== 'all') items = items.filter(function(i){ return i.category_slug === cat; });
+  if (q) items = items.filter(function(i){ return i.name.toLowerCase().indexOf(q) >= 0; });
+  document.getElementById('menu').innerHTML = items.map(function(item) {
+    var inC = cart.find(function(c){ return c.id === item.id; });
+    return '<div class="card"><div class="pic">' + (item.is_veg?'🥗':'🍖') + '</div><div style="flex:1;min-width:0">' +
+      '<div class="name"><span class="' + (item.is_veg?'veg':'nonveg') + '"></span>' + item.name + '</div>' +
+      (item.description ? '<div class="desc">' + item.description + '</div>' : '') +
+      '<div class="row"><span class="price">₹' + item.price + '</span>' +
+      (inC ? '<div class="qty"><button type="button" onclick="qty(' + item.id + ',-1)">−</button><b>' + inC.qty + '</b><button type="button" class="p" onclick="qty(' + item.id + ',1)">+</button></div>'
+           : '<button type="button" class="add" onclick="add(' + item.id + ')">ADD</button>') +
+      '</div></div></div>';
+  }).join('') || '<p class="muted center" style="padding:30px">No items</p>';
+}
+function add(id) {
+  var item = MENU.menu_items.find(function(i){ return i.id === id; }); if (!item) return;
+  var ex = cart.find(function(c){ return c.id === id; });
+  if (ex) ex.qty++; else cart.push({ id: id, name: item.name, price: item.price, qty: 1 });
+  save('mm_c_' + table, cart); drawMenu(); updCart(); toast('Added');
+}
+function qty(id, d) {
+  var c = cart.find(function(x){ return x.id === id; }); if (!c) return;
+  c.qty += d; if (c.qty <= 0) cart = cart.filter(function(x){ return x.id !== id; });
+  save('mm_c_' + table, cart); drawMenu(); updCart();
+  if (document.getElementById('cart').classList.contains('on')) drawCart();
+}
+function updCart() {
+  var n = cart.reduce(function(s,c){ return s + c.qty; }, 0);
+  var tot = cart.reduce(function(s,c){ return s + c.price * c.qty; }, 0);
+  document.getElementById('badge').textContent = n;
+  var bar = document.getElementById('cart-bar');
+  if (n > 0) { bar.style.display = 'block'; bar.textContent = n + ' items · ₹' + tot + ' · Cart'; }
+  else bar.style.display = 'none';
+}
+function openCart() {
+  drawCart();
+  document.getElementById('cart').classList.add('on');
+}
+function closeCart() {
+  document.getElementById('cart').classList.remove('on');
+  drawMenu(); updCart();
+}
+function drawCart() {
+  var el = document.getElementById('cart-list');
+  if (!cart.length) { el.innerHTML = '<p class="muted center" style="padding:40px">Cart empty</p>'; document.getElementById('total').textContent = '₹0'; return; }
+  el.innerHTML = cart.map(function(c) {
+    return '<div class="card"><div style="flex:1"><div class="name">' + c.name + '</div><div class="desc">₹' + c.price + '</div></div>' +
+      '<div class="qty"><button type="button" onclick="qty(' + c.id + ',-1)">−</button><b>' + c.qty + '</b><button type="button" class="p" onclick="qty(' + c.id + ',1)">+</button></div>' +
+      '<div class="price" style="width:56px;text-align:right">₹' + (c.price*c.qty) + '</div></div>';
+  }).join('');
+  document.getElementById('total').textContent = '₹' + cart.reduce(function(s,c){ return s + c.price*c.qty; }, 0);
+}
+function placeOrder() {
+  if (!cart.length) return;
+  var date = new Date();
+  var id = 'MM-' + date.toISOString().slice(0,10).replace(/-/g,'') + '-' + String(orders.filter(function(o){ return o.createdAt.slice(0,10) === date.toISOString().slice(0,10); }).length + 1).padStart(3,'0');
+  orders.unshift({
+    id: id, table: table,
+    items: cart.map(function(c){ return { name: c.name, price: c.price, qty: c.qty }; }),
+    total: cart.reduce(function(s,c){ return s + c.price*c.qty; }, 0),
+    status: 'NEW', notes: (document.getElementById('notes').value || '').trim(),
+    createdAt: date.toISOString(), cancelUntil: date.getTime() + CANCEL_MS
+  });
+  save('mm_o', orders);
+  cart = []; save('mm_c_' + table, cart); closeCart();
+  document.getElementById('notes').value = '';
+  document.getElementById('sid').textContent = id;
+  document.getElementById('stbl').textContent = table;
+  updCart();
+  go('success');
+  if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
+  toast('Order sent to kitchen!');
+}
+
+
+var payContext = { orderId: null, amount: null, table: null, method: 'gpay' };
+var customers = load('mm_customers', {});
+var payments = load('mm_payments', []);
+var currentCustomer = load('mm_current_customer', null);
+
+function saveCustomers() { save('mm_customers', customers); }
+function savePayments() { save('mm_payments', payments); }
+
+function showPayQR(amount, orderId) {
+  payContext.amount = amount;
+  payContext.orderId = orderId;
+  payContext.table = table;
+  payContext.method = 'gpay';
+  document.getElementById('pay-note').textContent = SETTINGS.payNote || 'Choose payment method';
+  document.getElementById('pay-amt').textContent = amount ? ('₹' + amount) : 'Ask staff for amount';
+  document.getElementById('pay-upi-area').style.display = 'none';
+  document.getElementById('pay-cash-area').style.display = 'none';
+  document.getElementById('pay-card-area').style.display = 'none';
+  var cardBtn = document.getElementById('pay-card-btn');
+  var cashBtn = document.getElementById('pay-cash-btn');
+  if (cardBtn) cardBtn.style.display = SETTINGS.acceptCard === false ? 'none' : 'block';
+  if (cashBtn) cashBtn.style.display = SETTINGS.acceptCash === false ? 'none' : 'block';
+  document.getElementById('pay-modal').classList.add('on');
+  // Default: Google Pay
+  selectPayMethod('gpay');
+}
+function closePayQR() {
+  document.getElementById('pay-modal').classList.remove('on');
+}
+function upiLink(pa, amount, orderId) {
+  var pn = encodeURIComponent(SETTINGS.upiName || SETTINGS.restaurantName || 'Mirch Masaala');
+  var url = 'upi://pay?pa=' + encodeURIComponent(pa) + '&pn=' + pn + '&cu=INR';
+  if (amount) url += '&am=' + encodeURIComponent(String(amount));
+  if (orderId) url += '&tn=' + encodeURIComponent(orderId);
+  return url;
+}
+function selectPayMethod(method) {
+  payContext.method = method;
+  document.getElementById('pay-upi-area').style.display = 'none';
+  document.getElementById('pay-cash-area').style.display = 'none';
+  document.getElementById('pay-card-area').style.display = 'none';
+  if (method === 'gpay' || method === 'phonepe') {
+    var pa = SETTINGS.upiId || 'mirchmasaala@upi';
+    if (method === 'phonepe' && SETTINGS.phonepeUpi) pa = SETTINGS.phonepeUpi;
+    var url = upiLink(pa, payContext.amount, payContext.orderId || ('Table ' + table));
+    // Prefer intent that opens GPay when possible (Android); still standard UPI
+    document.getElementById('pay-link').href = url;
+    document.getElementById('pay-link').textContent = method === 'gpay' ? 'Open Google Pay' : 'Open PhonePe';
+    document.getElementById('pay-upi').textContent = pa + ' · ' + (SETTINGS.upiName || '');
+    document.getElementById('pay-upi-area').style.display = 'block';
+    var box = document.getElementById('pay-qr');
+    box.innerHTML = '<div class="muted" style="font-size:12px;padding:55px 8px">Preparing QR…</div>';
+    ensureQRCode().then(function(QR) {
+      if (!document.getElementById('pay-modal').classList.contains('on')) return;
+      box.innerHTML = '';
+      QR.toCanvas(document.createElement('canvas'), url, { width: 170, margin: 2 }, function(err, canvas) {
+        if (!err && canvas) box.appendChild(canvas);
+        else box.innerHTML = '<div class="muted" style="font-size:12px;padding:55px 8px">QR unavailable. Use Open payment app.</div>';
+      });
+    }).catch(function() {
+      box.innerHTML = '<div class="muted" style="font-size:12px;padding:55px 8px">QR unavailable. Use Open payment app.</div>';
+    });
+    toast(method === 'gpay' ? 'Google Pay ready' : 'PhonePe ready');
+  } else if (method === 'cash') {
+    document.getElementById('pay-cash-area').style.display = 'block';
+    toast('Pay cash at counter');
+  } else if (method === 'card') {
+    document.getElementById('pay-card-area').style.display = 'block';
+    toast('Card at counter');
+  }
+}
+function markPaidMethod(method) {
+  payContext.method = method || payContext.method;
+  markPaidFromPay();
+}
+function markPaidFromPay() {
+  var method = payContext.method || 'gpay';
+  var mine = orders.filter(function(o) {
+    return o.table === (payContext.table || table) && o.status !== 'CANCELLED' && o.status !== 'PAID';
+  });
+  var amount = payContext.amount || 0;
+  if (mine.length) {
+    mine.forEach(function(o) {
+      o.status = 'PAID';
+      o.paidAt = new Date().toISOString();
+      o.payMethod = method;
+      amount = amount || o.total;
+    });
+    save('mm_o', orders);
+  }
+  payments.unshift({
+    id: Date.now(),
+    amount: amount,
+    method: method,
+    table: payContext.table || table,
+    orderId: payContext.orderId || (mine[0] && mine[0].id) || '',
+    customerPhone: currentCustomer && currentCustomer.phone,
+    customerName: currentCustomer && currentCustomer.name,
+    at: new Date().toISOString()
+  });
+  savePayments();
+  toast('Payment recorded · ' + method);
+  closePayQR();
+  afterPaidFlow();
+}
+function afterPaidFlow() {
+  // Ask for phone if not known, then WhatsApp receipt permission
+  if (!currentCustomer || !currentCustomer.phone) {
+    openPhoneModal('receipt');
+  } else {
+    openWaReceiptAsk();
+  }
+}
+function openPhoneModal(reason) {
+  window._phoneReason = reason || 'profile';
+  document.getElementById('cust-phone').value = (currentCustomer && currentCustomer.phone) || '';
+  document.getElementById('cust-name').value = (currentCustomer && currentCustomer.name) || '';
+  document.getElementById('phone-modal').classList.add('on');
+}
+function skipCustomerProfile() {
+  document.getElementById('phone-modal').classList.remove('on');
+  if (window._phoneReason === 'receipt') {
+    toast('OK — no WhatsApp receipt');
+  }
+}
+function saveCustomerProfile() {
+  var phone = (document.getElementById('cust-phone').value || '').replace(/\\D/g, '');
+  var name = (document.getElementById('cust-name').value || '').trim();
+  if (phone.length < 10) { toast('Enter a valid 10-digit mobile'); return; }
+  phone = phone.slice(-10);
+  if (customers[phone]) {
+    // returning customer
+    if (name) customers[phone].name = name;
+    customers[phone].lastVisit = new Date().toISOString();
+    customers[phone].visits = (customers[phone].visits || 1) + 1;
+    toast('Welcome back, ' + (customers[phone].name || 'guest') + '!');
+  } else {
+    customers[phone] = {
+      phone: phone,
+      name: name || 'Guest',
+      createdAt: new Date().toISOString(),
+      lastVisit: new Date().toISOString(),
+      visits: 1,
+      waOptIn: false
+    };
+    toast('Saved · ' + (name || phone));
+  }
+  currentCustomer = customers[phone];
+  saveCustomers();
+  save('mm_current_customer', currentCustomer);
+  document.getElementById('phone-modal').classList.remove('on');
+  if (window._phoneReason === 'receipt') openWaReceiptAsk();
+}
+function openWaReceiptAsk() {
+  document.getElementById('wa-from-name').textContent = SETTINGS.whatsappName || SETTINGS.restaurantName || 'restaurant';
+  document.getElementById('wa-receipt-modal').classList.add('on');
+}
+function sendWhatsAppReceipt(yes) {
+  document.getElementById('wa-receipt-modal').classList.remove('on');
+  if (!yes) {
+    toast('No receipt sent');
+    return;
+  }
+  if (!currentCustomer || !currentCustomer.phone) {
+    openPhoneModal('receipt');
+    return;
+  }
+  // Ask permission recorded
+  currentCustomer.waOptIn = true;
+  customers[currentCustomer.phone] = currentCustomer;
+  saveCustomers();
+  save('mm_current_customer', currentCustomer);
+
+  var waNum = (SETTINGS.whatsappNumber || '').replace(/\\D/g, '');
+  if (!waNum) {
+    toast('Restaurant WhatsApp not set — ask Admin');
+    return;
+  }
+  var lines = [];
+  lines.push(SETTINGS.receiptMessage || 'Thank you for dining with us!');
+  lines.push('');
+  lines.push('*' + (SETTINGS.restaurantName || 'Mirch Masaala') + '*');
+  lines.push('Table: ' + (payContext.table || table || '-'));
+  if (payContext.orderId) lines.push('Order: ' + payContext.orderId);
+  if (payContext.amount) lines.push('Amount: Rs ' + payContext.amount);
+  if (payContext.method) lines.push('Paid via: ' + payContext.method);
+  lines.push('Guest: ' + (currentCustomer.name || '') + ' ' + currentCustomer.phone);
+  lines.push('');
+  lines.push('— ' + (SETTINGS.whatsappName || SETTINGS.restaurantName || ''));
+  var text = encodeURIComponent(lines.join('\\n'));
+  // Open chat with restaurant WhatsApp; customer can send the receipt text
+  // For customer to receive: typically restaurant sends TO customer number
+  var customerWa = '91' + currentCustomer.phone.slice(-10);
+  var url = 'https://wa.me/' + customerWa + '?text=' + text;
+  // Prefer opening chat that helps restaurant message guest — use restaurant number as note
+  // Standard: open WhatsApp to customer with prefilled receipt (from staff device) OR guest shares to self
+  window.open(url, '_blank');
+  toast('WhatsApp opened — review & send');
+}
+
+function savePaymentLog() {
+  var amount = parseFloat(document.getElementById('plog-amt').value);
+  if (!amount) { toast('Enter amount'); return; }
+  payments.unshift({
+    id: Date.now(),
+    amount: amount,
+    method: document.getElementById('plog-method').value,
+    table: document.getElementById('plog-table').value.trim(),
+    note: document.getElementById('plog-note').value.trim(),
+    at: new Date().toISOString(),
+    by: 'admin'
+  });
+  savePayments();
+  document.getElementById('admin-pay-log-modal').classList.remove('on');
+  toast('Payment saved');
+  if (typeof drawAdminPayments === 'function') drawAdminPayments();
+}
+function openAdminPayLog() {
+  document.getElementById('plog-amt').value = '';
+  document.getElementById('plog-table').value = '';
+  document.getElementById('plog-note').value = '';
+  document.getElementById('admin-pay-log-modal').classList.add('on');
+}
+function drawAdminPayments() {
+  var el = document.getElementById('a-payments');
+  if (!el) return;
+  var html = '<button type="button" class="btn btn-main" style="margin-bottom:12px" onclick="openAdminPayLog()">+ Record payment received</button>';
+  if (!payments.length) html += '<p class="muted center">No payments logged yet</p>';
+  else html += payments.slice(0, 40).map(function(p) {
+    return '<div class="card" style="flex-direction:column"><b class="gold">₹' + p.amount + '</b> · ' + p.method +
+      '<div class="muted" style="font-size:12px">Table ' + (p.table || '-') + ' · ' + new Date(p.at).toLocaleString() +
+      (p.customerName ? ' · ' + p.customerName : '') + (p.customerPhone ? ' · ' + p.customerPhone : '') + '</div></div>';
+  }).join('');
+  // customers summary
+  var keys = Object.keys(customers);
+  html += '<h3 class="gold" style="margin:16px 0 8px;font-size:14px">Customers (' + keys.length + ')</h3>';
+  if (!keys.length) html += '<p class="muted">No saved customers yet</p>';
+  else html += keys.slice(0, 30).map(function(ph) {
+    var c = customers[ph];
+    return '<div class="card" style="flex-direction:column"><b>' + (c.name || 'Guest') + '</b><span class="muted">' + ph + ' · ' + (c.visits || 1) + ' visits</span></div>';
+  }).join('');
+  el.innerHTML = html;
+}
+
+
+
+function callWaiter() {
+  notifs.unshift({ id: Date.now(), type: 'WAITER', message: 'Waiter for Table ' + table, at: new Date().toISOString(), done: false });
+  save('mm_n', notifs); toast('Waiter called');
+}
+function reqBill() {
+  notifs.unshift({ id: Date.now(), type: 'BILL', message: 'Bill for Table ' + table, at: new Date().toISOString(), done: false });
+  save('mm_n', notifs);
+  var open = orders.filter(function(o) {
+    return o.table === table && o.status !== 'CANCELLED' && o.status !== 'PAID';
+  });
+  var total = open.reduce(function(s, o) { return s + (o.total || 0); }, 0);
+  if (total > 0) {
+    toast('Bill · ₹' + total);
+    showPayQR(total, open[0] && open[0].id);
+  } else {
+    toast('Bill requested · no open amount');
+    showPayQR(null, null);
+  }
+}
+function canCancel(o) { return o.status === 'NEW' && o.cancelUntil && Date.now() < o.cancelUntil; }
+function fmt(ms) {
+  if (ms <= 0) return '0:00';
+  var s = Math.ceil(ms/1000);
+  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+}
+function cancelOrder(id) {
+  var o = orders.find(function(x){ return x.id === id; });
+  if (!o || !canCancel(o)) { toast('Cannot cancel now'); return; }
+  if (!confirm('Cancel this order?')) return;
+  o.status = 'CANCELLED'; save('mm_o', orders); toast('Cancelled'); myOrders();
+}
+function myOrders() {
+  var mine = orders.filter(function(o){ return o.table === table; });
+  var el = document.getElementById('my-list');
+  if (!mine.length) el.innerHTML = '<p class="muted center" style="padding:40px">No orders yet</p>';
+  else el.innerHTML = mine.map(function(o) {
+    var rem = o.cancelUntil ? o.cancelUntil - Date.now() : 0;
+    var cbtn = '';
+    if (o.status === 'CANCELLED') cbtn = '<p style="color:var(--bad);font-size:13px;margin-top:8px">Cancelled</p>';
+    else if (canCancel(o)) cbtn = '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span class="gold">⏱ ' + fmt(rem) + '</span><button type="button" class="btn-bad" onclick="cancelOrder(\'' + o.id + '\')">Cancel order</button></div>';
+    return '<div class="card" style="flex-direction:column"><div style="display:flex;justify-content:space-between"><b>' + o.id + '</b><span class="gold">' + o.status + '</span></div>' +
+      o.items.map(function(i){ return '<div class="muted">' + i.qty + '× ' + i.name + '</div>'; }).join('') +
+      '<b class="gold" style="margin-top:6px">₹' + o.total + '</b>' + cbtn + '</div>';
+  }).join('');
+  go('myorders');
+}
+
+/* Places local */
+function drawPlaces() {
+  document.getElementById('places').innerHTML = PLACES.map(function(p) {
+    return '<div class="place"><div class="hero">' + p.emoji + '</div><h3>' + p.name + '</h3>' +
+      '<div class="tag">' + p.tag + ' · ' + p.distance + '</div><p>' + p.summary + '</p>' +
+      '<div class="tip">💡 ' + p.tips + '</div></div>';
+  }).join('');
+}
+drawPlaces();
+
+/* ===== Mobile-safe optional library loader ===== */
+var MM_SCRIPT_PROMISES = {};
+function loadOptionalScript(src, globalName, timeoutMs) {
+  if (globalName && typeof window[globalName] !== 'undefined') return Promise.resolve(window[globalName]);
+  if (MM_SCRIPT_PROMISES[src]) return MM_SCRIPT_PROMISES[src];
+  MM_SCRIPT_PROMISES[src] = new Promise(function(resolve, reject) {
+    var done = false;
+    var timer = setTimeout(function() {
+      if (done) return;
+      done = true;
+      reject(new Error('Script timeout'));
+    }, timeoutMs || 7000);
+    var el = document.createElement('script');
+    el.src = src;
+    el.async = true;
+    el.onload = function() {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(globalName ? window[globalName] : true);
+    };
+    el.onerror = function() {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      reject(new Error('Script failed to load'));
+    };
+    document.head.appendChild(el);
+  });
+  return MM_SCRIPT_PROMISES[src];
+}
+function ensureQRCode() {
+  if (typeof QRCode !== 'undefined') return Promise.resolve(QRCode);
+  return loadOptionalScript('https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js', 'QRCode', 7000);
+}
+function ensureHtml5Qrcode() {
+  if (typeof Html5Qrcode !== 'undefined') return Promise.resolve(Html5Qrcode);
+  return loadOptionalScript('https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js', 'Html5Qrcode', 9000);
+}
+
+/* Scan */
+function openScan() {
+  document.getElementById('scan-modal').classList.add('on');
+  document.getElementById('scan-st').textContent = 'Starting camera…';
+  startScan();
+}
+function closeScan() {
+  stopScan();
+  document.getElementById('scan-modal').classList.remove('on');
+}
+function stopScan() {
+  if (scanner) {
+    try { scanner.stop().then(function(){ scanner = null; }).catch(function(){ scanner = null; }); }
+    catch(e) { scanner = null; }
+  }
+}
+function parseTable(text) {
+  if (!text) return null;
+  text = String(text).trim();
+  var m = text.match(/[?&]table=(\d{1,2})/i) || text.match(/table[\/\-](\d{1,2})/i) || text.match(/^(\d{1,2})$/);
+  if (!m) return null;
+  var n = parseInt(m[1], 10);
+  var max = 50;
+  try { max = tableCount(); } catch (e) { max = 50; }
+  return (n >= 1 && n <= max) ? String(n) : null;
+}
+function startScan() {
+  stopScan();
+  var status = document.getElementById('scan-st');
+  status.textContent = 'Loading camera scanner…';
+  ensureHtml5Qrcode().then(function(H5) {
+    scanner = new H5('qr-reader');
+    return H5.getCameras();
+  }).then(function(cams) {
+    if (!cams.length) { status.textContent = 'No camera — type table number'; return; }
+    var id = cams[0].id;
+    var back = cams.find(function(c){ return /back|rear|environment/i.test(c.label||''); });
+    if (back) id = back.id;
+    scanner.start(id, { fps: 8, qrbox: { width: 200, height: 200 } }, function(txt) {
+      var t = parseTable(txt);
+      if (t) { closeScan(); startTable(t); toast('Table ' + t); }
+    }, function(){}).then(function(){
+      status.textContent = 'Point at QR code';
+    }).catch(function(){
+      status.textContent = 'Allow camera or type table number';
+    });
+  }).catch(function(){
+    status.textContent = 'Camera scanner unavailable — type table number';
+  });
+}
+function manualTable() {
+  var t = parseTable(document.getElementById('manual-t').value);
+  if (!t) { toast('Enter 1–16'); return; }
+  closeScan(); startTable(t);
+}
+
+/* Waiter */
+function enterWaiter() {
+  if (role !== 'waiter' && role !== 'admin') { openLogin('waiter'); return; }
+  go('waiter');
+  var g = document.getElementById('w-tables');
+  g.innerHTML = '';
+  rebuildTables();
+  MENU.tables.forEach(function(t) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'tbtn'; b.textContent = t.number;
+    b.onclick = (function(n){ return function(){ pickW(n); }; })(t.number);
+    g.appendChild(b);
+  });
+  document.getElementById('w-area').style.display = 'none';
+  wCart = []; wTable = null;
+}
+function pickW(n) {
+  wTable = n; wCart = []; wCat = 'all';
+  document.getElementById('w-tbl').textContent = 'Table ' + n;
+  document.getElementById('w-area').style.display = 'block';
+  document.getElementById('w-search').value = '';
+  wCats(); wMenu(); wDrawCart();
+}
+function wCats() {
+  var h = '<button type="button" class="cat' + (wCat==='all'?' on':'') + '" onclick="setWC(\'all\')">All</button>';
+  MENU.categories.filter(function(c){return c.is_visible;}).forEach(function(c) {
+    h += '<button type="button" class="cat' + (wCat===c.slug?' on':'') + '" onclick="setWC(\'' + c.slug + '\')">' + c.name + '</button>';
+  });
+  document.getElementById('w-cats').innerHTML = h;
+}
+function setWC(s) { wCat = s; wCats(); wMenu(); }
+function wMenu() {
+  var q = (document.getElementById('w-search').value || '').toLowerCase();
+  var items = MENU.menu_items.filter(function(i){ return i.is_available; });
+  if (wCat !== 'all') items = items.filter(function(i){ return i.category_slug === wCat; });
+  if (q) items = items.filter(function(i){ return i.name.toLowerCase().indexOf(q) >= 0; });
+  document.getElementById('w-menu').innerHTML = items.map(function(item) {
+    var inC = wCart.find(function(c){ return c.id === item.id; });
+    return '<div class="card" style="padding:10px"><div class="pic" style="width:44px;height:44px;font-size:20px">' + (item.is_veg?'🥗':'🍖') + '</div><div style="flex:1"><div class="name" style="font-size:14px">' + item.name + '</div><div class="row"><span class="price">₹' + item.price + '</span>' +
+      (inC ? '<div class="qty"><button type="button" onclick="wQty(' + item.id + ',-1)">−</button><b>' + inC.qty + '</b><button type="button" class="p" onclick="wQty(' + item.id + ',1)">+</button></div>'
+           : '<button type="button" class="add" onclick="wAdd(' + item.id + ')">ADD</button>') + '</div></div></div>';
+  }).join('');
+}
+function wAdd(id) {
+  var item = MENU.menu_items.find(function(i){ return i.id === id; });
+  var ex = wCart.find(function(c){ return c.id === id; });
+  if (ex) ex.qty++; else wCart.push({ id: id, name: item.name, price: item.price, qty: 1 });
+  wMenu(); wDrawCart();
+}
+function wQty(id, d) {
+  var c = wCart.find(function(x){ return x.id === id; }); if (!c) return;
+  c.qty += d; if (c.qty <= 0) wCart = wCart.filter(function(x){ return x.id !== id; });
+  wMenu(); wDrawCart();
+}
+function wDrawCart() {
+  document.getElementById('w-total').textContent = '₹' + wCart.reduce(function(s,c){ return s + c.price*c.qty; }, 0);
+  document.getElementById('w-cart').innerHTML = wCart.length ? wCart.map(function(c){ return c.qty + '× ' + c.name; }).join('<br>') : 'Empty';
+}
+function wSend() {
+  if (!wTable || !wCart.length) { toast('Pick table & add food'); return; }
+  var date = new Date();
+  var id = 'MM-' + date.toISOString().slice(0,10).replace(/-/g,'') + '-' + String(orders.filter(function(o){ return o.createdAt.slice(0,10) === date.toISOString().slice(0,10); }).length + 1).padStart(3,'0');
+  var notes = (document.getElementById('w-notes').value || '').trim();
+  orders.unshift({
+    id: id, table: wTable,
+    items: wCart.map(function(c){ return { name: c.name, price: c.price, qty: c.qty }; }),
+    total: wCart.reduce(function(s,c){ return s + c.price*c.qty; }, 0),
+    status: 'NEW', notes: notes ? '[Waiter] ' + notes : '[Waiter]',
+    createdAt: date.toISOString(), cancelUntil: date.getTime() + CANCEL_MS
+  });
+  save('mm_o', orders); wCart = []; document.getElementById('w-notes').value = '';
+  wDrawCart(); wMenu(); toast('Sent to kitchen · Table ' + wTable);
+}
+
+/* Kitchen */
+function enterKitchen() {
+  if (role !== 'kitchen' && role !== 'admin') { openLogin('kitchen'); return; }
+  go('kitchen');
+  if (typeof drawK === 'function') drawK();
+  if (typeof drawKMenu === 'function') drawKMenu();
+}
+function setStatus(id, st) {
+  var o = orders.find(function(x){ return x.id === id; }); if (!o) return;
+  o.status = st; save('mm_o', orders); drawK(); toast(st);
+}
+function drawK() {
+  document.getElementById('k-time').textContent = new Date().toLocaleTimeString();
+  var qTitle = document.querySelector('.k-queue-title');
+  if (qTitle) {
+    var live = orders.filter(function(o){ return o.status==='NEW'||o.status==='PREPARING'||o.status==='READY'; }).length;
+    qTitle.textContent = '🔴 LIVE ORDER QUEUE · ' + live + ' active · updates every few seconds';
+  }
+  var N = orders.filter(function(o){ return o.status === 'NEW'; });
+  var P = orders.filter(function(o){ return o.status === 'PREPARING'; });
+  var R = orders.filter(function(o){ return o.status === 'READY'; });
+  document.getElementById('k-stats').innerHTML =
+    '<div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + orders.filter(function(o){return o.status==='SERVED';}).length + '</b>Done</div>';
+  function card(o, next, label, col) {
+    return '<div class="kcard" style="border-color:' + col + '"><b>Table ' + o.table + '</b><div class="muted" style="font-size:11px">' + o.id + '</div>' +
+      o.items.map(function(i){ return '<div style="font-size:13px">' + i.qty + '× ' + i.name + '</div>'; }).join('') +
+      (o.notes ? '<div class="muted" style="font-size:11px">' + o.notes + '</div>' : '') +
+      '<button type="button" style="background:' + col + ';color:#1a1208" onclick="setStatus(\'' + o.id + '\',\'' + next + '\')">' + label + '</button></div>';
+  }
+  document.getElementById('k-new').innerHTML = N.map(function(o){ return card(o,'PREPARING','START COOKING', 'var(--gold2)'); }).join('') || '<p class="k-empty">No new orders</p>';
+  document.getElementById('k-prep').innerHTML = P.map(function(o){ return card(o,'READY','MARK READY', 'var(--warn)'); }).join('') || '<p class="k-empty">Nothing cooking</p>';
+  document.getElementById('k-ready').innerHTML = R.map(function(o){ return card(o,'SERVED','SERVED', 'var(--ok)'); }).join('') || '<p class="k-empty">Nothing ready</p>';
+}
+function drawKMenu() {
+  document.getElementById('k-menu').innerHTML = MENU.menu_items.slice(0,50).map(availRow).join('');
+}
+function availRow(item) {
+  return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--card);border-radius:10px;margin-bottom:6px;border:1px solid var(--line)">' +
+    '<span style="font-size:13px">' + item.name + ' · ₹' + item.price + '</span>' +
+    '<button type="button" class="btn-sm" style="background:' + (item.is_available?'rgba(62,207,142,.2)':'rgba(232,106,106,.2)') + ';color:' + (item.is_available?'var(--ok)':'var(--bad)') + ';border:none;font-weight:700;cursor:pointer" onclick="toggleItem(' + item.id + ')">' +
+    (item.is_available ? 'Available' : 'Sold out') + '</button></div>';
+}
+function toggleItem(id) {
+  if (role !== 'admin' && role !== 'kitchen') return;
+  var item = MENU.menu_items.find(function(i){ return i.id === id; });
+  if (!item) return;
+  item.is_available = !item.is_available;
+  if (document.getElementById('a-menu').style.display !== 'none') document.getElementById('a-menu').innerHTML = MENU.menu_items.map(availRow).join('');
+  if (document.getElementById('kitchen').classList.contains('on')) drawKMenu();
+  toast(item.is_available ? 'Available' : 'Sold out');
+}
+
+/* Admin */
+function enterAdmin() {
+  if (role !== 'admin') { openLogin('admin'); return; }
+  try { go('admin'); } catch (e) { console.error(e); }
+  if (typeof updOpenBtn === 'function') updOpenBtn();
+  if (typeof drawAdminOrders === 'function') drawAdminOrders();
+}
+function updOpenBtn() {
+  var b = document.getElementById('open-btn');
+  b.textContent = isOpen ? 'OPEN' : 'CLOSED';
+  b.style.color = isOpen ? 'var(--ok)' : 'var(--bad)';
+}
+function toggleOpen() {
+  isOpen = !isOpen; localStorage.setItem('mm_open', isOpen ? 'true' : 'false');
+  updOpenBtn(); setOpenPill();
+
+/* ===== BOOT: wire everything ===== */
+
+window.go = go;
+window.doLogin = doLogin;
+window.openLogin = openLogin;
+window.showStaffPanel = showStaffPanel;
+window.hideStaffPanel = hideStaffPanel;
+window.goManualHomeTable = goManualHomeTable;
+window.startTable = startTable;
+window.openScan = openScan;
+window.closeScan = closeScan;
+window.manualTable = goManualTable;
+window.goManualTable = goManualTable;
+window.openCart = openCart;
+window.closeCart = closeCart;
+window.placeOrder = placeOrder;
+window.add = add;
+window.qty = qty;
+window.callWaiter = callWaiter;
+window.reqBill = reqBill;
+window.myOrders = myOrders;
+window.cancelOrder = cancelOrder;
+window.backMenu = backMenu;
+window.openGuide = openGuide;
+window.closeGuide = closeGuide;
+window.openSpecial = openSpecial;
+window.closeSpecial = closeSpecial;
+window.openParty = openParty;
+window.closeParty = closeParty;
+window.sendParty = sendParty;
+window.openReview = openReview;
+window.closeReview = closeReview;
+window.sendReview = sendReview;
+window.setStar = setStar;
+window.showPayQR = showPayQR;
+window.closePayQR = closePayQR;
+window.markPaidFromPay = markPaidFromPay;
+window.selectPayMethod = selectPayMethod;
+window.markPaidMethod = markPaidMethod;
+window.afterPaidFlow = afterPaidFlow;
+window.saveCustomerProfile = saveCustomerProfile;
+window.skipCustomerProfile = skipCustomerProfile;
+window.openPhoneModal = openPhoneModal;
+window.sendWhatsAppReceipt = sendWhatsAppReceipt;
+window.openAdminPayLog = openAdminPayLog;
+window.savePaymentLog = savePaymentLog;
+window.drawAdminPayments = drawAdminPayments;
+window.logout = logout;
+window.tab = tab;
+window.toggleOpen = toggleOpen;
+window.setStatus = setStatus;
+window.toggleItem = toggleItem;
+window.showQR = showQR;
+window.dlQR = dlQR;
+window.saveSettings = saveSettings;
+window.loadRemoteData = loadRemoteData;
+window.exportConfig = exportConfig;
+window.cookTap = cookTap;
+window.wAdd = wAdd;
+window.wQty = wQty;
+window.wSend = wSend;
+window.pickW = pickW;
+window.setCat = setCat;
+window.setWC = setWC;
+window.doneNotif = doneNotif;
+window.markParty = markParty;
+window.dismissTip = dismissTip;
+
+function bootApp() {
+  try {
+    if (typeof applySettings === 'function') applySettings();
+    if (typeof rebuildTables === 'function') rebuildTables();
+    if (typeof renderHomeTables === 'function') renderHomeTables();
+    if (typeof drawPlaces === 'function') drawPlaces();
+    if (typeof setOpenPill === 'function') setOpenPill();
+    if (typeof bindStaffSecrets === 'function') bindStaffSecrets();
+  } catch (e) { console.error('boot', e); }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootApp);
+} else {
+  bootApp();
+}
+
+/* Service worker intentionally disabled in the single-file build to prevent stale mobile caches. */
+ toast(isOpen ? 'Open' : 'Closed');
+}
+function tab(btn, name) {
+  document.querySelectorAll('.tabs button').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  ['orders','alerts','menu','qr','stats','party','reviews','payments','settings'].forEach(function(t) {
+    document.getElementById('a-' + t).style.display = t === name ? 'block' : 'none';
+  });
+  if (name === 'alerts') drawAlerts();
+  if (name === 'menu') document.getElementById('a-menu').innerHTML = MENU.menu_items.map(availRow).join('');
+  if (name === 'qr') drawQR();
+  if (name === 'stats') drawStats();
+  if (name === 'party') drawParty();
+  if (name === 'reviews') drawReviews();
+  if (name === 'settings') drawSettings();
+  if (name === 'payments') drawAdminPayments();
+}
+function drawAdminOrders() {
+  var N = orders.filter(function(o){ return o.status === 'NEW'; });
+  var P = orders.filter(function(o){ return o.status === 'PREPARING'; });
+  var R = orders.filter(function(o){ return o.status === 'READY'; });
+  var html = '<div class="stats"><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + orders.filter(function(o){return o.status==='SERVED';}).length + '</b>Served</div></div>';
+  function sec(title, list) {
+    if (!list.length) return '';
+    return '<h3 class="gold" style="font-size:12px;padding:8px 12px">' + title + '</h3>' + list.map(function(o) {
+      return '<div class="card" style="margin:8px 12px;flex-direction:column"><div style="display:flex;justify-content:space-between"><b class="gold">Table ' + o.table + '</b><span class="muted">' + o.status + '</span></div>' +
+        o.items.map(function(i){ return '<div style="font-size:13px">' + i.qty + '× ' + i.name + '</div>'; }).join('') +
+        '<b class="gold">₹' + o.total + '</b></div>';
+    }).join('');
+  }
+  html += sec('New', N) + sec('Cooking', P) + sec('Ready', R);
+  if (!orders.length) html += '<p class="muted center" style="padding:30px">No orders yet — they appear automatically</p>';
+  document.getElementById('a-orders').innerHTML = html;
+}
+function drawAlerts() {
+  var u = notifs.filter(function(n){ return !n.done; });
+  document.getElementById('a-alerts').innerHTML = u.length ? u.map(function(n) {
+    return '<div class="card" style="justify-content:space-between"><div><b>' + n.message + '</b><div class="muted">' + new Date(n.at).toLocaleTimeString() + '</div></div>' +
+      '<button type="button" class="btn btn-ok btn-sm" onclick="doneNotif(' + n.id + ')">Done</button></div>';
+  }).join('') : '<p class="muted center">No alerts</p>';
+}
+function doneNotif(id) {
+  var n = notifs.find(function(x){ return x.id === id; });
+  if (n) { n.done = true; save('mm_n', notifs); drawAlerts(); }
+}
+function drawQR() {
+  document.getElementById('a-qr').innerHTML = '<p class="muted" style="margin-bottom:10px">Download QR for each table. Stick on table. Guest scans to order.</p><div class="table-grid">' +
+    MENU.tables.map(function(t) {
+      return '<button type="button" class="tbtn" style="font-size:12px;flex-direction:column" onclick="showQR(\'' + t.number + '\')">' + t.number + '<br>QR</button>';
+    }).join('') + '</div>';
+}
+function showQR(t) {
+  document.getElementById('qr-lab').textContent = t;
+  var url = location.href.split('?')[0].split('#')[0] + '?table=' + t;
+  var box = document.getElementById('qr-code'); box.innerHTML = '<div class="muted" style="padding:55px 8px">Preparing QR…</div>';
+  document.getElementById('qr-modal').classList.add('on');
+  ensureQRCode().then(function(QR) {
+    if (!document.getElementById('qr-modal').classList.contains('on')) return;
+    box.innerHTML = '';
+    QR.toCanvas(document.createElement('canvas'), url, { width: 180, margin: 2 }, function(err, c) {
+      if (!err && c) { c.id = 'qr-cv'; box.appendChild(c); }
+      else box.innerHTML = '<div class="muted" style="padding:55px 8px">QR unavailable</div>';
+    });
+  }).catch(function(){ box.innerHTML = '<div class="muted" style="padding:55px 8px">QR unavailable — copy the table link instead.</div>'; });
+}
+function dlQR() {
+  var c = document.getElementById('qr-cv'); if (!c) return;
+  var a = document.createElement('a'); a.download = 'table-qr.png'; a.href = c.toDataURL(); a.click();
+  toast('Downloaded');
+}
+function drawStats() {
+  var today = new Date().toISOString().slice(0,10);
+  var tod = orders.filter(function(o){ return o.createdAt.slice(0,10) === today && o.status !== 'CANCELLED'; });
+  var sales = tod.reduce(function(s,o){ return s + o.total; }, 0);
+  document.getElementById('a-stats').innerHTML = '<div class="stats" style="padding:0"><div class="stat"><b>' + tod.length + '</b>Orders</div><div class="stat"><b>₹' + sales + '</b>Sales</div><div class="stat"><b>' + bookings.length + '</b>Parties</div><div class="stat"><b>' + reviews.length + '</b>Reviews</div></div>';
+}
+function drawParty() {
+  document.getElementById('a-party').innerHTML = bookings.length ? bookings.map(function(b) {
+    return '<div class="card" style="flex-direction:column"><b class="gold">' + b.type + '</b><div>' + b.name + ' · ' + b.phone + '</div><div class="muted">' + b.date + ' · ' + b.guests + ' guests</div>' +
+      (b.status === 'NEW' ? '<button type="button" class="btn btn-ok btn-sm" style="margin-top:8px;width:auto" onclick="markParty(' + b.id + ')">Mark called</button>' : '<span class="muted">Contacted</span>') + '</div>';
+  }).join('') : '<p class="muted center">No party requests</p>';
+}
+function markParty(id) {
+  var b = bookings.find(function(x){ return x.id === id; });
+  if (b) { b.status = 'CONTACTED'; save('mm_b', bookings); drawParty(); }
+}
+function drawReviews() {
+  document.getElementById('a-reviews').innerHTML = reviews.length ? reviews.map(function(r) {
+    return '<div class="card" style="flex-direction:column"><b>' + r.name + '</b> ' + '★'.repeat(r.stars) + '<div class="muted">' + (r.text||'') + '</div></div>';
+  }).join('') : '<p class="muted center">No reviews</p>';
+}
+
+function openParty() { document.getElementById('party-modal').classList.add('on'); }
+function closeParty() { document.getElementById('party-modal').classList.remove('on'); }
+function sendParty() {
+  var name = document.getElementById('p-name').value.trim();
+  var phone = document.getElementById('p-phone').value.trim();
+  if (!name || !phone) { toast('Name & phone needed'); return; }
+  bookings.unshift({
+    id: Date.now(), name: name, phone: phone,
+    type: document.getElementById('p-type').value,
+    date: document.getElementById('p-date').value || 'TBD',
+    guests: document.getElementById('p-guests').value || '?',
+    notes: document.getElementById('p-notes').value.trim(), status: 'NEW'
+  });
+  save('mm_b', bookings); closeParty(); toast('Request sent · we will call you');
+}
+function openReview() { stars = 0; setStar(0); document.getElementById('review-modal').classList.add('on'); }
+function closeReview() { document.getElementById('review-modal').classList.remove('on'); }
+function setStar(n) {
+  stars = n;
+  var els = document.querySelectorAll('#stars span');
+  for (var i = 0; i < 5; i++) els[i].textContent = i < n ? '★' : '☆';
+}
+function sendReview() {
+  if (stars < 1) { toast('Tap stars'); return; }
+  reviews.unshift({
+    id: Date.now(), stars: stars,
+    name: document.getElementById('r-name').value.trim() || 'Guest',
+    text: document.getElementById('r-text').value.trim(), table: table
+  });
+  save('mm_r', reviews); closeReview(); toast('Thank you!');
+}
+
+
+/* Cooking logo game */
+var FOODS = ['🍛','🥗','🍖','🥘','🍲','🍕','🥟','🌶️','🧄','🧅','🍞','🧈'];
+function cookTap(stage, ev) {
+  if (!stage) return;
+  var foods = FOODS;
+  for (var i = 0; i < 5; i++) {
+    var f = document.createElement('span');
+    f.className = 'food-fly';
+    f.textContent = foods[Math.floor(Math.random() * foods.length)];
+    var ang = -Math.PI/2 + (Math.random() - 0.5) * 1.8;
+    var dist = 50 + Math.random() * 70;
+    f.style.left = '50%';
+    f.style.bottom = '40px';
+    f.style.setProperty('--fx', (Math.cos(ang) * dist) + 'px');
+    f.style.setProperty('--fy', (Math.sin(ang) * dist) + 'px');
+    stage.appendChild(f);
+    setTimeout((function(el){ return function(){ el.remove(); }; })(f), 900);
+  }
+  if (typeof spawnSparks === 'function') spawnSparks(stage, 10);
+  try { toast(['Yum!','Sizzle!','Tasty!','Hot!','Wow!'][Math.floor(Math.random()*5)]); } catch(e) {}
+}
+
+/* App settings (admin editable) */
+function defaultSettings() {
+  return {
+    restaurantName: 'MIRCH MASAALA',
+    tagline: 'INDIAN RESTAURANT',
+    adminPhone: '+91 98765 43210',
+    passWaiter: 'waiter123',
+    passKitchen: 'kitchen123',
+    passAdmin: 'admin123',
+    dataUrl: '',
+    closedMessage: 'Restaurant is closed',
+    tableCount: 16,
+    upiId: 'mirchmasaala@upi',
+    upiName: 'Mirch Masaala',
+    payNote: 'Pay via UPI — show this QR to guest',
+    whatsappNumber: '919876543210',
+    whatsappName: 'Mirch Masaala',
+    gpayUpi: '',
+    phonepeUpi: '',
+    acceptCard: true,
+    acceptCash: true,
+    receiptMessage: 'Thank you for dining at Mirch Masaala!'
+  };
+}
+var SETTINGS = Object.assign(defaultSettings(), load('mm_settings', {}));
+
+function tableCount() {
+  var n = parseInt(SETTINGS.tableCount, 10);
+  if (!n || n < 1) n = 16;
+  if (n > 50) n = 50;
+  return n;
+}
+function rebuildTables() {
+  var n = tableCount();
+  var tables = [];
+  for (var i = 1; i <= n; i++) {
+    tables.push({ id: i, number: String(i).padStart(2, '0'), name: 'Table ' + String(i).padStart(2, '0'), is_active: true });
+  }
+  MENU.tables = tables;
+  return tables;
+}
+function renderHomeTables() {
+  rebuildTables();
+  var g = document.getElementById('tables');
+  if (!g) return;
+  g.innerHTML = '';
+  MENU.tables.forEach(function(t) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'tbtn'; b.textContent = t.number;
+    b.onclick = (function(num) { return function() { startTable(num); }; })(t.number);
+    g.appendChild(b);
+  });
+}
+function upiPayUrl(amount, orderId) {
+  var pa = encodeURIComponent(SETTINGS.upiId || 'mirchmasaala@upi');
+  var pn = encodeURIComponent(SETTINGS.upiName || SETTINGS.restaurantName || 'Mirch Masaala');
+  var am = amount ? String(amount) : '';
+  var tn = encodeURIComponent(orderId || 'Order');
+  var url = 'upi://pay?pa=' + pa + '&pn=' + pn + '&cu=INR';
+  if (am) url += '&am=' + encodeURIComponent(am);
+  if (orderId) url += '&tn=' + tn;
+  return url;
+}
+
+
+function applySettings() {
+  PASS.waiter = (SETTINGS.passWaiter && String(SETTINGS.passWaiter).trim()) || 'waiter123';
+  PASS.kitchen = (SETTINGS.passKitchen && String(SETTINGS.passKitchen).trim()) || 'kitchen123';
+  PASS.admin = (SETTINGS.passAdmin && String(SETTINGS.passAdmin).trim()) || 'admin123';
+  ADMIN_PHONE = SETTINGS.adminPhone || ADMIN_PHONE;
+  var n = SETTINGS.restaurantName || 'MIRCH MASAALA';
+  var tag = SETTINGS.tagline || 'INDIAN RESTAURANT';
+  var bs = document.getElementById('brand-splash');
+  if (bs) bs.textContent = n;
+  var bh = document.getElementById('brand-home');
+  if (bh) bh.innerHTML = '🌶️ ' + n.replace(' ', '<br>');
+  var bt = document.getElementById('brand-tag');
+  if (bt) bt.textContent = tag;
+  document.title = n;
+  rebuildTables();
+  if (document.getElementById('tables')) renderHomeTables();
+
+var staffTapCount = 0;
+var staffTapTimer = null;
+function showStaffPanel() {
+  var p = document.getElementById('staff-panel');
+  if (p) p.style.display = 'block';
+  toast('Choose your role, then enter password');
+}
+function hideStaffPanel() {
+  var p = document.getElementById('staff-panel');
+  if (p) p.style.display = 'none';
+}
+function staffSecretTap() {
+  showStaffPanel();
+}
+function bindStaffSecrets() {
+  var btn = document.getElementById('staff-open-btn');
+  if (btn) btn.onclick = function() { showStaffPanel(); };
+  var cook = document.getElementById('home-cook');
+  if (cook) {
+    var pressTimer = null;
+    cook.addEventListener('touchstart', function(e) {
+      pressTimer = setTimeout(function() { showStaffPanel(); }, 900);
+    }, { passive: true });
+    cook.addEventListener('touchend', function() { if (pressTimer) clearTimeout(pressTimer); });
+    cook.addEventListener('touchmove', function() { if (pressTimer) clearTimeout(pressTimer); });
+    cook.addEventListener('mousedown', function() {
+      pressTimer = setTimeout(function() { showStaffPanel(); }, 900);
+    });
+    cook.addEventListener('mouseup', function() { if (pressTimer) clearTimeout(pressTimer); });
+    cook.addEventListener('mouseleave', function() { if (pressTimer) clearTimeout(pressTimer); });
+  }
+  // URL ?staff=1 for bookmarks on staff devices
+  try {
+    if (new URLSearchParams(location.search).get('staff') === '1') showStaffPanel();
+  } catch(e) {}
+}
+bindStaffSecrets();
+
+
+}
+
+applySettings();
+
+function drawSettings() {
+  var s = SETTINGS;
+  document.getElementById('a-settings').innerHTML =
+    '<p class="muted" style="margin-bottom:12px">Change names, passwords & data source. Saved on this device.</p>' +
+    '<div class="settings-row"><label>Restaurant name</label><input id="set-name" value="' + esc(s.restaurantName) + '"></div>' +
+    '<div class="settings-row"><label>Tagline</label><input id="set-tag" value="' + esc(s.tagline) + '"></div>' +
+    '<div class="settings-row"><label>Admin contact phone</label><input id="set-phone" value="' + esc(s.adminPhone) + '"></div>' +
+    '<div class="settings-row"><label>Waiter password (all waiters)</label><input id="set-pw" value="' + esc(s.passWaiter) + '"></div>' +
+    '<div class="settings-row"><label>Kitchen password</label><input id="set-pk" value="' + esc(s.passKitchen) + '"></div>' +
+    '<div class="settings-row"><label>Admin password</label><input id="set-pa" value="' + esc(s.passAdmin) + '" type="password"></div>' +
+    '<div class="settings-row"><label>Closed message</label><input id="set-closed" value="' + esc(s.closedMessage) + '"></div>' +
+    '<div class="settings-row"><label>Number of tables (1–50)</label><input id="set-tables" type="number" min="1" max="50" value="' + (s.tableCount || 16) + '"></div>' +
+    '<div class="settings-row"><label>Main UPI ID (GPay default)</label><input id="set-upi" placeholder="yourname@okaxis" value="' + esc(s.upiId || '') + '"></div>' +
+    '<div class="settings-row"><label>UPI display name</label><input id="set-upiname" value="' + esc(s.upiName || '') + '"></div>' +
+    '<div class="settings-row"><label>PhonePe UPI (optional, else uses main)</label><input id="set-phonepe" placeholder="yourname@ybl" value="' + esc(s.phonepeUpi || '') + '"></div>' +
+    '<div class="settings-row"><label>Payment note</label><input id="set-paynote" value="' + esc(s.payNote || '') + '"></div>' +
+    '<div class="settings-row"><label>WhatsApp number (with country code, no +)</label><input id="set-wa" placeholder="919876543210" value="' + esc(s.whatsappNumber || '') + '"></div>' +
+    '<div class="settings-row"><label>WhatsApp display name</label><input id="set-waname" value="' + esc(s.whatsappName || '') + '"></div>' +
+    '<div class="settings-row"><label>Receipt message</label><input id="set-receipt" value="' + esc(s.receiptMessage || '') + '"></div>' +
+    '<div class="settings-row"><label><input type="checkbox" id="set-card" ' + (s.acceptCard !== false ? 'checked' : '') + '> Accept card</label></div>' +
+    '<div class="settings-row"><label><input type="checkbox" id="set-cash" ' + (s.acceptCash !== false ? 'checked' : '') + '> Accept cash</label></div>' +
+
+    '<div class="settings-row"><label>Online data URL (optional JSON)</label><input id="set-url" placeholder="https://...json or public Drive link" value="' + esc(s.dataUrl || '') + '"></div>' +
+    '<p class="muted" style="font-size:11px;margin-bottom:10px">UPI QR is shown when guest requests bill. Tables update on Save. Online URL can override menu & settings.</p>' +
+    '<button type="button" class="btn btn-main" onclick="saveSettings()">Save settings</button>' +
+    '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="loadRemoteData()">Load from URL now</button>' +
+    '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="exportConfig()">Export config JSON</button>' +
+    '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="showPayQR(null, null)">Preview payment QR</button>';
+}
+function esc(t) {
+  return String(t || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+function saveSettings() {
+  SETTINGS.restaurantName = document.getElementById('set-name').value.trim() || 'MIRCH MASAALA';
+  SETTINGS.tagline = document.getElementById('set-tag').value.trim() || 'INDIAN RESTAURANT';
+  SETTINGS.adminPhone = document.getElementById('set-phone').value.trim();
+  SETTINGS.passWaiter = document.getElementById('set-pw').value.trim() || 'waiter123';
+  SETTINGS.passKitchen = document.getElementById('set-pk').value.trim() || 'kitchen123';
+  SETTINGS.passAdmin = document.getElementById('set-pa').value.trim() || 'admin123';
+  SETTINGS.closedMessage = document.getElementById('set-closed').value.trim();
+  SETTINGS.dataUrl = document.getElementById('set-url').value.trim();
+  SETTINGS.tableCount = parseInt(document.getElementById('set-tables').value, 10) || 16;
+  if (SETTINGS.tableCount < 1) SETTINGS.tableCount = 1;
+  if (SETTINGS.tableCount > 50) SETTINGS.tableCount = 50;
+  SETTINGS.upiId = document.getElementById('set-upi').value.trim();
+  SETTINGS.upiName = document.getElementById('set-upiname').value.trim();
+  SETTINGS.phonepeUpi = document.getElementById('set-phonepe').value.trim();
+  SETTINGS.payNote = document.getElementById('set-paynote').value.trim();
+  SETTINGS.whatsappNumber = document.getElementById('set-wa').value.trim().replace(/[^0-9]/g, '');
+  SETTINGS.whatsappName = document.getElementById('set-waname').value.trim();
+  SETTINGS.receiptMessage = document.getElementById('set-receipt').value.trim();
+  SETTINGS.acceptCard = document.getElementById('set-card').checked;
+  SETTINGS.acceptCash = document.getElementById('set-cash').checked;
+  save('mm_settings', SETTINGS);
+  applySettings();
+  renderHomeTables();
+
+var staffTapCount = 0;
+var staffTapTimer = null;
+function showStaffPanel() {
+  var p = document.getElementById('staff-panel');
+  if (p) p.style.display = 'block';
+  toast('Choose your role, then enter password');
+}
+function hideStaffPanel() {
+  var p = document.getElementById('staff-panel');
+  if (p) p.style.display = 'none';
+}
+function staffSecretTap() {
+  showStaffPanel();
+}
+function bindStaffSecrets() {
+  var btn = document.getElementById('staff-open-btn');
+  if (btn) btn.onclick = function() { showStaffPanel(); };
+  var cook = document.getElementById('home-cook');
+  if (cook) {
+    var pressTimer = null;
+    cook.addEventListener('touchstart', function(e) {
+      pressTimer = setTimeout(function() { showStaffPanel(); }, 900);
+    }, { passive: true });
+    cook.addEventListener('touchend', function() { if (pressTimer) clearTimeout(pressTimer); });
+    cook.addEventListener('touchmove', function() { if (pressTimer) clearTimeout(pressTimer); });
+    cook.addEventListener('mousedown', function() {
+      pressTimer = setTimeout(function() { showStaffPanel(); }, 900);
+    });
+    cook.addEventListener('mouseup', function() { if (pressTimer) clearTimeout(pressTimer); });
+    cook.addEventListener('mouseleave', function() { if (pressTimer) clearTimeout(pressTimer); });
+  }
+  // URL ?staff=1 for bookmarks on staff devices
+  try {
+    if (new URLSearchParams(location.search).get('staff') === '1') showStaffPanel();
+  } catch(e) {}
+}
+bindStaffSecrets();
+
+
+  toast('Settings saved · ' + SETTINGS.tableCount + ' tables');
+}
+function driveToDirect(url) {
+  if (!url) return url;
+  // Google Drive file share → direct download
+  var m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if (m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
+  m = url.match(/[?&]id=([^&]+)/);
+  if (m && url.indexOf('drive.google.com') >= 0) return 'https://drive.google.com/uc?export=download&id=' + m[1];
+  return url;
+}
+function fetchWithTimeout(url, options, timeoutMs) {
+  timeoutMs = timeoutMs || 8000;
+  var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var opts = options || {};
+  if (controller) opts.signal = controller.signal;
+  var timer = setTimeout(function(){ if (controller) controller.abort(); }, timeoutMs);
+  return fetch(url, opts).then(function(r){ clearTimeout(timer); return r; }, function(err){ clearTimeout(timer); throw err; });
+}
+function loadRemoteData() {
+  var url = (document.getElementById('set-url') && document.getElementById('set-url').value.trim()) || SETTINGS.dataUrl;
+  if (!url) { toast('Enter a JSON URL first'); return; }
+  url = driveToDirect(url);
+  toast('Loading menu…');
+  fetchWithTimeout(url, { mode: 'cors', cache: 'no-store' }, 8000).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(data) {
+    if (data.restaurantName) SETTINGS.restaurantName = data.restaurantName;
+    if (data.tagline) SETTINGS.tagline = data.tagline;
+    if (data.adminPhone) SETTINGS.adminPhone = data.adminPhone;
+    if (data.passWaiter) SETTINGS.passWaiter = data.passWaiter;
+    if (data.passKitchen) SETTINGS.passKitchen = data.passKitchen;
+    if (data.passAdmin) SETTINGS.passAdmin = data.passAdmin;
+    if (data.closedMessage) SETTINGS.closedMessage = data.closedMessage;
+    if (data.menu && data.menu.menu_items) {
+      MENU.menu_items = data.menu.menu_items;
+      if (data.menu.categories) MENU.categories = data.menu.categories;
+      if (data.menu.tables) MENU.tables = data.menu.tables;
+      save('mm_remote_menu', data.menu);
+    }
+    if (data.categories) MENU.categories = data.categories;
+    if (data.menu_items) { MENU.menu_items = data.menu_items; save('mm_remote_menu', { menu_items: data.menu_items, categories: data.categories, tables: data.tables }); }
+    SETTINGS.dataUrl = document.getElementById('set-url') ? document.getElementById('set-url').value.trim() : SETTINGS.dataUrl;
+    save('mm_settings', SETTINGS);
+    applySettings();
+    toast('Loaded from URL');
+    drawSettings();
+  }).catch(function(err) {
+    console.warn(err);
+    toast('Could not load online menu — using saved menu');
+  });
+}
+function exportConfig() {
+  var cfg = {
+    restaurantName: SETTINGS.restaurantName,
+    tagline: SETTINGS.tagline,
+    adminPhone: SETTINGS.adminPhone,
+    passWaiter: SETTINGS.passWaiter,
+    passKitchen: SETTINGS.passKitchen,
+    passAdmin: SETTINGS.passAdmin,
+    closedMessage: SETTINGS.closedMessage,
+    tableCount: SETTINGS.tableCount,
+    upiId: SETTINGS.upiId,
+    upiName: SETTINGS.upiName,
+    payNote: SETTINGS.payNote,
+    menu: { categories: MENU.categories, menu_items: MENU.menu_items, tables: MENU.tables }
+  };
+  var blob = new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mirch-masaala-config.json';
+  a.click();
+  toast('Config downloaded — upload to Drive & use share link');
+}
+// Restore remote menu if saved
+(function() {
+  var rm = load('mm_remote_menu', null);
+  if (rm && rm.menu_items) {
+    MENU.menu_items = rm.menu_items;
+    if (rm.categories) MENU.categories = rm.categories;
+    if (rm.tables) MENU.tables = rm.tables;
+  }
+  if (SETTINGS.dataUrl) {
+    // Optional background sync. Never block first paint or menu startup.
+    setTimeout(function() {
+      var u = driveToDirect(SETTINGS.dataUrl);
+      fetchWithTimeout(u, { mode: 'cors', cache: 'no-store' }, 7000).then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function(data) {
+        if (data.menu_items || (data.menu && data.menu.menu_items)) {
+          var menu = data.menu || data;
+          if (menu.menu_items) MENU.menu_items = menu.menu_items;
+          if (menu.categories) MENU.categories = menu.categories;
+          if (menu.tables) MENU.tables = menu.tables;
+          save('mm_remote_menu', menu);
+          try { if (document.getElementById('home').classList.contains('on')) renderHomeTables(); } catch(e) {}
+        }
+        if (data.restaurantName) { SETTINGS.restaurantName = data.restaurantName; applySettings(); }
+      }).catch(function(err){ console.warn('Background menu sync skipped:', err); });
+    }, 1200);
+  }
+})();
+
+
+setInterval(function() {
+  orders = load('mm_o', []);
+  notifs = load('mm_n', []);
+  if (orders.length > lastN && (role === 'admin' || role === 'kitchen' || role === 'waiter')) toast('New order!');
+  lastN = orders.length;
+  if (document.getElementById('admin').classList.contains('on') && role === 'admin') drawAdminOrders();
+  if (document.getElementById('kitchen').classList.contains('on') && role === 'kitchen') drawK();
+}, 2000);
+
+var params = new URLSearchParams(location.search);
+if (params.get('table')) setTimeout(function(){ startTable(params.get('table')); }, 2900);
+setOpenPill();
+
+/* ===== BOOT: wire everything ===== */
+
+window.go = go;
+window.doLogin = doLogin;
+window.openLogin = openLogin;
+window.showStaffPanel = showStaffPanel;
+window.hideStaffPanel = hideStaffPanel;
+window.goManualHomeTable = goManualHomeTable;
+window.startTable = startTable;
+window.openScan = openScan;
+window.closeScan = closeScan;
+window.manualTable = goManualTable;
+window.goManualTable = goManualTable;
+window.openCart = openCart;
+window.closeCart = closeCart;
+window.placeOrder = placeOrder;
+window.add = add;
+window.qty = qty;
+window.callWaiter = callWaiter;
+window.reqBill = reqBill;
+window.myOrders = myOrders;
+window.cancelOrder = cancelOrder;
+window.backMenu = backMenu;
+window.openGuide = openGuide;
+window.closeGuide = closeGuide;
+window.openSpecial = openSpecial;
+window.closeSpecial = closeSpecial;
+window.openParty = openParty;
+window.closeParty = closeParty;
+window.sendParty = sendParty;
+window.openReview = openReview;
+window.closeReview = closeReview;
+window.sendReview = sendReview;
+window.setStar = setStar;
+window.showPayQR = showPayQR;
+window.closePayQR = closePayQR;
+window.markPaidFromPay = markPaidFromPay;
+window.selectPayMethod = selectPayMethod;
+window.markPaidMethod = markPaidMethod;
+window.afterPaidFlow = afterPaidFlow;
+window.saveCustomerProfile = saveCustomerProfile;
+window.skipCustomerProfile = skipCustomerProfile;
+window.openPhoneModal = openPhoneModal;
+window.sendWhatsAppReceipt = sendWhatsAppReceipt;
+window.openAdminPayLog = openAdminPayLog;
+window.savePaymentLog = savePaymentLog;
+window.drawAdminPayments = drawAdminPayments;
+window.logout = logout;
+window.tab = tab;
+window.toggleOpen = toggleOpen;
+window.setStatus = setStatus;
+window.toggleItem = toggleItem;
+window.showQR = showQR;
+window.dlQR = dlQR;
+window.saveSettings = saveSettings;
+window.loadRemoteData = loadRemoteData;
+window.exportConfig = exportConfig;
+window.cookTap = cookTap;
+window.wAdd = wAdd;
+window.wQty = wQty;
+window.wSend = wSend;
+window.pickW = pickW;
+window.setCat = setCat;
+window.setWC = setWC;
+window.doneNotif = doneNotif;
+window.markParty = markParty;
+window.dismissTip = dismissTip;
+
+function bootApp() {
+  try {
+    if (typeof applySettings === 'function') applySettings();
+    if (typeof rebuildTables === 'function') rebuildTables();
+    if (typeof renderHomeTables === 'function') renderHomeTables();
+    if (typeof drawPlaces === 'function') drawPlaces();
+    if (typeof setOpenPill === 'function') setOpenPill();
+    if (typeof bindStaffSecrets === 'function') bindStaffSecrets();
+  } catch (e) { console.error('boot', e); }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootApp);
+} else {
+  bootApp();
+}
+
+/* Service worker intentionally disabled in the single-file build to prevent stale mobile caches. */
+
+</script>
 </body>
 </html>
