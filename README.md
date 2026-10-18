@@ -28,7 +28,7 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 - Local owner price changes only affect the browser where they are saved until shared database persistence is implemented.
 - UPI requires the owner to enter a real merchant VPA (UPI ID) in Admin → Settings. A missing UPI ID disables the UPI launch path and asks the customer to contact staff.
 - Payment completion is not verified automatically by this static frontend. Even if an app reports that a payment was submitted, staff must verify the money was received before marking an order paid.
-- QR generation uses a public CDN library loaded on demand and requires internet access. If QR generation does not load, retry with a working connection.
+- QR generation uses public CDN sources with a backup QR-image service, so internet access is required for both normal and fallback generation.
 
 ## Main files
 
