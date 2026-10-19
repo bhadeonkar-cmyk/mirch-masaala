@@ -2265,7 +2265,7 @@ function doneNotif(id) {
   if (n) { n.done = true; save('mm_n', notifs); drawAlerts(); }
 }
 function drawQR() {
-  document.getElementById('a-qr').innerHTML = '<p class="muted" style="margin-bottom:10px">Each QR opens the exact table menu directly. Print all table stickers or download an individual QR.</p><div class="qr-actions"><button type="button" class="btn btn-main" onclick="downloadAllQRCodes()">⬇️ Download printable QR sheet</button></div><div class="table-grid">' +
+  document.getElementById('a-qr').innerHTML = '<p class="muted" style="margin-bottom:10px">Each QR opens the exact table menu directly. Print all table stickers or download an individual QR.</p><div class="qr-actions"><button type="button" class="btn btn-main" onclick="downloadAllQRCodes()">🖨️ Open / print QR sheet</button></div><div class="table-grid">' +
     MENU.tables.map(function(t) {
       return '<button type="button" class="tbtn" style="font-size:12px;flex-direction:column" onclick="showQR(\'' + t.number + '\')">' + t.number + '<br>QR</button>';
     }).join('') + '</div>';
