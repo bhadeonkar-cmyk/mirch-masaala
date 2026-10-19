@@ -427,7 +427,7 @@ button, input, select, textarea { font: inherit; }
 }
 /* UX upgrades: swipeable table cards, food filters and progress animations */
 #tables.table-grid{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;padding:8px 4px 16px;margin:10px -2px 14px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(212,168,75,.55) transparent}
-#tables .table-carousel-card{flex:0 0 116px;min-width:116px;aspect-ratio:auto;height:126px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;scroll-snap-align:start;border-radius:20px;background:linear-gradient(155deg,rgba(212,168,75,.17),rgba(38,28,24,.96) 70%);box-shadow:0 10px 24px rgba(0,0,0,.18);animation:tableCardIn .42s both}
+#tables .table-carousel-card{flex:0 0 116px;min-width:116px;aspect-ratio:auto;height:126px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;scroll-snap-align:start;border-radius:20px;background:linear-gradient(155deg,rgba(212,168,75,.17),rgba(38,28,24,.96) 70%);box-shadow:0 10px 24px rgba(0,0,0,.18);animation:tableCardIn .42s backwards}
 #tables .table-carousel-card:nth-child(2n){animation-delay:.045s}#tables .table-carousel-card:nth-child(3n){animation-delay:.09s}
 .table-card-kicker{font-size:10px;letter-spacing:2px;color:var(--muted);font-weight:800}#tables .table-carousel-card strong{font-size:30px;line-height:1;color:var(--gold2)}.table-card-hint{font-size:10px;color:var(--muted);font-weight:600}
 @keyframes tableCardIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
