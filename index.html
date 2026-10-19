@@ -770,8 +770,9 @@ button, input, select, textarea { font: inherit; }
     <div style="font-size:28px">🌶️</div>
     <h3>MIRCH MASAALA</h3>
     <p class="muted">TABLE <b id="qr-lab"></b></p>
-    <div id="qr-code" style="display:flex;justify-content:center;margin:10px 0"></div>
-    <button type="button" class="btn btn-main" onclick="dlQR()">Download QR</button>
+    <div id="qr-code" style="display:flex;justify-content:center;margin:10px 0;min-height:250px;align-items:center"></div>
+    <a id="qr-open-link" class="btn btn-soft" href="#" target="_blank" rel="noopener" style="display:none;margin-bottom:8px;text-decoration:none">Open QR image · Save on iPhone</a>
+    <button type="button" class="btn btn-main" id="qr-download-btn" onclick="dlQR()" disabled>Preparing QR…</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="document.getElementById('qr-modal').classList.remove('on')">Close</button>
   </div>
 </div>
@@ -1819,30 +1820,64 @@ function ensureQRCode() {
     'https://unpkg.com/qrcode@1.5.4/lib/browser.min.js'
   ],'QRCode',function(q){return typeof q.toDataURL==='function';});
 }
-function qrApiURL(text,size) {
-  return 'https://api.qrserver.com/v1/create-qr-code/?size='+size+'x'+size+'&margin=8&format=png&data='+encodeURIComponent(text);
+function qrApiURLs(text,size) {
+  var data=encodeURIComponent(text);
+  return [
+    'https://api.qrserver.com/v1/create-qr-code/?size='+size+'x'+size+'&margin=8&format=png&data='+data,
+    'https://quickchart.io/qr?text='+data+'&size='+size+'&margin=2&ecLevel=H',
+    'https://quickchart.io/qr?text='+data+'&size='+size+'&margin=2'
+  ];
 }
+function qrApiURL(text,size) { return qrApiURLs(text,size)[0]; }
 function makeQRImage(text,size) {
-  return ensureQRCode().then(function(QR){
-    return new Promise(function(resolve,reject){
-      QR.toDataURL(text,{width:size,margin:2,errorCorrectionLevel:'H'},function(err,data){if(err)reject(err);else resolve(data);});
-    });
-  }).catch(function(){return qrApiURL(text,size);});
+  return new Promise(function(resolve){
+    var settled=false,timer=null;
+    function finish(src){if(settled)return;settled=true;if(timer)clearTimeout(timer);resolve(src);}
+    // If JavaScript CDNs are slow on mobile, use the image fallback quickly rather than showing a spinner indefinitely.
+    timer=setTimeout(function(){finish(qrApiURL(text,size));},1800);
+    ensureQRCode().then(function(QR){
+      QR.toDataURL(text,{width:size,margin:2,errorCorrectionLevel:'H'},function(err,data){
+        finish(!err&&data?data:qrApiURL(text,size));
+      });
+    }).catch(function(){finish(qrApiURL(text,size));});
+  });
+}
+function configureQRImage(img,text,size,firstSource,onReady,onFailure) {
+  var sources=qrApiURLs(text,size);
+  var next=0;
+  if(firstSource.indexOf('api.qrserver.com')>=0)next=1;
+  else if(firstSource.indexOf('quickchart.io')>=0)next=2;
+  function failed(){
+    if(next<sources.length){img.src=sources[next++];return;}
+    img.onerror=null;
+    if(onFailure)onFailure();
+  }
+  img.onload=function(){
+    if(img.naturalWidth>0){if(onReady)onReady(img);}
+    else failed();
+  };
+  img.onerror=failed;
+  img.src=firstSource;
+  // Handle cached or immediately-loaded images.
+  if(img.complete&&img.naturalWidth>0&&onReady)onReady(img);
 }
 function downloadQRImage(imageURL,fileName) {
   if(!imageURL){toast('QR is not ready yet');return;}
   if(imageURL.indexOf('data:image/')===0){
-    var a=document.createElement('a');a.href=imageURL;a.download=fileName;a.click();toast('QR downloaded');return;
+    var a=document.createElement('a');a.href=imageURL;a.download=fileName;a.click();
+    toast('QR ready. On iPhone, use Share or long-press the image if it opens instead of downloading.');
+    return;
   }
-  // Open a window synchronously from the user's tap; if CORS download fails, show the image there.
-  var backupWindow=window.open('about:blank','_blank');
-  fetch(imageURL,{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('QR image download failed');return r.blob();}).then(function(blob){
-    if(backupWindow&&!backupWindow.closed)backupWindow.close();
-    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fileName;a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},3000);toast('QR downloaded');
+  fetch(imageURL,{mode:'cors'}).then(function(r){
+    if(!r.ok)throw new Error('QR image download failed');
+    return r.blob();
+  }).then(function(blob){
+    var objectURL=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=objectURL;a.download=fileName;a.click();
+    setTimeout(function(){URL.revokeObjectURL(objectURL);},5000);
+    toast('QR download started');
   }).catch(function(){
-    if(backupWindow&&!backupWindow.closed)backupWindow.location.href=imageURL;
-    else window.open(imageURL,'_blank');
-    toast('Opened QR image. Use Share → Save Image if download did not start.');
+    toast('Tap “Open QR image” below, then use Share → Save Image on iPhone.');
   });
 }
 function ensureHtml5Qrcode() {
@@ -2235,42 +2270,83 @@ function drawQR() {
       return '<button type="button" class="tbtn" style="font-size:12px;flex-direction:column" onclick="showQR(\'' + t.number + '\')">' + t.number + '<br>QR</button>';
     }).join('') + '</div>';
 }
+function tableURL(t) {
+  return location.origin + location.pathname + '?table=' + encodeURIComponent(String(t).padStart(2,'0'));
+}
+var currentQRCodeTable = null;
+function retryCurrentQR(){if(currentQRCodeTable)showQR(currentQRCodeTable);}
 function showQR(t) {
-  document.getElementById('qr-lab').textContent=t;
-  var url=tableURL(t),box=document.getElementById('qr-code');
+  currentQRCodeTable=String(t).padStart(2,'0');
+  document.getElementById('qr-lab').textContent=currentQRCodeTable;
+  var url=tableURL(currentQRCodeTable),box=document.getElementById('qr-code');
+  var button=document.getElementById('qr-download-btn'),openLink=document.getElementById('qr-open-link');
+  if(button){button.disabled=true;button.textContent='Preparing QR…';}
+  if(openLink){openLink.style.display='none';openLink.href='#';}
   box.innerHTML='<div class="muted" style="padding:55px 8px">Preparing QR…</div>';
   document.getElementById('qr-modal').classList.add('on');
   makeQRImage(url,240).then(function(src){
-    if(!document.getElementById('qr-modal').classList.contains('on'))return;
+    if(!document.getElementById('qr-modal').classList.contains('on')||currentQRCodeTable!==String(t).padStart(2,'0'))return;
     box.innerHTML='';
-    var img=document.createElement('img');img.id='qr-image';img.alt='QR code for Table '+t;img.width=220;img.height=220;
+    var img=document.createElement('img');img.id='qr-image';img.alt='QR code for Table '+currentQRCodeTable;img.width=220;img.height=220;
     img.style.cssText='width:220px;height:220px;max-width:100%;object-fit:contain;background:#fff;padding:8px;border-radius:8px';
-    img.src=src;
-    img.onerror=function(){box.innerHTML='<p class="muted" style="padding:30px 8px">QR service could not load. Check connection and try again.</p>';};
+    img.dataset.qrUrl=url;
+    configureQRImage(img,url,240,src,function(readyImg){
+      if(button){button.disabled=false;button.textContent='Download QR';}
+      if(openLink){openLink.href=readyImg.src;openLink.style.display='flex';}
+    },function(){
+      box.innerHTML='<p class="muted" style="padding:22px 8px">QR services did not load. Check the internet and try again.</p>';
+      if(button){button.disabled=false;button.textContent='Retry QR';}
+      if(openLink)openLink.style.display='none';
+    });
     box.appendChild(img);
-  }).catch(function(){box.innerHTML='<p class="muted" style="padding:30px 8px">QR could not be generated. Check your connection and retry.</p>';});
+  }).catch(function(){
+    box.innerHTML='<p class="muted" style="padding:22px 8px">QR could not be generated. Check internet and retry.</p>';
+    if(button){button.disabled=false;button.textContent='Retry QR';}
+  });
 }
 function dlQR() {
   var img=document.getElementById('qr-image');
+  var button=document.getElementById('qr-download-btn');
+  if(!img||!img.src||!img.complete||!img.naturalWidth){
+    if(button&&button.textContent==='Retry QR'){retryCurrentQR();return;}
+    toast('QR is still loading. Please wait a moment.');return;
+  }
   var n=(document.getElementById('qr-lab').textContent||'table').replace(/[^0-9]/g,'');
-  if(!img||!img.src){toast('QR is still being prepared');return;}
   downloadQRImage(img.src,'mirch-masaala-table-'+n+'-qr.png');
 }
 function downloadAllQRCodes() {
   var win=window.open('','_blank');
-  if(!win){toast('Allow pop-ups to create the printable QR sheet');return;}
+  if(!win){toast('Pop-up blocked. Allow pop-ups for this site to make the printable QR sheet.');return;}
   win.document.open();
-  win.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mirch Masaala · Table QR codes</title><style>body{font-family:Arial,sans-serif;color:#21160f;padding:22px}h1{text-align:center;margin:0 0 4px}p{text-align:center;margin:0 0 20px;color:#665}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.item{border:1px solid #b9a889;border-radius:12px;padding:10px;text-align:center;break-inside:avoid}.item img{width:100%;max-width:190px;display:block;margin:8px auto;background:#fff}.item strong{font-size:19px;letter-spacing:2px}.url{font-size:9px;overflow-wrap:anywhere;color:#555}@media print{body{padding:0}.grid{gap:8px}.item{padding:6px}}</style></head><body><h1>MIRCH MASAALA</h1><p>Scan your table QR to open the menu · Place on the matching table</p><div id="qr-sheet-status">Preparing table QR codes…</div></body></html>');
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mirch Masaala · Table QR codes</title><style>body{font-family:Arial,sans-serif;color:#21160f;padding:22px}h1{text-align:center;margin:0 0 4px}p{text-align:center;margin:0 0 20px;color:#665}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.item{border:1px solid #b9a889;border-radius:12px;padding:10px;text-align:center;break-inside:avoid}.item img{width:100%;max-width:190px;display:block;margin:8px auto;background:#fff}.item strong{font-size:19px;letter-spacing:2px}.url{font-size:9px;overflow-wrap:anywhere;color:#555}.help{font-size:12px;color:#555}@media print{body{padding:0}.grid{gap:8px}.item{padding:6px}}</style></head><body><h1>MIRCH MASAALA</h1><p>Scan each QR to open the matching table menu · Print and place on the correct table</p><p id="qr-sheet-status">Preparing QR codes…</p></body></html>');
   win.document.close();
-  Promise.all(MENU.tables.map(function(t){return makeQRImage(tableURL(t.number),240).then(function(src){return{number:t.number,url:tableURL(t.number),src:src};});}))
-    .then(function(items){
-      if(win.closed)return;
-      win.document.getElementById('qr-sheet-status').outerHTML='<div class="grid">'+items.map(function(it){return '<div class="item"><strong>TABLE '+it.number+'</strong><img alt="QR for Table '+it.number+'" src="'+it.src+'"><div class="url">'+it.url+'</div></div>';}).join('')+'</div><p style="margin-top:18px">Print this page or choose Save as PDF. Test each sticker on a phone before placing it.</p>';
-      var imgs=Array.prototype.slice.call(win.document.images);
-      Promise.all(imgs.map(function(img){return new Promise(function(resolve){if(img.complete){resolve();return;}img.onload=resolve;img.onerror=resolve;setTimeout(resolve,8000);});}))
-        .then(function(){if(!win.closed){win.focus();win.print();}});
-      toast('Printable QR sheet ready · '+items.length+' tables');
-    }).catch(function(err){console.warn(err);if(!win.closed)win.document.body.innerHTML='<p>Could not build the sheet. Check your connection and retry.</p>';toast('Could not generate QR sheet');});
+  Promise.all(MENU.tables.map(function(t){
+    var target=tableURL(t.number);
+    return makeQRImage(target,240).then(function(src){return{number:t.number,url:target,src:src};});
+  })).then(function(items){
+    if(win.closed)return;
+    var status=win.document.getElementById('qr-sheet-status');
+    status.outerHTML='<div class="grid">'+items.map(function(it,i){
+      return '<div class="item"><strong>TABLE '+it.number+'</strong><img id="qr-sheet-'+i+'" alt="QR for Table '+it.number+'" src="'+it.src+'"><div class="url">'+it.url+'</div></div>';
+    }).join('')+'</div><p class="help">If printing is not available, use the browser Share menu and choose Print or Save as PDF. QR codes need internet during generation; test a sticker before placing all of them.</p>';
+    var imgs=Array.prototype.slice.call(win.document.querySelectorAll('.item img'));
+    imgs.forEach(function(img,i){
+      var it=items[i];
+      configureQRImage(img,it.url,240,it.src,function(){},function(){img.alt='QR failed for Table '+it.number;});
+    });
+    Promise.all(imgs.map(function(img){return new Promise(function(resolve){
+      var finished=false;function done(){if(finished)return;finished=true;resolve();}
+      img.addEventListener('load',done,{once:true});img.addEventListener('error',done,{once:true});
+      if(img.complete&&img.naturalWidth)done();
+      setTimeout(done,9000);
+    });})).then(function(){
+      if(!win.closed){win.focus();toast('Printable QR sheet ready. Use Print / Save as PDF in the new tab.');}
+    });
+  }).catch(function(err){
+    console.warn(err);
+    if(!win.closed)win.document.getElementById('qr-sheet-status').textContent='Could not create QR sheet. Check internet and retry.';
+    toast('Could not generate QR sheet');
+  });
 }
 function drawStats() {
   var today = new Date().toISOString().slice(0,10);
