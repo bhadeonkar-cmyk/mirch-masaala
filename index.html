@@ -449,7 +449,15 @@ button, input, select, textarea { font: inherit; }
 @keyframes swipeNudge{0%,100%{transform:translateX(-4px);opacity:.65}50%{transform:translateX(5px);opacity:1}}@keyframes handSlide{0%,100%{transform:translateX(-3px)}50%{transform:translateX(5px)}}
 @keyframes tableCardIn{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:.88;transform:translateY(0) scale(.96)}}
 @media(prefers-reduced-motion:reduce){.swipe-side,.swipe-hand,#tables .table-carousel-card{animation:none!important;transition:none!important}}
+ .visit-card{margin:28px 0 14px;padding:18px;text-align:left;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,rgba(212,168,75,.13),rgba(30,22,18,.97));box-shadow:0 12px 30px rgba(0,0,0,.18);animation:visitRise .55s ease both}
+.visit-card-top{display:flex;align-items:center;gap:11px}.visit-pin{font-size:28px}.visit-eyebrow{font-size:10px;letter-spacing:2px;color:var(--gold2);font-weight:900}.visit-card h3{font-size:20px;margin:2px 0 0}.visit-note{font-size:13px;color:var(--muted);margin:9px 0 14px}.visit-detail{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}.visit-detail>span{font-size:18px}.visit-detail b{font-size:12px;color:var(--gold2)}.visit-detail p{font-size:13px;margin:3px 0 0;color:var(--text);white-space:pre-line;line-height:1.5}.visit-detail a{color:var(--text);text-decoration:none}.visit-directions{width:100%;margin-top:12px;text-decoration:none;justify-content:center}
+#tables.is-dragging{cursor:grabbing;scroll-snap-type:x proximity;scrollbar-color:var(--gold2) transparent}#tables.is-dragging .table-carousel-card{transition:transform .12s,opacity .12s,box-shadow .12s}
+#tables .table-carousel-card.selected{transform:scale(1.06) translateY(-3px);opacity:1;border-color:var(--gold2);box-shadow:0 0 0 3px rgba(240,215,140,.16),0 15px 30px rgba(212,168,75,.26)}
+#tables .table-carousel-card.table-pop{animation:tablePop .42s cubic-bezier(.18,.89,.32,1.35)}
+@keyframes tablePop{0%{transform:scale(.92)}60%{transform:scale(1.12) translateY(-5px)}100%{transform:scale(1.06) translateY(-3px)}}@keyframes visitRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.visit-card,#tables .table-carousel-card{animation:none!important}}
 </style>
+<script src="./qr-matrices.js"></script>
 </head>
 <body>
 
@@ -500,6 +508,7 @@ button, input, select, textarea { font: inherit; }
     <button type="button" class="btn btn-soft" id="scan-table-btn" style="margin-top:10px" onclick="openScan()">📷 Scan table QR with camera</button>
     <p class="muted" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
     <button type="button" class="btn btn-soft" style="margin-top:12px" onclick="openGuide()">📖 How to use this app</button>
+    <section id="visit-section" class="visit-card" style="display:none" aria-label="Restaurant visit information"></section>
 
     <!-- Staff entry hidden from customers — long-press logo or tap footer 5× -->
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line)">
@@ -1071,7 +1080,12 @@ function closeGuide() {
   document.getElementById('guide-sheet').classList.remove('on');
 }
 function pickSpecials() {
-  var avail = MENU.menu_items.filter(function(i) { return i.is_available; });
+  var avail = MENU.menu_items.filter(function(i) {
+    if(!i.is_available)return false;
+    if(dietFilter==='veg')return !!i.is_veg;
+    if(dietFilter==='nonveg')return !i.is_veg;
+    return true;
+  });
   // prefer mid-high price popular-style items, shuffle
   var scored = avail.slice().sort(function(a, b) { return (b.price || 0) - (a.price || 0); });
   var picks = scored.slice(0, 12);
@@ -1304,7 +1318,7 @@ function renderDietButtons(hostId, selected, setterName) {
   }).join('');
 }
 function drawDietFilters() { renderDietButtons('diet-filters', dietFilter, 'setDietFilter'); }
-function setDietFilter(s) { dietFilter = s; drawDietFilters(); drawMenu(); }
+function setDietFilter(s) { dietFilter = s; drawDietFilters(); drawMenu(); drawSpecials(); }
 function drawWDietFilters() { renderDietButtons('w-diet-filters', wDietFilter, 'setWDietFilter'); }
 function setWDietFilter(s) { wDietFilter = s; drawWDietFilters(); wMenu(); }
 function setCat(s) { cat = s; drawCats(); drawMenu(); }
@@ -2273,6 +2287,30 @@ function drawQR() {
 function tableURL(t) {
   return location.origin + location.pathname + '?table=' + encodeURIComponent(String(t).padStart(2,'0'));
 }
+function localTableQRDataURL(t) {
+  var assets=window.MM_QR_MATRICES, num=String(t).padStart(2,'0');
+  if(!assets||!assets.tables||!assets.tables[num])return null;
+  var target=tableURL(num);
+  if(target!==assets.baseURL+num)return null;
+  var packed;
+  try{packed=atob(assets.tables[num]);}catch(e){return null;}
+  var size=assets.size||41,commands=[];
+  function darkAt(index){return (packed.charCodeAt(index>>3)&(1<<(7-(index&7))))!==0;}
+  for(var y=0;y<size;y++){
+    var x=0;
+    while(x<size){
+      if(!darkAt(y*size+x)){x++;continue;}
+      var x0=x;while(x<size&&darkAt(y*size+x))x++;
+      var run=x-x0;commands.push('M'+x0+' '+y+'h'+run+'v1h-'+run+'z');
+    }
+  }
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480" viewBox="0 0 '+size+' '+size+'" shape-rendering="crispEdges"><rect width="'+size+'" height="'+size+'" fill="#fff"/><path d="'+commands.join('')+'" fill="#000"/></svg>';
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+function makeTableQRImage(t,size) {
+  var local=localTableQRDataURL(t);
+  return local?Promise.resolve(local):makeQRImage(tableURL(t),size||240);
+}
 var currentQRCodeTable = null;
 function retryCurrentQR(){if(currentQRCodeTable)showQR(currentQRCodeTable);}
 function showQR(t) {
@@ -2284,7 +2322,7 @@ function showQR(t) {
   if(openLink){openLink.style.display='none';openLink.href='#';}
   box.innerHTML='<div class="muted" style="padding:55px 8px">Preparing QR…</div>';
   document.getElementById('qr-modal').classList.add('on');
-  makeQRImage(url,240).then(function(src){
+  makeTableQRImage(currentQRCodeTable,240).then(function(src){
     if(!document.getElementById('qr-modal').classList.contains('on')||currentQRCodeTable!==String(t).padStart(2,'0'))return;
     box.innerHTML='';
     var img=document.createElement('img');img.id='qr-image';img.alt='QR code for Table '+currentQRCodeTable;img.width=220;img.height=220;
@@ -2322,7 +2360,7 @@ function downloadAllQRCodes() {
   win.document.close();
   Promise.all(MENU.tables.map(function(t){
     var target=tableURL(t.number);
-    return makeQRImage(target,240).then(function(src){return{number:t.number,url:target,src:src};});
+    return makeTableQRImage(t.number,240).then(function(src){return{number:t.number,url:target,src:src};});
   })).then(function(items){
     if(win.closed)return;
     var status=win.document.getElementById('qr-sheet-status');
@@ -2446,7 +2484,12 @@ function defaultSettings() {
     phonepeUpi: '',
     acceptCard: true,
     acceptCash: true,
-    receiptMessage: 'Thank you for dining at Mirch Masaala!'
+    receiptMessage: 'Thank you for dining at Mirch Masaala!',
+    restaurantAddress: '',
+    restaurantPhone: '',
+    openingHours: '',
+    directionsUrl: '',
+    visitNote: ''
   };
 }
 var SETTINGS = Object.assign(defaultSettings(), load('mm_settings', {}));
@@ -2467,27 +2510,54 @@ function rebuildTables() {
   MENU.tables = tables;
   return tables;
 }
-function selectHomeTable(num, card) {
-  selectedHomeTable=String(num).padStart(2,'0');
-  document.querySelectorAll('#tables .table-carousel-card').forEach(function(b){b.classList.remove('selected');});
-  if(card){card.classList.add('selected');try{card.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}catch(e){}}
+function selectHomeTable(num, card, fromScroll) {
+  var next=String(num).padStart(2,'0'),changed=selectedHomeTable!==next;
+  selectedHomeTable=next;
+  document.querySelectorAll('#tables .table-carousel-card').forEach(function(b){b.classList.toggle('selected',b.getAttribute('data-table-number')===next);});
+  if(card){
+    card.classList.add('selected');
+    if(!fromScroll){
+      try{card.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}catch(e){}
+      card.classList.remove('table-pop');void card.offsetWidth;card.classList.add('table-pop');
+      if(changed&&navigator.vibrate){try{navigator.vibrate(8);}catch(e){}}
+      setTimeout(function(){card.classList.remove('table-pop');},500);
+    }
+  }
   var btn=document.getElementById('table-continue');
   if(btn){btn.style.display='flex';btn.textContent='Continue to Table '+selectedHomeTable+' →';}
   var hint=document.getElementById('table-swipe-guide');
-  if(hint){hint.innerHTML='<span class="swipe-side">✓</span><span>Table '+selectedHomeTable+' selected</span>';hint.style.color='var(--ok)';}
+  if(hint){hint.innerHTML='<span class="swipe-side">✨</span><span>Table '+selectedHomeTable+' selected</span><span class="swipe-hand">👆</span>';hint.style.color='var(--ok)';}
 }
-function continueHomeTable(){if(!selectedHomeTable){toast('Select a table first');return;}startTable(selectedHomeTable);}
+var homeScrollFrame=0;
+function syncCenteredHomeTable() {
+  var g=document.getElementById('tables');if(!g||!g.children.length)return;
+  var rect=g.getBoundingClientRect(),center=rect.left+rect.width/2,best=null,bestDistance=Infinity;
+  Array.prototype.forEach.call(g.children,function(card){
+    var r=card.getBoundingClientRect(),c=r.left+r.width/2,d=Math.abs(c-center);
+    if(d<bestDistance){best=card;bestDistance=d;}
+  });
+  if(best){var n=best.getAttribute('data-table-number');if(n&&n!==selectedHomeTable)selectHomeTable(n,best,true);}
+}
+function continueHomeTable(){if(!selectedHomeTable){toast('Swipe and select a table first');return;}startTable(selectedHomeTable);}
 function renderHomeTables() {
   rebuildTables();
   var g=document.getElementById('tables');if(!g)return;
   g.innerHTML='';selectedHomeTable=null;
   var btn=document.getElementById('table-continue');if(btn)btn.style.display='none';
   MENU.tables.forEach(function(t){
-    var b=document.createElement('button');b.type='button';b.className='tbtn table-carousel-card';
-    b.innerHTML='<span class="table-card-kicker">TABLE</span><strong>'+t.number+'</strong><span class="table-card-hint">Tap to select</span>';
+    var b=document.createElement('button');b.type='button';b.className='tbtn table-carousel-card';b.setAttribute('data-table-number',t.number);
+    b.innerHTML='<span class="table-card-kicker">TABLE</span><strong>'+t.number+'</strong><span class="table-card-hint">Drag me ↔</span>';
     b.setAttribute('aria-label','Select Table '+t.number);
-    b.onclick=(function(num,card){return function(){selectHomeTable(num,card);};})(t.number,b);g.appendChild(b);
+    b.onclick=(function(num,card){return function(){selectHomeTable(num,card,false);};})(t.number,b);g.appendChild(b);
   });
+  g.onscroll=function(){
+    if(!homeScrollFrame)homeScrollFrame=requestAnimationFrame(function(){homeScrollFrame=0;syncCenteredHomeTable();});
+    g.classList.add('is-dragging');clearTimeout(g._dragEndTimer);
+    g._dragEndTimer=setTimeout(function(){g.classList.remove('is-dragging');syncCenteredHomeTable();},180);
+  };
+  g.onpointerdown=function(){g.classList.add('is-dragging');};
+  g.onpointerup=function(){setTimeout(function(){g.classList.remove('is-dragging');syncCenteredHomeTable();},100);};
+  g.onpointercancel=function(){g.classList.remove('is-dragging');};
 }
 function upiPayUrl(amount, orderId) {
   var merchantVpa = String(SETTINGS.upiId || '').trim();
@@ -2519,6 +2589,7 @@ function applySettings() {
   document.title = n;
   rebuildTables();
   if (document.getElementById('tables')) renderHomeTables();
+  renderVisitSection();
 
 var staffTapCount = 0;
 var staffTapTimer = null;
@@ -2569,6 +2640,12 @@ function drawSettings() {
     '<p class="muted" style="margin-bottom:12px">Change names, passwords & data source. Saved on this device.</p>' +
     '<div class="settings-row"><label>Restaurant name</label><input id="set-name" value="' + esc(s.restaurantName) + '"></div>' +
     '<div class="settings-row"><label>Tagline</label><input id="set-tag" value="' + esc(s.tagline) + '"></div>' +
+    '<div class="setup"><h3>📍 Visit Us information</h3><p>Add the restaurant’s real address and opening hours. For directions, paste a Google Maps share link.</p></div>' +
+    '<div class="settings-row"><label>Public restaurant address</label><input id="set-visit-address" placeholder="Building, road, area, city" value="' + esc(s.restaurantAddress || '') + '"></div>' +
+    '<div class="settings-row"><label>Restaurant phone (optional)</label><input id="set-visit-phone" type="tel" placeholder="Public contact number" value="' + esc(s.restaurantPhone || '') + '"></div>' +
+    '<div class="settings-row"><label>Opening hours</label><textarea id="set-visit-hours" placeholder="e.g. Daily 11:00 AM – 11:00 PM">' + esc(s.openingHours || '') + '</textarea></div>' +
+    '<div class="settings-row"><label>Google Maps directions URL</label><input id="set-visit-directions" type="url" placeholder="https://maps.app.goo.gl/…" value="' + esc(s.directionsUrl || '') + '"></div>' +
+    '<div class="settings-row"><label>Short visit message (optional)</label><input id="set-visit-note" placeholder="Dine in with us" value="' + esc(s.visitNote || '') + '"></div>' +
     '<div class="settings-row"><label>Admin contact phone</label><input id="set-phone" value="' + esc(s.adminPhone) + '"></div>' +
     '<div class="settings-row"><label>Change waiter password (optional)</label><input id="set-pw" type="password" autocomplete="new-password" placeholder="Leave blank to keep current"></div>' +
     '<div class="settings-row"><label>Change kitchen password (optional)</label><input id="set-pk" type="password" autocomplete="new-password" placeholder="Leave blank to keep current"></div>' +
@@ -2592,6 +2669,30 @@ function drawSettings() {
     '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="loadRemoteData()">Load from URL now</button>' +
     '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="exportConfig()">Export config JSON</button>' +
     '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="showPayQR(null, null)">Preview payment QR</button>';
+}
+function safeDirectionsURL(raw) {
+  try {
+    var u=new URL(String(raw||'').trim());
+    if(u.protocol!=='https:')return '';
+    var host=u.hostname.toLowerCase();
+    if(host==='maps.app.goo.gl'||host==='maps.google.com'||host==='google.com'||host==='www.google.com'||/^maps\.google\.[a-z.]+$/.test(host)||/^www\.google\.[a-z.]+$/.test(host))return u.href;
+  } catch(e) {}
+  return '';
+}
+function renderVisitSection() {
+  var el=document.getElementById('visit-section');if(!el)return;
+  var address=String(SETTINGS.restaurantAddress||'').trim(),hours=String(SETTINGS.openingHours||'').trim();
+  var phone=String(SETTINGS.restaurantPhone||'').trim(),note=String(SETTINGS.visitNote||'').trim();
+  var directions=safeDirectionsURL(SETTINGS.directionsUrl);
+  if(!address&&!hours&&!phone&&!directions&&!note){el.style.display='none';el.innerHTML='';return;}
+  var phoneDigits=phone.replace(/[^0-9+]/g,'');
+  el.style.display='block';
+  el.innerHTML='<div class="visit-card-top"><span class="visit-pin">📍</span><div><div class="visit-eyebrow">COME VISIT US</div><h3>Find Mirch Masaala</h3></div></div>'+
+    (note?'<p class="visit-note">'+esc(note)+'</p>':'')+
+    (address?'<div class="visit-detail"><span>📌</span><div><b>Address</b><p>'+esc(address)+'</p></div></div>':'')+
+    (hours?'<div class="visit-detail"><span>🕒</span><div><b>Opening hours</b><p class="visit-hours">'+esc(hours)+'</p></div></div>':'')+
+    (phoneDigits?'<div class="visit-detail"><span>☎️</span><div><b>Contact</b><p><a href="tel:'+esc(phoneDigits)+'">'+esc(phone)+'</a></p></div></div>':'')+
+    (directions?'<a class="btn btn-main visit-directions" href="'+esc(directions)+'" target="_blank" rel="noopener noreferrer">🧭 Get directions</a>':'');
 }
 function esc(t) {
   return String(t || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
@@ -2617,11 +2718,18 @@ function saveSettings() {
   SETTINGS.whatsappNumber = document.getElementById('set-wa').value.trim().replace(/[^0-9]/g, '');
   SETTINGS.whatsappName = document.getElementById('set-waname').value.trim();
   SETTINGS.receiptMessage = document.getElementById('set-receipt').value.trim();
+  SETTINGS.restaurantAddress = document.getElementById('set-visit-address').value.trim();
+  SETTINGS.restaurantPhone = document.getElementById('set-visit-phone').value.trim();
+  SETTINGS.openingHours = document.getElementById('set-visit-hours').value.trim();
+  SETTINGS.directionsUrl = document.getElementById('set-visit-directions').value.trim();
+  SETTINGS.visitNote = document.getElementById('set-visit-note').value.trim();
+  if(SETTINGS.directionsUrl&&!safeDirectionsURL(SETTINGS.directionsUrl)){toast('Use a valid HTTPS Google Maps link');document.getElementById('set-visit-directions').focus();return;}
   SETTINGS.acceptCard = document.getElementById('set-card').checked;
   SETTINGS.acceptCash = document.getElementById('set-cash').checked;
   save('mm_settings', SETTINGS);
   applySettings();
   renderHomeTables();
+  renderVisitSection();
 
 var staffTapCount = 0;
 var staffTapTimer = null;
@@ -2882,6 +2990,8 @@ window.filterAdminMenu = filterAdminMenu;
 window.downloadAllQRCodes = downloadAllQRCodes;
 window.showRoleGuide = showRoleGuide;
 window.setDietFilter = setDietFilter;
+window.selectHomeTable = selectHomeTable;
+window.continueHomeTable = continueHomeTable;
 window.setWDietFilter = setWDietFilter;
 </script>
 </body>
