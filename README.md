@@ -7,9 +7,11 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 - Customers can scan a printed table QR with the in-app camera scanner or their phone camera. If not scanning, swipe horizontally through animated table cards, tap one to center/highlight it, and confirm the selected table.
 - The scanner no longer offers manual table-number typing. If the scanner library does not load, the UI explains how to use the phone's camera app or select a table card.
 - QR stickers encode a table-specific link such as `?table=01`; scanning with the phone's camera should open the menu for that table.
-- Admin → QR downloads an individual table QR or prepares a printable QR sheet. QR generation tries several CDN sources and has an image-service fallback.
+- Admin → QR creates individual codes and a printable sheet for Tables 01–20 from the bundled `qr-matrices.js` asset, so those standard table QR images do not depend on a third-party QR service. These codes encode the current GitHub Pages URL; regenerate them if the public site URL changes. Tables beyond 20 use the online fallback.
 - Customer and waiter menus have **All foods**, **Veg only**, and **Non-veg only** filters.
 - Owner/Admin → Menu has per-item price editing and availability controls.
+- Veg-only and non-veg-only filters also apply to the customer’s special/recommended dishes.
+- Admin → Settings lets the owner add a public restaurant address, opening hours, contact number, a Google Maps directions link, and a short “Visit Us” message. The public section stays hidden until at least one field is configured.
 - Order confirmation and order history show status-based progress with playful waiting messages.
 - The public Quick guide shows customer instructions only. Staff-specific help is available from the waiter/kitchen/admin login screen.
 - Admin → Settings requires the owner to enter the restaurant's real merchant UPI ID before UPI payments can be used. Google Pay / PhonePe links use app-specific mobile links where supported, with the standard UPI QR payload available for scanning.
