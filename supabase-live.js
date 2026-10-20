@@ -371,43 +371,62 @@
     }
   }
 
-  function ensureEmailField() {
+  function ensureUsernameField() {
     var pass = document.getElementById('pass');
-    if (!pass || document.getElementById('staff-email')) return;
-    var email = document.createElement('input');
-    email.type = 'email';
-    email.id = 'staff-email';
-    email.placeholder = 'Staff email address';
-    email.autocomplete = 'username';
-    email.inputMode = 'email';
-    email.setAttribute('aria-label', 'Staff email address');
-    email.style.marginBottom = '8px';
-    pass.parentNode.insertBefore(email, pass);
+    if (!pass || document.getElementById('staff-username')) return;
+    var username = document.createElement('input');
+    username.type = 'text';
+    username.id = 'staff-username';
+    username.placeholder = 'Username';
+    username.autocomplete = 'username';
+    username.inputMode = 'text';
+    username.maxLength = 64;
+    username.setAttribute('aria-label', 'Staff username');
+    username.style.marginBottom = '8px';
+    pass.parentNode.insertBefore(username, pass);
+  }
+
+  function authEmailForCredential(value) {
+    var credential = String(value || '').trim().toLowerCase();
+    // Existing accounts using a real email remain compatible during migration.
+    if (credential.indexOf('@') >= 0) return credential;
+    if (!/^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$/.test(credential)) {
+      throw new Error('Use a username of 3–32 characters: letters, numbers, dot, dash or underscore.');
+    }
+    // Supabase Auth still authenticates internally with email; staff only enter their username.
+    return credential + '@staff.mirchmasaala.invalid';
   }
 
   async function secureStaffLogin() {
-    ensureEmailField();
-    var emailInput = document.getElementById('staff-email');
+    ensureUsernameField();
+    var usernameInput = document.getElementById('staff-username');
     var passInput = document.getElementById('pass');
     var err = document.getElementById('login-err');
     var requestedRole = window.pendingRole;
-    var email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+    var username = usernameInput ? usernameInput.value.trim().toLowerCase() : '';
     var password = passInput ? passInput.value : '';
     if (!requestedRole) {
       notifyError('Choose a staff role first.');
       return;
     }
-    if (!email || !password) {
-      if (err) { err.style.display = 'block'; err.textContent = 'Enter your staff email and password.'; }
+    if (!username || !password) {
+      if (err) { err.style.display = 'block'; err.textContent = 'Enter your username and password.'; }
       return;
     }
     if (!client || !window.MM_SUPABASE_ENABLED) {
       if (err) { err.style.display = 'block'; err.textContent = 'Database connection is not ready. Refresh this page.'; }
       return;
     }
+    var authEmail;
+    try {
+      authEmail = authEmailForCredential(username);
+    } catch (validationError) {
+      if (err) { err.style.display = 'block'; err.textContent = validationError.message; }
+      return;
+    }
     if (err) { err.style.display = 'block'; err.textContent = 'Signing in securely…'; }
     try {
-      var signIn = await client.auth.signInWithPassword({ email: email, password: password });
+      var signIn = await client.auth.signInWithPassword({ email: authEmail, password: password });
       if (signIn.error) throw signIn.error;
       var roleResult = await client.rpc('get_my_staff_role');
       if (roleResult.error) throw roleResult.error;
@@ -645,12 +664,12 @@
     window.MM_STOP_CUSTOMER_WHATSAPP = stopCustomerWhatsApp;
     window.MM_SEND_WHATSAPP_BROADCAST = sendWhatsAppBroadcast;
 
-    ensureEmailField();
+    ensureUsernameField();
     window.openLogin = function (requestedRole) {
       window.pendingRole = requestedRole;
-      ensureEmailField();
-      var oldEmail = document.getElementById('staff-email');
-      if (oldEmail) oldEmail.value = '';
+      ensureUsernameField();
+      var oldUsername = document.getElementById('staff-username');
+      if (oldUsername) oldUsername.value = '';
       var passInput = document.getElementById('pass');
       if (passInput) passInput.value = '';
       var titles = { waiter: 'Waiter login', kitchen: 'Kitchen login', admin: 'Owner/Admin login' };
@@ -658,7 +677,7 @@
       var hint = document.getElementById('login-hint');
       var error = document.getElementById('login-err');
       if (title) title.textContent = titles[requestedRole] || 'Staff login';
-      if (hint) hint.textContent = 'Secure staff sign-in · Use the email and password created for your role.';
+      if (hint) hint.textContent = 'Enter the username and password provided by the owner.';
       if (error) { error.style.display = 'none'; error.textContent = ''; }
       window.go('login');
       setTimeout(function () { if (passInput) passInput.focus(); }, 150);
