@@ -2678,10 +2678,7 @@ function downloadAllQRCodes() {
   var win=window.open('','_blank');
   if(!win){toast('Pop-up blocked. Allow pop-ups for this site to make the printable QR sheet.');return;}
   win.document.open();
-  win.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mirch Masaala · Table QR codes</title><style>body{font-family:Arial,sans-serif;color:#21160f;padding:22px}h1{text-align:center;margin:0 0 4px}p{text-align:center;margin:0 0 20px;color:#665}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.item{border:1px solid #b9a889;border-radius:12px;padding:10px;text-align:center;break-inside:avoid}.item img{width:100%;max-width:190px;display:block;margin:8px auto;background:#fff}.item strong{font-size:19px;letter-spacing:2px}.url{font-size:9px;overflow-wrap:anywhere;color:#555}.help{font-size:12px;color:#555}@media print{body{padding:0}.grid{gap:8px}.item{padding:6px}}
-
-
-</style></head><body><h1>MIRCH MASAALA</h1><p>Scan each QR to open the matching table menu · Print and place on the correct table</p><p id="qr-sheet-status">Preparing QR codes…</p></body></html>');
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mirch Masaala · Table QR codes</title><style>body{font-family:Arial,sans-serif;color:#21160f;padding:22px}h1{text-align:center;margin:0 0 4px}p{text-align:center;margin:0 0 20px;color:#665}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.item{border:1px solid #b9a889;border-radius:12px;padding:10px;text-align:center;break-inside:avoid}.item img{width:100%;max-width:190px;display:block;margin:8px auto;background:#fff}.item strong{font-size:19px;letter-spacing:2px}.url{font-size:9px;overflow-wrap:anywhere;color:#555}.help{font-size:12px;color:#555}@media print{body{padding:0}.grid{gap:8px}.item{padding:6px}}</style></head><body><h1>MIRCH MASAALA</h1><p>Scan each QR to open the matching table menu · Print and place on the correct table</p><p id="qr-sheet-status">Preparing QR codes…</p></body></html>');
   win.document.close();
   Promise.all(MENU.tables.map(function(t){
     var target=tableURL(t.number);
