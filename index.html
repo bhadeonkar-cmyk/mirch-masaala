@@ -1584,6 +1584,8 @@ function paymentAppLink(method,pa,amount,orderId){
   return 'upi://pay?'+query;
 }
 function selectPayMethod(method) {
+  var qrRequestId = (window.MM_PAY_QR_REQUEST_ID || 0) + 1;
+  window.MM_PAY_QR_REQUEST_ID = qrRequestId;
   payContext.method=method;
   document.getElementById('pay-upi-area').style.display='none';
   document.getElementById('pay-cash-area').style.display='none';
@@ -1605,11 +1607,11 @@ function selectPayMethod(method) {
     document.getElementById('pay-upi').textContent=pa+' · '+(SETTINGS.upiName||SETTINGS.restaurantName||'Mirch Masaala');
     box.innerHTML='<div class="muted" style="font-size:12px;padding:45px 8px">Preparing payment QR…</div>';
     makeQRImage(genericUrl,200).then(function(src){
-      if(!document.getElementById('pay-modal').classList.contains('on'))return;
+      if(!document.getElementById('pay-modal').classList.contains('on') || window.MM_PAY_QR_REQUEST_ID !== qrRequestId)return;
       box.innerHTML='';var img=document.createElement('img');img.alt='UPI payment QR';img.width=190;img.height=190;
       img.style.cssText='width:190px;height:190px;max-width:100%;object-fit:contain;background:#fff;padding:6px;border-radius:8px';img.src=src;
       img.onerror=function(){box.innerHTML='<p class="muted" style="font-size:12px;padding:35px 8px">Payment QR could not load. Use the payment app button instead.</p>';};box.appendChild(img);
-    }).catch(function(){box.innerHTML='<p class="muted" style="font-size:12px;padding:35px 8px">Payment QR unavailable. Use the payment app button instead.</p>';});
+    }).catch(function(){if(window.MM_PAY_QR_REQUEST_ID !== qrRequestId)return;box.innerHTML='<p class="muted" style="font-size:12px;padding:35px 8px">Payment QR unavailable. Use the payment app button instead.</p>';});
     toast(method==='gpay'?'Google Pay ready':'PhonePe ready');
   }else if(method==='cash'){
     document.getElementById('pay-cash-area').style.display='block';toast('Pay cash at counter');
