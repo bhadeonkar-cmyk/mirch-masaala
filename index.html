@@ -740,6 +740,23 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 
 
 #success .order-success-wrap{padding-top:72px!important}
+
+/* Waiter order confirmation: one clear review step before submission. */
+.waiter-confirm-box{text-align:left;max-width:460px;width:calc(100% - 28px);max-height:min(82vh,680px);overflow:auto}
+.waiter-confirm-box h3{text-align:center;margin-bottom:4px}
+.waiter-confirm-table{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:11px;font-weight:850;letter-spacing:.08em;color:var(--muted)}
+.waiter-confirm-table strong{font-size:24px;letter-spacing:0;color:var(--text)}
+.waiter-confirm-items{display:grid;gap:0;margin-top:10px}
+.waiter-confirm-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:13px;line-height:1.35}
+.waiter-confirm-item-name{flex:1;min-width:0;color:var(--text);overflow-wrap:anywhere}
+.waiter-confirm-item-qty{min-width:42px;color:var(--gold2);font-weight:850}
+.waiter-confirm-item-price{white-space:nowrap;font-weight:750;color:var(--text)}
+.waiter-confirm-total{display:flex;justify-content:space-between;align-items:center;padding:11px 2px;font-size:14px;border-bottom:1px solid var(--line)}
+.waiter-confirm-total strong{font-size:20px;color:var(--gold2)}
+.waiter-confirm-note{margin-top:9px;padding:10px;border-left:3px solid #e5d09b;border-radius:8px;background:rgba(229,208,155,.09);color:var(--text);font-size:13px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.waiter-confirm-box .btn{width:100%;min-height:46px;font-size:13px}
+@media(max-width:370px){.waiter-confirm-box{padding:15px}.waiter-confirm-item{font-size:12px}}
+
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -1233,6 +1250,20 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 </div>
 
 <div id="print-area" style="display:none"></div>
+
+<div class="modal" id="waiter-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="waiter-confirm-title">
+  <div class="box waiter-confirm-box">
+    <h3 id="waiter-confirm-title" class="gold">Check order before sending</h3>
+    <p class="muted" style="margin:6px 0 12px">Please check the table, food and guest note.</p>
+    <div class="waiter-confirm-table">TABLE <strong id="w-confirm-table">—</strong></div>
+    <div id="w-confirm-items" class="waiter-confirm-items"></div>
+    <div class="waiter-confirm-total"><span>Total</span><strong id="w-confirm-total">₹0</strong></div>
+    <div id="w-confirm-note" class="waiter-confirm-note" style="display:none"></div>
+    <button type="button" class="btn btn-main" style="margin-top:14px" onclick="confirmWaiterSend()">✓ Confirm &amp; send to kitchen</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeWaiterConfirm()">← Back to edit</button>
+  </div>
+</div>
+
 <aside id="public-order-board" aria-label="Live kitchen status" style="display:none"></aside>
 
 <script>window.MM_SUPABASE_REQUIRED = true;</script>
@@ -2512,7 +2543,10 @@ function useManualScanTable() {
 
 /* Waiter */
 function enterWaiter() {
-  if (role !== 'waiter' && role !== 'admin') { openLogin('waiter'); return; }
+  if (role !== 'waiter') {
+    if (role === 'admin' || role === 'kitchen') { toast('This screen is for waiter accounts only.'); go(role); return; }
+    openLogin('waiter'); return;
+  }
   go('waiter'); rebuildTables(); renderWaiterTables();
   wTable = ''; wCart = [];
   var area = document.getElementById('w-area'); if (area) area.style.display = 'none';
@@ -2680,7 +2714,10 @@ function drawWaiterOrders() {
 
 /* Kitchen */
 function enterKitchen() {
-  if (role !== 'kitchen' && role !== 'admin') { openLogin('kitchen'); return; }
+  if (role !== 'kitchen') {
+    if (role === 'admin' || role === 'waiter') { toast('This screen is for kitchen accounts only.'); go(role); return; }
+    openLogin('kitchen'); return;
+  }
   go('kitchen');
   if (typeof drawK === 'function') drawK();
   if (typeof drawKMenu === 'function') drawKMenu();
@@ -2798,7 +2835,10 @@ function toggleItem(id) {
 
 /* Admin */
 function enterAdmin() {
-  if (role !== 'admin') { openLogin('admin'); return; }
+  if (role !== 'admin') {
+    if (role === 'waiter' || role === 'kitchen') { toast('Owner access is required for this screen.'); go(role); return; }
+    openLogin('admin'); return;
+  }
   try { go('admin'); } catch (e) { console.error(e); }
   if (typeof updOpenBtn === 'function') updOpenBtn();
   if (typeof drawAdminOrders === 'function') drawAdminOrders();
@@ -3584,6 +3624,21 @@ function renderPublicOrderBoard(rows) {
   try {
     var tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || [];
     var savedOrders = JSON.parse(localStorage.getItem('mm_o') || '[]') || [];
+    if (Array.isArray(window.orders)) {
+      window.orders.forEach(function(o) {
+        if (!o) return;
+        var status = String(o.status || '').toUpperCase();
+        if (['NEW','PREPARING','READY'].indexOf(status) < 0) return;
+        var created = new Date(o.createdAt || 0).getTime();
+        if (created && Date.now() - created > 4 * 60 * 60 * 1000) return;
+        combined.push({
+          table_number: String(o.table || '').padStart(2,'0'),
+          status: status,
+          created_at: o.createdAt || '',
+          ticket: o.orderNumber || o.id || ''
+        });
+      });
+    }
     if (Array.isArray(tokens) && Array.isArray(savedOrders)) {
       var allowed = {};
       tokens.forEach(function(t) { if (t && t.id && t.token) allowed[String(t.id)] = true; });
@@ -3618,7 +3673,7 @@ function renderPublicOrderBoard(rows) {
   combined.forEach(function(row) {
     var tableNo = String(row.table_number || '').trim().padStart(2,'0');
     var status = String(row.status || '').toUpperCase();
-    if (!tableNo || tableNo === '—' || !/^\\d{2}$/.test(tableNo)) return;
+    if (!tableNo || tableNo === '—' || !/^[0-9]{2}$/.test(tableNo)) return;
     var existing = byTable[tableNo];
     if (!existing || priority[status] > priority[existing.status]) {
       byTable[tableNo] = {table_number:tableNo,status:status};
