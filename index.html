@@ -743,9 +743,11 @@ body{line-height:1.5}
       <option value="party">Party bookings</option>
       <option value="reviews">Reviews</option>
       <option value="payments">Payment log</option>
+      <option value="whatsapp">WhatsApp & Customers</option>
     </select>
   </div>
   <div id="a-payments" style="display:none;padding:12px"></div>
+  <div id="a-whatsapp" style="display:none;padding:12px"></div>
   <div id="a-orders"></div>
   <div id="a-settings" style="display:none;padding:12px"></div>
   <div id="a-alerts" style="display:none;padding:12px"></div>
@@ -793,7 +795,7 @@ body{line-height:1.5}
     <input id="p-guests" type="number" placeholder="e.g. 15">
     <label class="muted" style="font-size:12px">Notes</label>
     <textarea id="p-notes" placeholder="Cake, time…"></textarea>
-    <p class="muted" style="font-size:12px">Admin contact: <b class="gold">+91 98765 43210</b></p>
+    <p class="muted" style="font-size:12px">Admin contact: <b class="gold">+91 9657076450</b></p>
     <button type="button" class="btn btn-main" onclick="sendParty()">Send request</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeParty()">Close</button>
   </div>
@@ -860,7 +862,15 @@ body{line-height:1.5}
     <input id="cust-phone" type="tel" placeholder="10-digit mobile" inputmode="numeric">
     <label class="muted" style="font-size:12px">Your name</label>
     <input id="cust-name" placeholder="Name">
-    <button type="button" class="btn btn-main" onclick="saveCustomerProfile()">Continue</button>
+    <div style="display:flex;align-items:flex-start;gap:9px;margin:6px 0 10px;text-align:left">
+      <input id="cust-wa-order-updates" type="checkbox" style="width:18px;min-width:18px;margin:3px 0 0;padding:0">
+      <label for="cust-wa-order-updates" class="muted" style="font-size:12px">I agree to receive order/service updates from Mirch Masaala on WhatsApp. Optional.</label>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:9px;margin:6px 0 14px;text-align:left">
+      <input id="cust-wa-marketing" type="checkbox" style="width:18px;min-width:18px;margin:3px 0 0;padding:0">
+      <label for="cust-wa-marketing" class="muted" style="font-size:12px">I would also like restaurant news, announcements and offers on WhatsApp. Optional and separate from order updates.</label>
+    </div>
+    <button type="button" class="btn btn-main" onclick="saveCustomerProfile()">Save preferences</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="skipCustomerProfile()">Skip for now</button>
   </div>
 </div>
@@ -869,7 +879,7 @@ body{line-height:1.5}
   <div class="box center">
     <h3 class="gold">WhatsApp receipt?</h3>
     <p class="muted" style="margin:10px 0;font-size:13px">Do you want a receipt on WhatsApp from <b id="wa-from-name" class="gold">restaurant</b>?</p>
-    <p class="muted" style="font-size:12px;margin-bottom:12px">We only open WhatsApp if you say yes. Nothing is sent without your OK.</p>
+    <p class="muted" style="font-size:12px;margin-bottom:12px">This opens WhatsApp for a one-time receipt action only. It does not sign you up for restaurant announcements or offers; manage those separately in your preferences.</p>
     <button type="button" class="btn btn-main" onclick="sendWhatsAppReceipt(true)">Yes, open WhatsApp</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="sendWhatsAppReceipt(false)">No thanks</button>
   </div>
@@ -1647,6 +1657,10 @@ function openPhoneModal(reason) {
   window._phoneReason = reason || 'profile';
   document.getElementById('cust-phone').value = (currentCustomer && currentCustomer.phone) || '';
   document.getElementById('cust-name').value = (currentCustomer && currentCustomer.name) || '';
+  var orderOpt = document.getElementById('cust-wa-order-updates');
+  var marketingOpt = document.getElementById('cust-wa-marketing');
+  if (orderOpt) orderOpt.checked = !!(currentCustomer && currentCustomer.waOrderUpdatesOptIn);
+  if (marketingOpt) marketingOpt.checked = !!(currentCustomer && currentCustomer.waMarketingOptIn);
   document.getElementById('phone-modal').classList.add('on');
 }
 function skipCustomerProfile() {
@@ -1655,32 +1669,47 @@ function skipCustomerProfile() {
     toast('OK — no WhatsApp receipt');
   }
 }
-function saveCustomerProfile() {
+async function saveCustomerProfile() {
   var phone = (document.getElementById('cust-phone').value || '').replace(/\\D/g, '');
   var name = (document.getElementById('cust-name').value || '').trim();
   if (phone.length < 10) { toast('Enter a valid 10-digit mobile'); return; }
   phone = phone.slice(-10);
-  if (customers[phone]) {
-    // returning customer
-    if (name) customers[phone].name = name;
-    customers[phone].lastVisit = new Date().toISOString();
-    customers[phone].visits = (customers[phone].visits || 1) + 1;
-    toast('Welcome back, ' + (customers[phone].name || 'guest') + '!');
-  } else {
-    customers[phone] = {
-      phone: phone,
-      name: name || 'Guest',
-      createdAt: new Date().toISOString(),
-      lastVisit: new Date().toISOString(),
-      visits: 1,
-      waOptIn: false
-    };
-    toast('Saved · ' + (name || phone));
-  }
+  var orderOptEl = document.getElementById('cust-wa-order-updates');
+  var marketingOptEl = document.getElementById('cust-wa-marketing');
+  var orderOpt = !!(orderOptEl && orderOptEl.checked);
+  var marketingOpt = !!(marketingOptEl && marketingOptEl.checked);
+  var previous = customers[phone] || {};
+  customers[phone] = Object.assign({}, previous, {
+    phone: phone,
+    name: name || previous.name || 'Guest',
+    createdAt: previous.createdAt || new Date().toISOString(),
+    lastVisit: new Date().toISOString(),
+    visits: previous.visits ? previous.visits + 1 : 1,
+    waOrderUpdatesOptIn: orderOpt,
+    waMarketingOptIn: marketingOpt,
+    waOptIn: orderOpt || marketingOpt,
+    waConsentUpdatedAt: new Date().toISOString()
+  });
   currentCustomer = customers[phone];
   saveCustomers();
   save('mm_current_customer', currentCustomer);
   document.getElementById('phone-modal').classList.remove('on');
+  var remoteSynced = false;
+  if (typeof window.MM_SAVE_CUSTOMER_PROFILE === 'function') {
+    try {
+      await window.MM_SAVE_CUSTOMER_PROFILE({
+        phone: phone,
+        name: currentCustomer.name,
+        orderUpdatesOptIn: orderOpt,
+        marketingOptIn: marketingOpt
+      });
+      remoteSynced = true;
+    } catch (e) {
+      console.warn('[Mirch Masaala] Customer profile cloud sync:', e);
+    }
+  }
+  if (remoteSynced) toast((name || 'Guest') + ' saved securely');
+  else toast('Profile saved on this device; cloud contact sync needs database setup');
   if (window._phoneReason === 'receipt') openWaReceiptAsk();
 }
 function openWaReceiptAsk() {
@@ -1697,12 +1726,7 @@ function sendWhatsAppReceipt(yes) {
     openPhoneModal('receipt');
     return;
   }
-  // Ask permission recorded
-  currentCustomer.waOptIn = true;
-  customers[currentCustomer.phone] = currentCustomer;
-  saveCustomers();
-  save('mm_current_customer', currentCustomer);
-
+  // A one-time receipt choice is not consent to order updates or marketing broadcasts.
   var waNum = (SETTINGS.whatsappNumber || '').replace(/\\D/g, '');
   if (!waNum) {
     toast('Restaurant WhatsApp not set — ask Admin');
@@ -1753,6 +1777,96 @@ function openAdminPayLog() {
   document.getElementById('plog-note').value = '';
   document.getElementById('admin-pay-log-modal').classList.add('on');
 }
+
+function waTemplateMessageFor(type) {
+  if (type === 'order_updates') return SETTINGS.whatsappOrderMessage || defaultSettings().whatsappOrderMessage;
+  if (type === 'offer') return SETTINGS.whatsappOfferMessage || defaultSettings().whatsappOfferMessage;
+  return SETTINGS.whatsappAnnouncementMessage || defaultSettings().whatsappAnnouncementMessage;
+}
+function useWhatsAppDefaultMessage() {
+  var kind = document.getElementById('wa-broadcast-kind');
+  var message = document.getElementById('wa-broadcast-message');
+  if (kind && message) message.value = waTemplateMessageFor(kind.value);
+}
+async function drawWhatsApp() {
+  var el = document.getElementById('a-whatsapp');
+  if (!el) return;
+  if (window.role !== 'admin') {
+    el.innerHTML = '<div class="setup"><h3>Owner access required</h3><p>Sign in as Owner/Admin to manage WhatsApp contacts and broadcasts.</p></div>';
+    return;
+  }
+  el.innerHTML = '<div class="setup"><h3>💬 WhatsApp customer manager</h3><p>Loading customer permissions from the shared database…</p></div>';
+  if (typeof window.MM_GET_WHATSAPP_CUSTOMERS !== 'function') {
+    el.innerHTML = '<div class="setup"><h3>WhatsApp database setup needed</h3><p>Apply <code>supabase/whatsapp-crm.sql</code> in the Supabase SQL Editor, then refresh this page. The sending API also needs approved Meta templates and secure server settings.</p></div>';
+    return;
+  }
+  try {
+    var rows = await window.MM_GET_WHATSAPP_CUSTOMERS();
+    window.MM_WHATSAPP_CUSTOMERS_CACHE = rows || [];
+    var orderCount = window.MM_WHATSAPP_CUSTOMERS_CACHE.filter(function (c) { return c.wa_order_updates; }).length;
+    var marketingCount = window.MM_WHATSAPP_CUSTOMERS_CACHE.filter(function (c) { return c.wa_marketing_opt_in; }).length;
+    var kind = document.getElementById('wa-broadcast-kind');
+    var priorKind = kind ? kind.value : 'announcement';
+    var customerList = window.MM_WHATSAPP_CUSTOMERS_CACHE.slice(0, 20).map(function (c) {
+      return '<div class="card" style="flex-direction:column;gap:4px"><b>' + esc(c.name || 'Guest') + '</b><span class="muted">' +
+        esc(c.phone || '') + ' · Order updates: ' + (c.wa_order_updates ? 'Yes' : 'No') +
+        ' · News/offers: ' + (c.wa_marketing_opt_in ? 'Yes' : 'No') + '</span></div>';
+    }).join('');
+    el.innerHTML =
+      '<div class="setup"><h3>💬 WhatsApp customer manager</h3><p>Owner contact number: <b class="gold">+' + esc((SETTINGS.whatsappNumber || '919657076450').replace(/[^0-9]/g, '')) + '</b>. Change it in Settings at any time.</p><p>Only customers who explicitly opted into the selected category are eligible.</p></div>' +
+      '<div class="stats" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><b>' + window.MM_WHATSAPP_CUSTOMERS_CACHE.length + '</b>Registered</div><div class="stat"><b>' + orderCount + '</b>Order updates</div><div class="stat"><b>' + marketingCount + '</b>News/offers</div></div>' +
+      '<div class="place"><h3>Send a WhatsApp update</h3><p>Choose a saved default message or edit it for this broadcast. You will confirm before any message is sent.</p>' +
+      '<div class="settings-row"><label>Message category</label><select id="wa-broadcast-kind" onchange="useWhatsAppDefaultMessage()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff"><option value="order_updates">Order/service updates · opt-in only</option><option value="announcement">Restaurant announcement · opt-in only</option><option value="offer">Special offer · opt-in only</option></select></div>' +
+      '<div class="settings-row"><label>Message text</label><textarea id="wa-broadcast-message" rows="4" maxlength="900" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff">' + esc(waTemplateMessageFor('announcement')) + '</textarea></div>' +
+      '<p class="muted" id="wa-broadcast-count" style="font-size:12px;margin:6px 0 10px">' + marketingCount + ' opted-in recipients for announcements.</p>' +
+      '<button type="button" class="btn btn-main" id="wa-broadcast-send" onclick="sendWhatsAppBroadcast()">Preview & send to opted-in customers</button>' +
+      '<p class="muted" style="font-size:11px;margin-top:10px">Actual sending uses the official WhatsApp Business Platform through a secure server function. No API token is stored in this page.</p></div>' +
+      '<h3 class="gold" style="margin:16px 0 8px">Recent registered customers</h3>' +
+      (customerList || '<p class="muted">No customer profiles have been saved yet.</p>') +
+      (window.MM_WHATSAPP_CUSTOMERS_CACHE.length > 20 ? '<p class="muted">Showing the latest 20 of ' + window.MM_WHATSAPP_CUSTOMERS_CACHE.length + ' profiles.</p>' : '');
+    var kindEl = document.getElementById('wa-broadcast-kind');
+    if (kindEl) kindEl.value = priorKind && ['order_updates','announcement','offer'].indexOf(priorKind) >= 0 ? priorKind : 'announcement';
+    useWhatsAppDefaultMessage();
+    if (kindEl) kindEl.addEventListener('change', function () {
+      var n = document.getElementById('wa-broadcast-count');
+      var recipients = kindEl.value === 'order_updates' ? orderCount : marketingCount;
+      if (n) n.textContent = recipients + ' opted-in recipients for ' + (kindEl.value === 'order_updates' ? 'order/service updates' : kindEl.value === 'offer' ? 'offers' : 'announcements') + '.';
+    });
+  } catch (e) {
+    console.warn('[Mirch Masaala] Could not load WhatsApp audience:', e);
+    el.innerHTML = '<div class="setup"><h3>Could not load WhatsApp contacts</h3><p>' + esc(e && e.message ? e.message : 'Check the database setup and admin permissions.') + '</p><button type="button" class="btn btn-soft" onclick="drawWhatsApp()">Try again</button></div>';
+  }
+}
+async function sendWhatsAppBroadcast() {
+  if (window.role !== 'admin') { toast('Owner/Admin access required'); return; }
+  if (typeof window.MM_SEND_WHATSAPP_BROADCAST !== 'function') {
+    toast('WhatsApp sender is not configured yet');
+    return;
+  }
+  var kindEl = document.getElementById('wa-broadcast-kind');
+  var messageEl = document.getElementById('wa-broadcast-message');
+  var kind = kindEl ? kindEl.value : 'announcement';
+  var message = messageEl ? messageEl.value.trim() : '';
+  if (message.length < 3) { toast('Enter a message first'); return; }
+  var recipients = (window.MM_WHATSAPP_CUSTOMERS_CACHE || []).filter(function (c) {
+    return kind === 'order_updates' ? c.wa_order_updates : c.wa_marketing_opt_in;
+  }).length;
+  if (!recipients) { toast('No customers have opted in to this message category'); return; }
+  if (!window.confirm('Send this WhatsApp message to ' + recipients + ' customers who opted in to ' + (kind === 'order_updates' ? 'order/service updates' : kind === 'offer' ? 'offers' : 'announcements') + '? Provider charges may apply.')) return;
+  var btn = document.getElementById('wa-broadcast-send');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending safely…'; }
+  try {
+    var result = await window.MM_SEND_WHATSAPP_BROADCAST(kind, message);
+    var data = result && result.data ? result.data : result;
+    toast('Broadcast complete · sent ' + (data.sent_count || 0) + ', failed ' + (data.failed_count || 0));
+    await drawWhatsApp();
+  } catch (e) {
+    console.error('[Mirch Masaala WhatsApp broadcast]', e);
+    toast('WhatsApp send failed: ' + (e && e.message ? e.message : 'Check API setup and approved template'));
+    if (btn) { btn.disabled = false; btn.textContent = 'Preview & send to opted-in customers'; }
+  }
+}
+
 function drawAdminPayments() {
   var el = document.getElementById('a-payments');
   if (!el) return;
@@ -2309,7 +2423,7 @@ function tab(btn, name) {
     if(btn)btn.classList.add('on');
     if(more){more.value='';more.classList.remove('on');}
   }
-  ['orders','alerts','menu','qr','stats','party','reviews','payments','settings'].forEach(function(t) {
+  ['orders','alerts','menu','qr','stats','party','reviews','payments','settings','whatsapp'].forEach(function(t) {
     document.getElementById('a-' + t).style.display = t === name ? 'block' : 'none';
   });
   if (name === 'alerts') drawAlerts();
@@ -2320,6 +2434,7 @@ function tab(btn, name) {
   if (name === 'reviews') drawReviews();
   if (name === 'settings') drawSettings();
   if (name === 'payments') drawAdminPayments();
+  if (name === 'whatsapp') drawWhatsApp();
 }
 function drawAdminOrders() {
   var N = orders.filter(function(o){ return o.status === 'NEW'; });
@@ -2539,15 +2654,18 @@ function defaultSettings() {
   return {
     restaurantName: 'MIRCH MASAALA',
     tagline: 'INDIAN RESTAURANT',
-    adminPhone: '+91 98765 43210',
+    adminPhone: '+91 9657076450',
     dataUrl: '',
     closedMessage: 'Restaurant is closed',
     tableCount: 20,
     upiId: '',
     upiName: 'Mirch Masaala',
     payNote: 'Pay via UPI — show this QR to guest',
-    whatsappNumber: '919876543210',
+    whatsappNumber: '919657076450',
     whatsappName: 'Mirch Masaala',
+    whatsappOrderMessage: 'An update from Mirch Masaala: Thank you for choosing us. Please contact our team if you need help with your visit.',
+    whatsappAnnouncementMessage: 'Hello from Mirch Masaala! We have an update to share with our customers. Thank you for being part of our restaurant family.',
+    whatsappOfferMessage: 'Hello from Mirch Masaala! Visit us to ask about our latest specials. We look forward to serving you.',
     gpayUpi: '',
     phonepeUpi: '',
     acceptCard: true,
@@ -2562,6 +2680,12 @@ function defaultSettings() {
 }
 var SETTINGS = Object.assign(defaultSettings(), load('mm_settings', {}));
 if (SETTINGS.upiId === 'mirchmasaala@upi') SETTINGS.upiId = '';
+// Replace the old demo contact only; retain any real number the owner already configured.
+if (SETTINGS.adminPhone === '+91 98765 43210') SETTINGS.adminPhone = '+91 9657076450';
+if (SETTINGS.whatsappNumber === '919876543210') SETTINGS.whatsappNumber = '919657076450';
+if (!SETTINGS.whatsappOrderMessage) SETTINGS.whatsappOrderMessage = defaultSettings().whatsappOrderMessage;
+if (!SETTINGS.whatsappAnnouncementMessage) SETTINGS.whatsappAnnouncementMessage = defaultSettings().whatsappAnnouncementMessage;
+if (!SETTINGS.whatsappOfferMessage) SETTINGS.whatsappOfferMessage = defaultSettings().whatsappOfferMessage;
 
 function tableCount() {
   var n = parseInt(SETTINGS.tableCount, 10);
@@ -2721,9 +2845,13 @@ function drawSettings() {
     '<div class="settings-row"><label>UPI display name</label><input id="set-upiname" value="' + esc(s.upiName || '') + '"></div>' +
     '<div class="settings-row"><label>PhonePe merchant UPI ID (optional override)</label><input id="set-phonepe" placeholder="Leave blank to use main UPI ID" value="' + esc(s.phonepeUpi || '') + '"></div>' +
     '<div class="settings-row"><label>Payment note</label><input id="set-paynote" value="' + esc(s.payNote || '') + '"></div>' +
-    '<div class="settings-row"><label>WhatsApp number (with country code, no +)</label><input id="set-wa" placeholder="919876543210" value="' + esc(s.whatsappNumber || '') + '"></div>' +
+    '<div class="setup"><h3>💬 WhatsApp customer updates</h3><p>Temporary owner/restaurant contact: +91 9657076450. Change it below any time. Automated broadcasts require WhatsApp Business Platform credentials and approved message templates configured securely in Supabase.</p></div>' +
+    '<div class="settings-row"><label>Owner / restaurant WhatsApp contact (country code, digits only)</label><input id="set-wa" placeholder="919657076450" value="' + esc(s.whatsappNumber || '') + '"></div>' +
     '<div class="settings-row"><label>WhatsApp display name</label><input id="set-waname" value="' + esc(s.whatsappName || '') + '"></div>' +
-    '<div class="settings-row"><label>Receipt message</label><input id="set-receipt" value="' + esc(s.receiptMessage || '') + '"></div>' +
+    '<div class="settings-row"><label>One-time receipt message</label><input id="set-receipt" value="' + esc(s.receiptMessage || '') + '"></div>' +
+    '<div class="settings-row"><label>Default order/service update message</label><textarea id="set-wa-order-message" rows="3" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff">' + esc(s.whatsappOrderMessage || defaultSettings().whatsappOrderMessage) + '</textarea></div>' +
+    '<div class="settings-row"><label>Default restaurant announcement</label><textarea id="set-wa-announcement-message" rows="3" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff">' + esc(s.whatsappAnnouncementMessage || defaultSettings().whatsappAnnouncementMessage) + '</textarea></div>' +
+    '<div class="settings-row"><label>Default offers message</label><textarea id="set-wa-offer-message" rows="3" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff">' + esc(s.whatsappOfferMessage || defaultSettings().whatsappOfferMessage) + '</textarea></div>' +
     '<div class="settings-row"><label><input type="checkbox" id="set-card" ' + (s.acceptCard !== false ? 'checked' : '') + '> Accept card</label></div>' +
     '<div class="settings-row"><label><input type="checkbox" id="set-cash" ' + (s.acceptCash !== false ? 'checked' : '') + '> Accept cash</label></div>' +
 
@@ -2779,6 +2907,9 @@ function saveSettings() {
   SETTINGS.whatsappNumber = document.getElementById('set-wa').value.trim().replace(/[^0-9]/g, '');
   SETTINGS.whatsappName = document.getElementById('set-waname').value.trim();
   SETTINGS.receiptMessage = document.getElementById('set-receipt').value.trim();
+  SETTINGS.whatsappOrderMessage = document.getElementById('set-wa-order-message').value.trim() || defaultSettings().whatsappOrderMessage;
+  SETTINGS.whatsappAnnouncementMessage = document.getElementById('set-wa-announcement-message').value.trim() || defaultSettings().whatsappAnnouncementMessage;
+  SETTINGS.whatsappOfferMessage = document.getElementById('set-wa-offer-message').value.trim() || defaultSettings().whatsappOfferMessage;
   SETTINGS.restaurantAddress = document.getElementById('set-visit-address').value.trim();
   SETTINGS.restaurantPhone = document.getElementById('set-visit-phone').value.trim();
   SETTINGS.openingHours = document.getElementById('set-visit-hours').value.trim();
@@ -2788,6 +2919,14 @@ function saveSettings() {
   SETTINGS.acceptCard = document.getElementById('set-card').checked;
   SETTINGS.acceptCash = document.getElementById('set-cash').checked;
   save('mm_settings', SETTINGS);
+  if (typeof window.MM_SAVE_WHATSAPP_SETTINGS === 'function') {
+    window.MM_SAVE_WHATSAPP_SETTINGS().then(function () {
+      toast('WhatsApp settings synced across devices');
+    }).catch(function (e) {
+      console.warn('[Mirch Masaala] WhatsApp settings cloud sync:', e);
+      toast('Saved on this device; apply the WhatsApp database setup to sync across devices');
+    });
+  }
   applySettings();
   renderHomeTables();
   renderVisitSection();
