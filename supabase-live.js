@@ -31,6 +31,136 @@
   function notifySuccess(message) {
     if (typeof window.toast === 'function') window.toast(message);
   }
+  
+  var staffNotificationBusy = false;
+  var staffNotificationSetupWarningShown = false;
+
+  async function createGuestNotification(type, tableNumber) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Live alerts are not connected yet.');
+    var result = await client.rpc('mm_create_guest_notification', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_type: String(type || '').toUpperCase(),
+      p_table_number: String(tableNumber || '').padStart(2, '0')
+    });
+    if (result.error) throw result.error;
+    return result.data || {};
+  }
+
+  async function loadStaffNotifications() {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
+    if (['admin', 'waiter', 'kitchen'].indexOf(window.role) < 0) return [];
+    var result = await client.rpc('mm_staff_notifications', { p_limit: 50 });
+    if (result.error) throw result.error;
+    return result.data || [];
+  }
+
+  async function resolveStaffNotification(id) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
+    var result = await client.rpc('mm_resolve_staff_notification', { p_notification_id: Number(id) });
+    if (result.error) throw result.error;
+    await refreshRoleNotifications(true);
+    return result.data;
+  }
+
+  function nativeStaffNotification(row) {
+    if (!row || !('Notification' in window) || Notification.permission !== 'granted') return;
+    var type = String(row.notification_type || '').toUpperCase();
+    var table = String(row.table_number || '').padStart(2, '0');
+    var title = 'Mirch Masaala';
+    var body = row.message || '';
+    if (type === 'WAITER_CALL') { title = 'WAITER NEEDED · TABLE ' + table; body = 'A guest is waiting for a waiter.'; }
+    else if (type === 'BILL_REQUEST') { title = 'BILL REQUEST · TABLE ' + table; body = 'Please attend the table bill request.'; }
+    else if (type === 'NEW_ORDER') { title = 'NEW ORDER · TABLE ' + table; body = 'A new kitchen ticket has arrived.'; }
+    else if (type === 'ORDER_READY') { title = 'ORDER READY · TABLE ' + table; body = 'Please check the ready ticket.'; }
+    else if (type === 'ITEM_SOLD_OUT') { title = 'ITEM SOLD OUT'; body = row.item_name || row.message || 'Kitchen changed menu availability.'; }
+    try {
+      var notification = new Notification(title, { body: body, tag: 'mm-alert-' + row.id, icon: './icon.svg', requireInteraction: type === 'WAITER_CALL' || type === 'BILL_REQUEST' });
+      notification.onclick = function () { try { window.focus(); } catch (e) {} notification.close(); };
+    } catch (e) {}
+  }
+
+  async function refreshRoleNotifications(force) {
+    if (staffNotificationBusy || !client || !window.MM_SUPABASE_ENABLED ||
+        ['admin', 'waiter', 'kitchen'].indexOf(window.role) < 0) return;
+    staffNotificationBusy = true;
+    try {
+      var rows = await loadStaffNotifications();
+      rows.sort(function (a, b) { return new Date(b.created_at || 0) - new Date(a.created_at || 0); });
+      var role = String(window.role);
+      var seenKey = 'mm_alert_seen_' + role;
+      var initializedKey = seenKey + '_initialized';
+      var seen = [];
+      try { seen = JSON.parse(localStorage.getItem(seenKey) || '[]'); } catch (e) {}
+      if (!Array.isArray(seen)) seen = [];
+      var known = {};
+      seen.forEach(function (id) { known[String(id)] = true; });
+      var isInitial = localStorage.getItem(initializedKey) !== '1';
+      if (!isInitial) {
+        var newRows = rows.filter(function (row) {
+          var id = String(row.id);
+          return !known[id] && (Date.now() - new Date(row.created_at || 0).getTime() < 120000);
+        });
+        newRows.forEach(nativeStaffNotification);
+      }
+      rows.forEach(function (row) { known[String(row.id)] = true; });
+      var ids = Object.keys(known).slice(-120);
+      try {
+        localStorage.setItem(seenKey, JSON.stringify(ids));
+        localStorage.setItem(initializedKey, '1');
+      } catch (e) {}
+      window.MM_ROLE_NOTIFICATIONS = rows;
+      if (typeof window.renderRoleNotifications === 'function') window.renderRoleNotifications(rows, !!force);
+    } catch (e) {
+      if (!staffNotificationSetupWarningShown) {
+        staffNotificationSetupWarningShown = true;
+        console.info('[Mirch Masaala alerts] Run supabase/role-notifications.sql to enable shared role alerts.', e && e.message ? e.message : e);
+      }
+    } finally {
+      staffNotificationBusy = false;
+    }
+  }
+
+  function enableBrowserNotifications() {
+    if (!('Notification' in window)) {
+      notifyError('This browser does not support desktop notifications. Keep the staff screen open for in-app alerts.');
+      return Promise.resolve(false);
+    }
+    if (Notification.permission === 'granted') {
+      notifySuccess('Browser alerts are already enabled.');
+      return Promise.resolve(true);
+    }
+    if (Notification.permission === 'denied') {
+      notifyError('Browser alerts are blocked. Enable notifications for this site in browser settings.');
+      return Promise.resolve(false);
+    }
+    return Notification.requestPermission().then(function (permission) {
+      if (permission === 'granted') notifySuccess('Browser alerts enabled.');
+      else notifyError('Allow notifications for this site, or keep the app open for in-app alerts.');
+      return permission === 'granted';
+    });
+  }
+
+  function notifyCustomerOrderStatus(updated, previous) {
+    if (!updated || !previous || String(updated.status) === String(previous.status)) return;
+    var status = String(updated.status || '').toUpperCase();
+    if (status !== 'PREPARING' && status !== 'READY') return;
+    var key = 'mm_customer_status_notified_' + String(updated.id || '') + '_' + status;
+    try { if (localStorage.getItem(key) === '1') return; localStorage.setItem(key, '1'); } catch (e) {}
+    var message = status === 'READY'
+      ? 'Your food is ready. Please check with the restaurant team.'
+      : 'The kitchen has started preparing your order.';
+    if (typeof window.toast === 'function') window.toast('Table ' + updated.table + ' · ' + message);
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        var n = new Notification(status === 'READY' ? 'Your order is ready' : 'Your order is being prepared', {
+          body: 'Table ' + updated.table + ' · Ticket ' + updated.id,
+          tag: 'mm-customer-' + key,
+          icon: './icon.svg'
+        });
+        n.onclick = function () { try { window.focus(); } catch (e) {} n.close(); };
+      } catch (e) {}
+    }
+  }
 
   function existingCategory(name) {
     var list = (window.MENU && window.MENU.categories) || [];
@@ -251,6 +381,10 @@
           cancelUntil: current && current.cancelUntil,
           publicToken: saved.token
         };
+        if (current && String(current.status || '').toUpperCase() !== updated.status &&
+            typeof window.notifyCustomerOrderStatus === 'function') {
+          window.notifyCustomerOrderStatus(updated, current);
+        }
         var idx = savedOrders.findIndex(function (o) { return o && o.id === updated.id; });
         if (idx >= 0) savedOrders[idx] = Object.assign({}, savedOrders[idx], updated);
         else savedOrders.unshift(updated);
@@ -911,6 +1045,11 @@
     window.MM_GET_WHATSAPP_LOGS = getWhatsAppBroadcastLogs;
     window.MM_STOP_CUSTOMER_WHATSAPP = stopCustomerWhatsApp;
     window.MM_SEND_WHATSAPP_BROADCAST = sendWhatsAppBroadcast;
+    window.MM_CREATE_GUEST_NOTIFICATION = createGuestNotification;
+    window.MM_LOAD_STAFF_NOTIFICATIONS = loadStaffNotifications;
+    window.MM_RESOLVE_STAFF_NOTIFICATION = resolveStaffNotification;
+    window.MM_REFRESH_ROLE_NOTIFICATIONS = refreshRoleNotifications;
+    window.MM_ENABLE_BROWSER_NOTIFICATIONS = enableBrowserNotifications;
 
     ensureUsernameField();
     window.openLogin = function (requestedRole) {
@@ -964,6 +1103,8 @@
     refreshPublicOrderBoard();
     setInterval(function () { loadMenu(!!window.role, true); }, 20000);
     setInterval(refreshStaffOrders, 3000);
+    setTimeout(refreshRoleNotifications, 1200);
+    setInterval(refreshRoleNotifications, 4000);
     setInterval(refreshCustomerOrders, 6000);
     setInterval(refreshPublicOrderBoard, 8000);
     console.info('[Mirch Masaala] Supabase connected. Frontend is using shared menu and orders.');
