@@ -523,6 +523,35 @@ body{line-height:1.5}
 #tables .table-carousel-card .table-card-kicker{font-size:6px;letter-spacing:.4px}
 #tables .table-carousel-card .table-card-hint{font-size:7px}
 #tables .table-carousel-card.selected{transform:scale(1.015) translateY(-1px);opacity:1;border-color:var(--gold2);box-shadow:0 0 0 1.5px rgba(240,215,140,.09),0 7px 14px rgba(212,168,75,.13);background:linear-gradient(155deg,rgba(212,168,75,.28),rgba(38,28,24,.98) 75%)}
+
+/* Small friendly icon shortcuts: each icon itself is the clickable control. */
+.home-shortcuts{display:flex;align-items:flex-start;justify-content:center;gap:clamp(18px,6vw,30px);margin:13px auto 4px;padding:2px 0;flex-wrap:wrap}
+.home-shortcut{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:64px}
+.home-icon-btn{width:50px;height:50px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(240,215,140,.4);border-radius:50%;background:radial-gradient(circle at 32% 24%,rgba(240,215,140,.22),rgba(38,28,24,.96) 72%);color:var(--gold2);font-size:25px;line-height:1;box-shadow:0 5px 14px rgba(0,0,0,.2),inset 0 0 0 3px rgba(212,168,75,.06);cursor:pointer;transition:transform .16s,border-color .16s,box-shadow .16s}
+.home-icon-btn:active{transform:scale(.92);border-color:var(--gold2);box-shadow:0 0 0 4px rgba(212,168,75,.1)}
+.home-icon-btn:focus-visible{outline:2px solid var(--gold2);outline-offset:4px}
+.home-icon-btn span{display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
+.home-shortcut-label{font-size:10px;font-weight:700;color:var(--muted);text-align:center;max-width:86px;line-height:1.25}
+#home-visit-shortcut{display:flex}
+#home .table-swipe-guide{font-size:10px;gap:6px;padding:3px 7px;margin:2px auto 5px;min-height:20px}
+#tables.table-grid{gap:5px;padding:5px 2px 7px;margin:4px -2px 6px}
+#tables .table-carousel-card{flex:0 0 54px;min-width:54px;height:60px;padding:3px 1px;gap:2px;border-radius:12px;transform:scale(.98);opacity:.92;box-shadow:0 4px 10px rgba(0,0,0,.16)}
+#tables .table-carousel-card strong{font-size:17px;line-height:1;color:var(--gold2)}
+#tables .table-mini-cartoon{font-size:13px;line-height:1;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))}
+#tables .table-carousel-card.selected{transform:scale(1.015);opacity:1;border-color:var(--gold2);box-shadow:0 0 0 1px rgba(240,215,140,.1),0 6px 12px rgba(212,168,75,.12)}
+.guide-step-cartoon{align-items:center;gap:11px;padding:10px 0}
+.guide-step-cartoon .guide-icon{width:38px;height:38px;flex:0 0 38px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(145deg,rgba(240,215,140,.2),rgba(212,168,75,.07));border:1px solid rgba(212,168,75,.22);box-shadow:0 3px 10px rgba(0,0,0,.16)}
+.guide-step-cartoon b{display:block;margin-bottom:2px;color:var(--gold2)}
+.cook-stage{overflow:visible}
+.ambient-spark{position:absolute;z-index:5;pointer-events:none;line-height:1;font-size:12px;opacity:.75;filter:drop-shadow(0 0 5px rgba(240,215,140,.4));animation:ambientTwinkle 2.6s ease-in-out infinite}
+.ambient-spark.amb-a{top:8px;left:6px;font-size:14px;animation-delay:0s}
+.ambient-spark.amb-b{top:24px;right:2px;font-size:11px;animation-delay:.7s}
+.ambient-spark.amb-c{bottom:42px;right:13px;font-size:13px;animation-delay:1.2s}
+.ambient-spark.amb-d{top:44px;left:20px;font-size:9px;animation-delay:1.8s}
+@keyframes ambientTwinkle{0%,100%{opacity:.25;transform:translateY(2px) scale(.82) rotate(-8deg)}50%{opacity:1;transform:translateY(-5px) scale(1.15) rotate(12deg)}}
+.spark-dot{border-radius:50%;box-shadow:0 0 7px rgba(240,215,140,.55);animation:sparkFly 1.15s ease-out forwards}
+@media(prefers-reduced-motion:reduce){.ambient-spark,.spark-dot,.food-fly{animation:none!important}.ambient-spark{opacity:.4}.home-icon-btn{transition:none}}
+
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -530,6 +559,7 @@ body{line-height:1.5}
 
 <div class="splash" id="splash">
   <div class="cook-stage" id="splash-cook" onclick="cookTap(this, event)">
+    <span class="ambient-spark amb-a" aria-hidden="true">✨</span><span class="ambient-spark amb-b" aria-hidden="true">✦</span><span class="ambient-spark amb-c" aria-hidden="true">🌟</span><span class="ambient-spark amb-d" aria-hidden="true">✧</span>
     <span class="steam-puff" style="--sx:-12px;animation-delay:0s">💨</span>
     <span class="steam-puff" style="--sx:10px;animation-delay:.5s;left:45%">💨</span>
     <span class="steam-puff" style="--sx:0;animation-delay:1s;left:55%">✨</span>
@@ -549,6 +579,7 @@ body{line-height:1.5}
   <div class="wrap center" style="padding-top:28px;padding-bottom:40px">
     <div class="logo-row">
       <div class="cook-stage" id="home-cook" style="width:130px;height:120px" onclick="cookTap(this, event)">
+        <span class="ambient-spark amb-a" aria-hidden="true">✨</span><span class="ambient-spark amb-b" aria-hidden="true">✦</span><span class="ambient-spark amb-c" aria-hidden="true">🌟</span><span class="ambient-spark amb-d" aria-hidden="true">✧</span>
         <span class="steam-puff" style="--sx:-10px">💨</span>
         <span class="steam-puff" style="--sx:12px;animation-delay:.7s;left:48%">✨</span>
         <span class="chef-main" style="font-size:34px;bottom:22px;left:10px">👨‍🍳</span>
@@ -573,9 +604,20 @@ body{line-height:1.5}
     <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
     <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 Scan table QR</button>
     <p class="muted" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
-    <button type="button" class="btn btn-soft" style="margin-top:12px" onclick="openGuide()">📖 How to use this app</button>
-    <button type="button" class="btn btn-soft" id="home-explore-link" style="margin-top:8px" onclick="go('explore')">🧭 Places to visit</button>
-    <button type="button" class="btn btn-soft" id="home-visit-link" style="display:none;margin-top:8px" onclick="scrollToVisit()">📍 Visit us & directions</button>
+    <div class="home-shortcuts" aria-label="Helpful links">
+      <div class="home-shortcut">
+        <button type="button" class="home-icon-btn" aria-label="How to use this app" title="How to use this app" onclick="openGuide()"><span aria-hidden="true">📖</span></button>
+        <span class="home-shortcut-label">How to use</span>
+      </div>
+      <div class="home-shortcut">
+        <button type="button" class="home-icon-btn" id="home-explore-link" aria-label="Places to visit" title="Places to visit" onclick="go('explore')"><span aria-hidden="true">🗺️</span></button>
+        <span class="home-shortcut-label">Places to visit</span>
+      </div>
+      <div class="home-shortcut" id="home-visit-shortcut" style="display:none">
+        <button type="button" class="home-icon-btn" id="home-visit-link" aria-label="Visit us and directions" title="Visit us and directions" onclick="scrollToVisit()"><span aria-hidden="true">📍</span></button>
+        <span class="home-shortcut-label">Visit us</span>
+      </div>
+    </div>
     <section id="visit-section" class="visit-card" style="display:none" aria-label="Restaurant visit information"></section>
     <section id="review-section" style="margin-top:14px;text-align:left" aria-label="Reviews and feedback"></section>
 
@@ -1025,11 +1067,14 @@ function setOpenPill() {
 function spawnSparks(el, n) {
   if (!el) return;
   var r = el.getBoundingClientRect();
-  for (var i = 0; i < (n || 12); i++) {
+  for (var i = 0; i < (n || 18); i++) {
     var d = document.createElement('div');
     d.className = 'spark-dot';
+    var dotSize = 3 + Math.random() * 4;
+    d.style.width = dotSize + 'px';
+    d.style.height = dotSize + 'px';
     var ang = Math.random() * Math.PI * 2;
-    var dist = 30 + Math.random() * 50;
+    var dist = 40 + Math.random() * 75;
     d.style.left = (r.left + r.width/2 + (Math.random()-0.5)*20) + 'px';
     d.style.top = (r.top + r.height/2 + (Math.random()-0.5)*20) + 'px';
     d.style.setProperty('--sx', (Math.cos(ang)*dist) + 'px');
@@ -1155,7 +1200,7 @@ function openStaffGuide() {
 }
 function showRoleGuide(roleName) {
   var guides = {
-    customer: '<div class="guide-step"><div class="num">1</div><div><b>Scan your table QR</b><div class="muted" style="font-size:12px">Use your phone camera. The menu opens for your table automatically. Or swipe the table cards on the welcome screen.</div></div></div><div class="guide-step"><div class="num">2</div><div><b>Choose food</b><div class="muted" style="font-size:12px">Search or choose a category. Use All foods, Veg only, or Non-veg only, then tap ADD.</div></div></div><div class="guide-step"><div class="num">3</div><div><b>Review and send</b><div class="muted" style="font-size:12px">Open your cart, add notes, check the total, and place the order.</div></div></div><div class="guide-step"><div class="num">4</div><div><b>Track your meal</b><div class="muted" style="font-size:12px">See the order stages, call a waiter, or request your bill. Progress follows order status when updates are available.</div></div></div>',
+    customer: '<div class="guide-step guide-step-cartoon"><div class="guide-icon" aria-hidden="true">📷</div><div><b>Scan your table QR</b><div class="muted" style="font-size:12px">Use your phone camera. The menu opens for your table automatically. Or swipe the table cards on the welcome screen.</div></div></div><div class="guide-step guide-step-cartoon"><div class="guide-icon" aria-hidden="true">🥗</div><div><b>Choose food</b><div class="muted" style="font-size:12px">Search or choose a category. Use All foods, Veg only, or Non-veg only, then tap ADD.</div></div></div><div class="guide-step guide-step-cartoon"><div class="guide-icon" aria-hidden="true">🛒</div><div><b>Review and send</b><div class="muted" style="font-size:12px">Open your cart, add notes, check the total, and place the order.</div></div></div><div class="guide-step guide-step-cartoon"><div class="guide-icon" aria-hidden="true">🛎️</div><div><b>Track your meal</b><div class="muted" style="font-size:12px">See the order stages, call a waiter, or request your bill. Progress follows order status when updates are available.</div></div></div>',
     waiter: '<div class="guide-step"><div class="num">1</div><div><b>Sign in to Waiter Pad</b><div class="muted" style="font-size:12px">Open Staff access → Waiter Pad and enter the password provided by the owner.</div></div></div><div class="guide-step"><div class="num">2</div><div><b>Select the guest table</b><div class="muted" style="font-size:12px">Tap the correct table, search or filter dishes, and add requested quantities.</div></div></div><div class="guide-step"><div class="num">3</div><div><b>Confirm and send</b><div class="muted" style="font-size:12px">Add any guest request and tap Send to kitchen. Double-check table, dishes and quantities first.</div></div></div><div class="guide-step"><div class="num">4</div><div><b>Follow requests</b><div class="muted" style="font-size:12px">Check alerts for waiter calls and bill requests. Confirm with the kitchen before saying food is ready.</div></div></div>',
     kitchen: '<div class="guide-step"><div class="num">1</div><div><b>Open Kitchen</b><div class="muted" style="font-size:12px">Sign in on the kitchen device using the staff password from the owner.</div></div></div><div class="guide-step"><div class="num">2</div><div><b>NEW → COOKING</b><div class="muted" style="font-size:12px">Read the ticket, table number, items, quantities and notes. Tap Start Cooking when preparation begins.</div></div></div><div class="guide-step"><div class="num">3</div><div><b>COOKING → READY</b><div class="muted" style="font-size:12px">Mark Ready only when food is ready to leave the kitchen.</div></div></div><div class="guide-step"><div class="num">4</div><div><b>Handover</b><div class="muted" style="font-size:12px">Mark Served after it is handed to the waiter or guest. Mark items sold out when necessary.</div></div></div>',
     admin: '<div class="guide-step"><div class="num">1</div><div><b>Sign in to Owner / Admin</b><div class="muted" style="font-size:12px">Use your private owner username and password on a trusted device.</div></div></div><div class="guide-step"><div class="num">2</div><div><b>Manage menu and prices</b><div class="muted" style="font-size:12px">Open Menu, edit the amount, press Save price, or mark an item sold out. Export a menu backup after major edits.</div></div></div><div class="guide-step"><div class="num">3</div><div><b>Print table QR codes</b><div class="muted" style="font-size:12px">Open QR, download one table sticker or generate a printable sheet. Test every code before placing it.</div></div></div><div class="guide-step"><div class="num">4</div><div><b>Monitor service</b><div class="muted" style="font-size:12px">Review orders, alerts, payments and availability. Current prototype edits are local to each browser; shared updates require Supabase.</div></div></div>'
@@ -2884,7 +2929,7 @@ var FOODS = ['🍛','🥗','🍖','🥘','🍲','🍕','🥟','🌶️','🧄','
 function cookTap(stage, ev) {
   if (!stage) return;
   var foods = FOODS;
-  for (var i = 0; i < 5; i++) {
+  for (var i = 0; i < 8; i++) {
     var f = document.createElement('span');
     f.className = 'food-fly';
     f.textContent = foods[Math.floor(Math.random() * foods.length)];
@@ -2897,7 +2942,7 @@ function cookTap(stage, ev) {
     stage.appendChild(f);
     setTimeout((function(el){ return function(){ el.remove(); }; })(f), 900);
   }
-  if (typeof spawnSparks === 'function') spawnSparks(stage, 10);
+  if (typeof spawnSparks === 'function') spawnSparks(stage, 20);
   try { toast(['Yum!','Sizzle!','Tasty!','Hot!','Wow!'][Math.floor(Math.random()*5)]); } catch(e) {}
 }
 
@@ -2991,7 +3036,7 @@ function renderHomeTables() {
   var btn=document.getElementById('table-continue');if(btn)btn.style.display='none';
   MENU.tables.forEach(function(t){
     var b=document.createElement('button');b.type='button';b.className='tbtn table-carousel-card';b.setAttribute('data-table-number',t.number);
-    b.innerHTML='<span class="table-card-kicker">TABLE</span><strong>'+t.number+'</strong><span class="table-card-hint">Tap to select</span>';
+    b.innerHTML='<span class="table-mini-cartoon" aria-hidden="true">🍽️</span><strong>'+t.number+'</strong>';
     b.setAttribute('aria-label','Select Table '+t.number);
     b.onclick=(function(num,card){return function(){selectHomeTable(num,card,false);};})(t.number,b);g.appendChild(b);
   });
@@ -3128,7 +3173,7 @@ function safeDirectionsURL(raw) {
 }
 function renderVisitSection() {
   var el=document.getElementById('visit-section');if(!el)return;
-  var homeLink=document.getElementById('home-visit-link');
+  var homeLink=document.getElementById('home-visit-shortcut');
   var address=String(SETTINGS.restaurantAddress||'').trim(),hours=String(SETTINGS.openingHours||'').trim();
   var phone=String(SETTINGS.restaurantPhone||'').trim(),note=String(SETTINGS.visitNote||'').trim();
   var directions=safeDirectionsURL(SETTINGS.directionsUrl);
