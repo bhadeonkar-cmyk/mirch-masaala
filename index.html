@@ -511,9 +511,17 @@ body{line-height:1.5}
 #table-swipe-guide{font-size:11px;margin:5px 0}#table-continue{min-height:40px;padding:10px 12px;font-size:14px}
 .waiter-tables-grid{grid-template-columns:repeat(auto-fit,minmax(62px,1fr));gap:7px}.waiter-table-card{aspect-ratio:auto;min-height:58px;padding:7px 4px;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:15px}.waiter-table-card strong{font-size:16px;line-height:1.2}.waiter-table-card small{display:block;font-size:9px;font-weight:700;color:var(--muted);white-space:nowrap}.waiter-table-card.has-draft{border-color:rgba(62,207,142,.65)}
 .waiter-live-queue{margin:12px 0;padding:12px;background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:14px}.waiter-queue-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--gold2);font-size:13px;margin-bottom:5px}.waiter-queue-heading span{font-size:10px;color:var(--ok);border:1px solid rgba(62,207,142,.35);border-radius:999px;padding:3px 7px}.waiter-order-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:8px;margin-top:8px}.waiter-order-card{min-width:0;padding:10px;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:11px;background:var(--card)}.waiter-order-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:5px;font-size:12px}.waiter-order-status{font-size:10px;font-weight:900;border-radius:999px;padding:3px 6px;background:rgba(212,168,75,.14);color:var(--gold2)}.waiter-order-card.ready{border-left-color:var(--ok)}.waiter-order-card.preparing{border-left-color:var(--warn)}.waiter-order-card .waiter-order-items{font-size:12px;margin-top:6px;line-height:1.55}.waiter-order-card .btn{width:auto;min-height:36px;padding:7px 10px;font-size:12px;margin-top:8px}
-#public-order-board{position:fixed;z-index:24;right:10px;bottom:12px;width:min(238px,calc(100vw - 20px));max-height:190px;overflow:auto;padding:10px;background:rgba(24,17,13,.96);border:1px solid rgba(212,168,75,.55);border-radius:14px;box-shadow:0 8px 26px rgba(0,0,0,.45);backdrop-filter:blur(12px)}
-.public-board-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;color:var(--gold2);font-size:11px;font-weight:900;margin-bottom:6px}.public-board-live{font-size:9px;border-radius:999px;padding:2px 5px;color:var(--ok);background:rgba(62,207,142,.13)}.public-board-list{display:grid;gap:5px}.public-board-order{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 6px;padding:6px 7px;border-radius:9px;background:rgba(255,255,255,.035);font-size:11px}.public-board-order strong{font-size:11px}.public-board-order small{font-size:10px;color:var(--muted)}.public-board-order.ready{border-left:3px solid var(--ok)}.public-board-order.preparing{border-left:3px solid var(--warn)}
-@media(max-width:699px){#public-order-board{bottom:86px;right:7px;width:min(220px,calc(100vw - 14px));max-height:155px;padding:8px}.public-board-order{padding:5px 6px}}@media(min-width:700px){#public-order-board{width:250px;max-height:300px}}.btn-sm{min-height:34px!important;padding:7px 10px!important;font-size:12px!important}
+/* Minimal public table status tray: circles only, pinned at the top-right. */
+#public-order-board{position:fixed;z-index:24;top:calc(env(safe-area-inset-top, 0px) + 8px);right:8px;bottom:auto;width:auto;max-width:min(248px,calc(100vw - 16px));max-height:116px;overflow:hidden;padding:6px 8px 7px;background:rgba(20,20,22,.94);border:1px solid rgba(255,255,255,.14);border-radius:13px;box-shadow:none;backdrop-filter:blur(12px)}
+.public-board-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;color:var(--muted);font-size:9px;font-weight:850;letter-spacing:.06em;margin-bottom:4px}.public-board-live{font-size:8px;border-radius:999px;padding:2px 4px;color:#72dba5;background:rgba(62,207,142,.1)}
+.public-board-legend{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:8px;font-weight:700;white-space:nowrap}.public-board-legend .key-new{color:#f1a04e}.public-board-legend .key-preparing{color:#efd05d}.public-board-legend .key-ready{color:#62d79a}
+.public-board-circles{display:flex;align-items:center;justify-content:flex-end;gap:5px;max-width:230px;overflow-x:auto;scrollbar-width:none}.public-board-circles::-webkit-scrollbar{display:none}
+.public-table-circle{width:27px;height:27px;flex:0 0 27px;padding:0;border:1.5px solid currentColor;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:inherit;font-size:10px;font-weight:850;line-height:1;color:var(--text);background:transparent;cursor:pointer;box-shadow:none}
+.public-table-circle.new{color:#f1a04e;background:rgba(241,160,78,.06)}
+.public-table-circle.preparing{color:#efd05d;background:rgba(239,208,93,.06)}
+.public-table-circle.ready{color:#62d79a;background:rgba(98,215,154,.07)}
+.public-table-more{flex:0 0 auto;color:var(--muted);font-size:9px;padding:0 2px}
+@media(max-width:370px){#public-order-board{right:6px;max-width:min(220px,calc(100vw - 12px));padding:5px 6px}.public-board-legend{gap:5px;font-size:7px}.public-table-circle{width:25px;height:25px;flex-basis:25px}}.btn-sm{min-height:34px!important;padding:7px 10px!important;font-size:12px!important}
 
 
 /* Customer table picker: 75% of its previous footprint; keep waiter controls unchanged. */
@@ -779,7 +787,6 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
     <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 Scan table QR</button>
     <p class="muted" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
-    <section id="home-my-orders" class="home-my-orders" style="display:none;text-align:left" aria-live="polite" aria-label="Your recent order statuses"></section>
     <div class="home-shortcuts" aria-label="Helpful links">
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" aria-label="How to use this app" title="How to use this app" onclick="openGuide()"><span aria-hidden="true">📖</span></button>
@@ -3557,65 +3564,48 @@ function scrollToVisit() {
   go('visit-page');
 }
 function renderCustomerHomeOrders() {
+  // The top-right public status circles replace the larger customer order cards.
+  // Detailed own tickets remain available in the Track my orders screen.
   var host = document.getElementById('home-my-orders');
-  if (!host) return;
-  var saved = [];
-  var tokens = [];
-  try { saved = JSON.parse(localStorage.getItem('mm_o') || '[]') || []; } catch (e) {}
-  try { tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || []; } catch (e) {}
-  if (!Array.isArray(saved)) saved = [];
-  if (!Array.isArray(tokens)) tokens = [];
-  var allowed = {};
-  tokens.forEach(function(t){ if (t && t.id && t.token) allowed[String(t.id)] = true; });
-  var own = saved.filter(function(o){ return o && allowed[String(o.id)]; })
-    .sort(function(a,b){ return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); })
-    .slice(0, 5);
-  if (!own.length) {
-    host.style.display = 'none';
-    host.innerHTML = '';
-    return;
-  }
-  var meta = {
-    NEW: {label:'WAITING FOR KITCHEN', hint:'Order received. Kitchen has not started yet.', css:'waiting', step:1},
-    PREPARING: {label:'BEING PREPARED', hint:'The kitchen is cooking your order.', css:'cooking', step:2},
-    READY: {label:'READY', hint:'Your order is ready. Please check with staff.', css:'ready', step:3},
-    SERVED: {label:'SERVED', hint:'Enjoy your meal!', css:'served', step:4},
-    PAID: {label:'PAID', hint:'Payment recorded. Thank you!', css:'served', step:4},
-    CANCELLED: {label:'CANCELLED', hint:'This order was cancelled.', css:'cancelled', step:0}
-  };
-  host.style.display = 'block';
-  host.innerHTML = '<div class="home-orders-heading"><div><strong>📋 Your orders</strong><small>Updates automatically</small></div><button type="button" onclick="myOrders()" class="home-orders-link">View all</button></div>' +
-    own.map(function(o) {
-      var status = String(o.status || 'NEW').toUpperCase();
-      var m = meta[status] || meta.NEW;
-      var items = (o.items || []).map(function(i){ return (Number(i.qty) || 1) + '× ' + esc(i.name || 'Item'); }).join(' · ');
-      return '<article class="home-order-row ' + m.css + '">' +
-        '<div class="home-order-top"><b>Table ' + esc(String(o.table || '—').padStart(2,'0')) + '</b><span class="home-order-status">' + m.label + '</span></div>' +
-        '<div class="home-order-items">' + esc(items) + '</div>' +
-        '<p class="home-order-hint">' + m.hint + '</p>' +
-        (status !== 'CANCELLED' ? '<div class="home-order-steps"><span class="' + (m.step>=1?'done':'') + '">Received</span><i class="' + (m.step>=2?'done':'') + '"></i><span class="' + (m.step>=2?'done':'') + '">Preparing</span><i class="' + (m.step>=3?'done':'') + '"></i><span class="' + (m.step>=3?'done':'') + '">Ready</span><i class="' + (m.step>=4?'done':'') + '"></i><span class="' + (m.step>=4?'done':'') + '">Served</span></div>' : '') +
-        '</article>';
-    }).join('');
+  if (host) { host.style.display = 'none'; host.innerHTML = ''; }
 }
 function renderPublicOrderBoard(rows) {
   var host = document.getElementById('public-order-board'); if (!host) return;
-  rows = Array.isArray(rows) ? rows.filter(function (row) { return row && ['PREPARING', 'READY'].indexOf(String(row.status || '').toUpperCase()) >= 0; }) : [];
+  rows = Array.isArray(rows) ? rows.filter(function(row) {
+    return row && ['NEW', 'PREPARING', 'READY'].indexOf(String(row.status || '').toUpperCase()) >= 0;
+  }) : [];
   window.MM_PUBLIC_ORDER_ROWS = rows;
   var activeScreen = document.querySelector('.screen.on');
   if (activeScreen && ['waiter', 'kitchen', 'admin', 'login'].indexOf(activeScreen.id) >= 0) { host.style.display = 'none'; return; }
   if (!rows.length) { host.style.display = 'none'; host.innerHTML = ''; return; }
-  rows.sort(function (a, b) {
-    var pA = String(a.status).toUpperCase() === 'READY' ? 0 : 1, pB = String(b.status).toUpperCase() === 'READY' ? 0 : 1;
-    return pA - pB || new Date(a.created_at || 0) - new Date(b.created_at || 0);
+
+  // Keep only one small circle per table + active state; never show ticket details or dish names publicly.
+  var unique = {};
+  rows.forEach(function(row) {
+    var tableNo = String(row.table_number || '').padStart(2, '0');
+    var status = String(row.status || '').toUpperCase();
+    if (!tableNo || tableNo === '—') return;
+    var key = tableNo + ':' + status;
+    if (!unique[key]) unique[key] = {table_number:tableNo,status:status,created_at:row.created_at};
   });
-  host.style.bottom = activeScreen && ['customer', 'success', 'myorders'].indexOf(activeScreen.id) >= 0 ? '86px' : '12px';
+  var items = Object.keys(unique).map(function(key){ return unique[key]; });
+  var rank = {NEW:0,PREPARING:1,READY:2};
+  items.sort(function(a,b){
+    return rank[a.status]-rank[b.status] || String(a.table_number).localeCompare(String(b.table_number),undefined,{numeric:true});
+  });
+  var shown = items.slice(0, 15);
+  var extra = Math.max(0, items.length - shown.length);
   host.style.display = 'block';
-  host.innerHTML = '<div class="public-board-heading"><span>🍳 KITCHEN UPDATES</span><span class="public-board-live">● LIVE</span></div><div class="public-board-list">' +
-    rows.slice(0, 5).map(function (row) {
-      var status = String(row.status).toUpperCase(), kind = status === 'READY' ? 'ready' : 'preparing';
-      var label = status === 'READY' ? '✅ READY' : '🍳 PREPARING';
-      return '<div class="public-board-order ' + kind + '"><span>' + label + '</span><strong>Table ' + esc(row.table_number || '—') + '</strong><small>Order #' + esc(row.ticket || '—') + '</small><small>' + (status === 'READY' ? 'Please collect' : 'Being prepared') + '</small></div>';
-    }).join('') + '</div>';
+  host.setAttribute('aria-label','Public table status: orange waiting to start, yellow preparing, green ready');
+  host.innerHTML =
+    '<div class="public-board-heading"><span>TABLE STATUS</span><span class="public-board-live">LIVE</span></div>' +
+    '<div class="public-board-legend"><span class="key-new">● New</span><span class="key-preparing">● Cooking</span><span class="key-ready">● Ready</span></div>' +
+    '<div class="public-board-circles">' + shown.map(function(row) {
+      var status=String(row.status).toUpperCase();
+      var cls=status==='NEW'?'new':status==='READY'?'ready':'preparing';
+      var label=status==='NEW'?'Waiting to start':status==='READY'?'Ready to collect':'Preparing';
+      return '<button type="button" class="public-table-circle '+cls+'" title="Table '+esc(row.table_number)+' · '+label+'" aria-label="Table '+esc(row.table_number)+' · '+label+'" onclick="go(\'myorders\')">'+esc(row.table_number)+'</button>';
+    }).join('') + (extra ? '<span class="public-table-more" aria-label="'+extra+' more table statuses">+'+extra+'</span>' : '') + '</div>';
 }
 function esc(t) {
   return String(t || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
