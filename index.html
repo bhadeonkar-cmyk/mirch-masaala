@@ -2666,7 +2666,46 @@ function wDrawCart() {
   if (wTable) wDrafts[wTable] = (wCart || []).map(function (item) { return Object.assign({}, item); });
   updateWaiterTableIndicators();
 }
+function openWaiterConfirm() {
+  if (role !== 'waiter') { toast('Please use the waiter login to send this order.'); return; }
+  if (!wTable || !Array.isArray(wCart) || !wCart.length) { toast('Choose a table and add food first.'); return; }
+  if (window.MM_SUPABASE_REQUIRED && !window.MM_SUPABASE_ENABLED) { toast('Order connection is loading. Please wait a moment.'); return; }
+  var tableHost = document.getElementById('w-confirm-table');
+  var itemsHost = document.getElementById('w-confirm-items');
+  var totalHost = document.getElementById('w-confirm-total');
+  var noteHost = document.getElementById('w-confirm-note');
+  var noteInput = document.getElementById('w-notes');
+  var notes = noteInput ? String(noteInput.value || '').trim() : '';
+  var total = wCart.reduce(function(sum,item){ return sum + (Number(item.price)||0) * (Number(item.qty)||1); },0);
+  if (tableHost) tableHost.textContent = String(wTable).padStart(2,'0');
+  if (totalHost) totalHost.textContent = '₹' + total.toLocaleString('en-IN');
+  if (itemsHost) itemsHost.innerHTML = wCart.map(function(item){
+    var qty = Math.max(1,Number(item.qty)||1);
+    return '<div class="waiter-confirm-item"><span class="waiter-confirm-item-qty">' + qty + ' ×</span><span class="waiter-confirm-item-name">' + esc(item.name || 'Item') + '</span><span class="waiter-confirm-item-price">₹' + ((Number(item.price)||0)*qty).toLocaleString('en-IN') + '</span></div>';
+  }).join('');
+  if (noteHost) {
+    noteHost.style.display = notes ? 'block' : 'none';
+    noteHost.innerHTML = notes ? '<b>Guest note</b><div>' + esc(notes) + '</div>' : '';
+  }
+  var modal = document.getElementById('waiter-confirm-modal');
+  if (modal) modal.classList.add('on');
+}
+function closeWaiterConfirm() {
+  var modal = document.getElementById('waiter-confirm-modal');
+  if (modal) modal.classList.remove('on');
+}
+function confirmWaiterSend() {
+  if (role !== 'waiter') { closeWaiterConfirm(); toast('Waiter login required.'); return; }
+  if (!wTable || !Array.isArray(wCart) || !wCart.length) { closeWaiterConfirm(); toast('Order is empty. Please add food.'); return; }
+  if (window.MM_ORDER_SENDING) return;
+  closeWaiterConfirm();
+  window.MM_WAITER_CONFIRMATION_APPROVED = true;
+  if (typeof window.wSend === 'function') window.wSend();
+}
 function wSend() {
+  if (role !== 'waiter') { toast('Please use the waiter login to send this order.'); return; }
+  if (!window.MM_WAITER_CONFIRMATION_APPROVED) { openWaiterConfirm(); return; }
+  window.MM_WAITER_CONFIRMATION_APPROVED = false;
   if (window.MM_SUPABASE_REQUIRED && !window.MM_SUPABASE_ENABLED) { toast('Online ordering is connecting. Please wait a moment and try again.'); return; }
   if (!wTable || !wCart.length) { toast('Pick table & add food'); return; }
   var date = new Date();
@@ -3973,6 +4012,9 @@ window.cookTap = cookTap;
 window.wAdd = wAdd;
 window.wQty = wQty;
 window.wSend = wSend;
+window.openWaiterConfirm = openWaiterConfirm;
+window.closeWaiterConfirm = closeWaiterConfirm;
+window.confirmWaiterSend = confirmWaiterSend;
 window.pickW = pickW;
 window.setCat = setCat;
 window.setWC = setWC;
