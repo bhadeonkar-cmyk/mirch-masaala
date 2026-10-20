@@ -582,6 +582,26 @@
     return result.data || [];
   }
 
+  async function getWhatsAppBroadcastLogs() {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    if (window.role !== "admin") throw new Error("Owner/Admin access required.");
+    var result = await client.from("mm_whatsapp_broadcast_logs")
+      .select("id,category,message,eligible_count,attempted_count,sent_count,failed_count,provider_status,created_at")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (result.error) throw result.error;
+    return result.data || [];
+  }
+
+  async function stopCustomerWhatsApp(profileId) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    if (window.role !== "admin") throw new Error("Owner/Admin access required.");
+    var result = await client.rpc("mm_admin_stop_customer_whatsapp", { p_profile_id: profileId });
+    if (result.error) throw result.error;
+    return rpcPayload(result.data);
+  }
+
   async function sendWhatsAppBroadcast(category, message) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
     if (window.role !== "admin") throw new Error("Owner/Admin access required.");
@@ -621,6 +641,8 @@
     window.MM_LOAD_WHATSAPP_SETTINGS = loadWhatsAppSettings;
     window.MM_SAVE_WHATSAPP_SETTINGS = saveWhatsAppSettings;
     window.MM_GET_WHATSAPP_CUSTOMERS = getWhatsAppCustomers;
+    window.MM_GET_WHATSAPP_LOGS = getWhatsAppBroadcastLogs;
+    window.MM_STOP_CUSTOMER_WHATSAPP = stopCustomerWhatsApp;
     window.MM_SEND_WHATSAPP_BROADCAST = sendWhatsAppBroadcast;
 
     ensureEmailField();
