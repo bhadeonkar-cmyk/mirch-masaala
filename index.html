@@ -3663,36 +3663,27 @@ function renderPublicOrderBoard(rows) {
   try {
     var tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || [];
     var savedOrders = JSON.parse(localStorage.getItem('mm_o') || '[]') || [];
-    if (Array.isArray(window.orders)) {
-      window.orders.forEach(function(o) {
-        if (!o) return;
-        var status = String(o.status || '').toUpperCase();
-        if (['NEW','PREPARING','READY'].indexOf(status) < 0) return;
-        var created = new Date(o.createdAt || 0).getTime();
-        if (created && Date.now() - created > 4 * 60 * 60 * 1000) return;
-        combined.push({
-          table_number: String(o.table || '').padStart(2,'0'),
-          status: status,
-          created_at: o.createdAt || '',
-          ticket: o.orderNumber || o.id || ''
-        });
+    var allowed = {};
+    if (Array.isArray(tokens)) tokens.forEach(function(t) {
+      if (t && t.id && t.token) allowed[String(t.id)] = true;
+    });
+    // Only add this guest's own token-verified tickets from memory/storage.
+    var ownTickets = [];
+    if (Array.isArray(savedOrders)) ownTickets = ownTickets.concat(savedOrders);
+    if (Array.isArray(window.orders)) ownTickets = ownTickets.concat(window.orders);
+    ownTickets.forEach(function(o) {
+      if (!o || !allowed[String(o.id)]) return;
+      var status = String(o.status || '').toUpperCase();
+      if (['NEW','PREPARING','READY'].indexOf(status) < 0) return;
+      var created = new Date(o.createdAt || 0).getTime();
+      if (created && Date.now() - created > 4 * 60 * 60 * 1000) return;
+      combined.push({
+        table_number: String(o.table || '').padStart(2,'0'),
+        status: status,
+        created_at: o.createdAt || '',
+        ticket: o.orderNumber || o.id || ''
       });
-    }
-    if (Array.isArray(tokens) && Array.isArray(savedOrders)) {
-      var allowed = {};
-      tokens.forEach(function(t) { if (t && t.id && t.token) allowed[String(t.id)] = true; });
-      savedOrders.forEach(function(o) {
-        if (!o || !allowed[String(o.id)]) return;
-        var status = String(o.status || '').toUpperCase();
-        if (['NEW','PREPARING','READY'].indexOf(status) < 0) return;
-        combined.push({
-          table_number: String(o.table || '').padStart(2,'0'),
-          status: status,
-          created_at: o.createdAt || '',
-          ticket: o.orderNumber || o.id || ''
-        });
-      });
-    }
+    });
   } catch (e) {}
 
   combined = combined.filter(function(row) {
