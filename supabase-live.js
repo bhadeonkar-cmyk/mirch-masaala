@@ -48,7 +48,11 @@
   }
 
   async function loadMenu(forStaff, quiet) {
-    if (!client || menuRefreshBusy) return;
+    if (!client) return false;
+    if (menuRefreshBusy) {
+      await new Promise(function (resolve) { setTimeout(resolve, 150); });
+      return loadMenu(forStaff, quiet);
+    }
     menuRefreshBusy = true;
     try {
       var categoryResult = await client.from('categories')
@@ -510,6 +514,10 @@
   function start() {
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
       window.MM_SUPABASE_STATUS = 'library-missing';
+      window.MM_SUPABASE_ENABLED = false;
+      window.placeOrder = function () { notifyError('Online ordering is unavailable. Refresh the page and try again.'); };
+      window.wSend = function () { notifyError('Online ordering is unavailable. Refresh the page and try again.'); };
+      window.doLogin = function () { notifyError('Secure staff login is unavailable. Refresh the page and try again.'); };
       notifyError('Secure online library failed to load. Refresh or try another network.');
       return;
     }
@@ -550,7 +558,7 @@
     var loginForm = document.getElementById('pass');
     if (loginForm) loginForm.setAttribute('autocomplete', 'current-password');
 
-    loadMenu(false, true).then(function (ok) {
+    loadMenu(false, false).then(function (ok) {
       if (ok) notifySuccess('Shared menu connected.');
     });
     restoreStaffSession();
