@@ -623,6 +623,12 @@
 
     var remote = result.data;
     var s = window.SETTINGS || {};
+    var paymentConfigBefore = JSON.stringify([
+      String(s.upiId || "").trim(),
+      String(s.upiName || "").trim(),
+      String(s.phonepeUpi || "").trim(),
+      String(s.payNote || "")
+    ]);
     s.restaurantName = remote.restaurant_name || s.restaurantName || "MIRCH MASAALA";
     s.tagline = remote.tagline || s.tagline || "INDIAN RESTAURANT";
     s.adminPhone = remote.admin_phone || s.adminPhone || "+91 9657076450";
@@ -634,6 +640,12 @@
     s.payNote = remote.pay_note || "Review the amount in your payment app before paying.";
     s.acceptCard = remote.accept_card !== false;
     s.acceptCash = remote.accept_cash !== false;
+    var paymentConfigAfter = JSON.stringify([
+      String(s.upiId || "").trim(),
+      String(s.upiName || "").trim(),
+      String(s.phonepeUpi || "").trim(),
+      String(s.payNote || "")
+    ]);
     try { localStorage.setItem("mm_settings", JSON.stringify(s)); } catch (e) {}
 
     if (typeof window.applySettings === "function") window.applySettings();
@@ -644,7 +656,7 @@
 
     // If the customer already has the payment dialog open, refresh its QR/link immediately.
     var payModal = document.getElementById("pay-modal");
-    if (payModal && payModal.classList.contains("on") && typeof window.selectPayMethod === "function") {
+    if (payModal && payModal.classList.contains("on") && paymentConfigBefore !== paymentConfigAfter && typeof window.selectPayMethod === "function") {
       window.selectPayMethod((window.payContext && window.payContext.method) || "gpay");
     }
     return true;
