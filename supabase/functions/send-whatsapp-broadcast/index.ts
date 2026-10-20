@@ -134,7 +134,7 @@ Deno.serve(async (req: Request) => {
   });
   if (logResult.error) console.error("[WhatsApp broadcast] Could not write history log:", logResult.error.message);
 
-  return json(failed === 0 ? 200 : 207, {
+  return json(200, {
     eligible_count: targets.length,
     attempted_count: targets.length,
     sent_count: sent,
