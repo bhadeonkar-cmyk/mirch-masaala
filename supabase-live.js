@@ -435,6 +435,11 @@
       } else {
         window.go('admin');
         window.enterAdmin();
+        loadWhatsAppSettings().then(function () {
+          if (typeof window.drawSettings === 'function' && document.getElementById('a-settings') && document.getElementById('a-settings').style.display !== 'none') window.drawSettings();
+        }).catch(function (e) {
+          console.info('[Mirch Masaala] WhatsApp settings use local defaults until CRM SQL is applied:', e.message || e);
+        });
       }
     } catch (e) {
       if (err) { err.style.display = 'block'; err.textContent = e && e.message ? e.message : 'Sign-in failed. Check the email and password.'; }
@@ -511,6 +516,91 @@
     }
   }
 
+
+  async function saveRemoteCustomerProfile(profile) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    var result = await client.rpc("mm_save_customer_profile", {
+      p_restaurant_id: RESTAURANT_ID,
+      p_phone: String(profile.phone || ""),
+      p_name: String(profile.name || "Guest"),
+      p_order_updates: !!profile.orderUpdatesOptIn,
+      p_marketing_opt_in: !!profile.marketingOptIn
+    });
+    if (result.error) throw result.error;
+    return rpcPayload(result.data);
+  }
+
+  async function loadWhatsAppSettings() {
+    if (!client || window.role !== "admin") throw new Error("Owner/Admin access required.");
+    var result = await client.from("mm_whatsapp_settings")
+      .select("owner_contact,display_name,receipt_message,order_update_message,announcement_message,offer_message")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .maybeSingle();
+    if (result.error) throw result.error;
+    if (!result.data) return null;
+    var s = window.SETTINGS || {};
+    s.whatsappNumber = result.data.owner_contact || "919657076450";
+    s.whatsappName = result.data.display_name || "Mirch Masaala";
+    s.receiptMessage = result.data.receipt_message || s.receiptMessage || "";
+    s.whatsappOrderMessage = result.data.order_update_message || s.whatsappOrderMessage || "";
+    s.whatsappAnnouncementMessage = result.data.announcement_message || s.whatsappAnnouncementMessage || "";
+    s.whatsappOfferMessage = result.data.offer_message || s.whatsappOfferMessage || "";
+    try { localStorage.setItem("mm_settings", JSON.stringify(s)); } catch (e) {}
+    return result.data;
+  }
+
+  async function saveWhatsAppSettings() {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    if (window.role !== "admin") throw new Error("Owner/Admin access required.");
+    var s = window.SETTINGS || {};
+    var contact = String(s.whatsappNumber || "").replace(/\D/g, "");
+    if (contact.length < 10 || contact.length > 15) throw new Error("Enter a valid owner WhatsApp contact number with country code.");
+    var payload = {
+      restaurant_id: RESTAURANT_ID,
+      owner_contact: contact,
+      display_name: String(s.whatsappName || "Mirch Masaala").slice(0, 100),
+      receipt_message: String(s.receiptMessage || "Thank you for dining at Mirch Masaala!").slice(0, 500),
+      order_update_message: String(s.whatsappOrderMessage || "").slice(0, 900),
+      announcement_message: String(s.whatsappAnnouncementMessage || "").slice(0, 900),
+      offer_message: String(s.whatsappOfferMessage || "").slice(0, 900),
+      updated_at: new Date().toISOString()
+    };
+    var result = await client.from("mm_whatsapp_settings").upsert(payload, { onConflict: "restaurant_id" });
+    if (result.error) throw result.error;
+    return true;
+  }
+
+  async function getWhatsAppCustomers() {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    if (window.role !== "admin") throw new Error("Owner/Admin access required.");
+    var result = await client.from("mm_customer_profiles")
+      .select("id,phone,name,wa_order_updates,wa_marketing_opt_in,created_at,last_seen_at,visit_count")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .order("last_seen_at", { ascending: false })
+      .limit(500);
+    if (result.error) throw result.error;
+    return result.data || [];
+  }
+
+  async function sendWhatsAppBroadcast(category, message) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    if (window.role !== "admin") throw new Error("Owner/Admin access required.");
+    var result = await client.functions.invoke("send-whatsapp-broadcast", {
+      body: { category: category, message: String(message || "").trim() }
+    });
+    if (result.error) {
+      var detail = result.error.message || "The WhatsApp sender is unavailable.";
+      if (result.error.context && typeof result.error.context.json === "function") {
+        try {
+          var body = await result.error.context.json();
+          if (body && body.error) detail = body.error;
+        } catch (e) {}
+      }
+      throw new Error(detail);
+    }
+    return result.data || {};
+  }
+
   function start() {
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
       window.MM_SUPABASE_STATUS = 'library-missing';
@@ -527,6 +617,11 @@
     window.MM_SUPABASE_CLIENT = client;
     window.MM_SUPABASE_ENABLED = true;
     window.MM_SUPABASE_STATUS = 'connected';
+    window.MM_SAVE_CUSTOMER_PROFILE = saveRemoteCustomerProfile;
+    window.MM_LOAD_WHATSAPP_SETTINGS = loadWhatsAppSettings;
+    window.MM_SAVE_WHATSAPP_SETTINGS = saveWhatsAppSettings;
+    window.MM_GET_WHATSAPP_CUSTOMERS = getWhatsAppCustomers;
+    window.MM_SEND_WHATSAPP_BROADCAST = sendWhatsAppBroadcast;
 
     ensureEmailField();
     window.openLogin = function (requestedRole) {
