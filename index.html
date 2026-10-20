@@ -610,7 +610,7 @@ body{line-height:1.5}
       <button type="button" class="x" onclick="dismissTip('menu-tip')">×</button>
     </div>
     <input class="search" id="search" placeholder="Search dishes…" oninput="drawMenu()" aria-label="Search menu">
-    <input class="search" id="search" placeholder="Search food…" oninput="drawMenu()">
+    
     <div class="diet-filters" id="diet-filters" role="group" aria-label="Filter by food type"></div>
     <div class="cats" id="cats"></div>
     <div id="menu"></div>
@@ -1359,12 +1359,17 @@ function drawWDietFilters() { renderDietButtons('w-diet-filters', wDietFilter, '
 function setWDietFilter(s) { wDietFilter = s; drawWDietFilters(); wMenu(); }
 function setCat(s) { cat = s; drawCats(); drawMenu(); }
 function drawMenu() {
-  var q = (document.getElementById('search').value || '').toLowerCase();
+  var searchInput = document.getElementById('search');
+  var q = searchInput ? String(searchInput.value || '').trim().toLocaleLowerCase() : '';
   var items = MENU.menu_items.filter(function(i){ return i.is_available; });
   if (cat !== 'all') items = items.filter(function(i){ return i.category_slug === cat; });
   if (dietFilter === 'veg') items = items.filter(function(i){ return i.is_veg; });
   if (dietFilter === 'nonveg') items = items.filter(function(i){ return !i.is_veg; });
-  if (q) items = items.filter(function(i){ return i.name.toLowerCase().indexOf(q) >= 0; });
+  if (q) items = items.filter(function(i){
+    var name=String(i.name||'').toLocaleLowerCase();
+    var description=String(i.description||'').toLocaleLowerCase();
+    return name.indexOf(q)>=0 || description.indexOf(q)>=0;
+  });
   document.getElementById('menu').innerHTML = items.map(function(item) {
     var inC = cart.find(function(c){ return c.id === item.id; });
     return '<div class="card"><div class="pic">' + (item.is_veg?'🥗':'🍖') + '</div><div style="flex:1;min-width:0">' +
