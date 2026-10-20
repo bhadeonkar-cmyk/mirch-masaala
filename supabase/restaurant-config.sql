@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS public.mm_restaurant_config (
   admin_phone text NOT NULL DEFAULT '+91 9657076450',
   upi_id text NOT NULL DEFAULT '',
   upi_name text NOT NULL DEFAULT 'Mirch Masaala',
+  whatsapp_number text NOT NULL DEFAULT '919657076450',
+  whatsapp_name text NOT NULL DEFAULT 'Mirch Masaala',
   phonepe_upi text NOT NULL DEFAULT '',
   pay_note text NOT NULL DEFAULT 'Review the amount in your payment app before paying.',
   accept_card boolean NOT NULL DEFAULT true,
@@ -20,6 +22,11 @@ CREATE TABLE IF NOT EXISTS public.mm_restaurant_config (
   CHECK (length(upi_id) <= 150),
   CHECK (length(phonepe_upi) <= 150)
 );
+
+-- Also support projects where the previous UPI-only version of this migration was already run.
+ALTER TABLE public.mm_restaurant_config
+  ADD COLUMN IF NOT EXISTS whatsapp_number text NOT NULL DEFAULT '919657076450',
+  ADD COLUMN IF NOT EXISTS whatsapp_name text NOT NULL DEFAULT 'Mirch Masaala';
 
 ALTER TABLE public.mm_restaurant_config ENABLE ROW LEVEL SECURITY;
 
