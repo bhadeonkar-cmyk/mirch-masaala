@@ -515,6 +515,14 @@ body{line-height:1.5}
 .public-board-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;color:var(--gold2);font-size:11px;font-weight:900;margin-bottom:6px}.public-board-live{font-size:9px;border-radius:999px;padding:2px 5px;color:var(--ok);background:rgba(62,207,142,.13)}.public-board-list{display:grid;gap:5px}.public-board-order{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 6px;padding:6px 7px;border-radius:9px;background:rgba(255,255,255,.035);font-size:11px}.public-board-order strong{font-size:11px}.public-board-order small{font-size:10px;color:var(--muted)}.public-board-order.ready{border-left:3px solid var(--ok)}.public-board-order.preparing{border-left:3px solid var(--warn)}
 @media(max-width:699px){#public-order-board{bottom:86px;right:7px;width:min(220px,calc(100vw - 14px));max-height:155px;padding:8px}.public-board-order{padding:5px 6px}}@media(min-width:700px){#public-order-board{width:250px;max-height:300px}}.btn-sm{min-height:34px!important;padding:7px 10px!important;font-size:12px!important}
 
+
+/* Customer table picker: 75% of its previous footprint; keep waiter controls unchanged. */
+#tables.table-grid{gap:6px;padding:6px 3px 9px;margin:6px -2px 8px}
+#tables .table-carousel-card{flex:0 0 63px;min-width:63px;height:66px;padding:5px 2px;gap:3px;border-radius:10px;transform:scale(.98);opacity:.9;box-shadow:0 5px 12px rgba(0,0,0,.16)}
+#tables .table-carousel-card strong{font-size:18px;line-height:1}
+#tables .table-carousel-card .table-card-kicker{font-size:6px;letter-spacing:.4px}
+#tables .table-carousel-card .table-card-hint{font-size:7px}
+#tables .table-carousel-card.selected{transform:scale(1.015) translateY(-1px);opacity:1;border-color:var(--gold2);box-shadow:0 0 0 1.5px rgba(240,215,140,.09),0 7px 14px rgba(212,168,75,.13);background:linear-gradient(155deg,rgba(212,168,75,.28),rgba(38,28,24,.98) 75%)}
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -2671,13 +2679,7 @@ function downloadAllQRCodes() {
   if(!win){toast('Pop-up blocked. Allow pop-ups for this site to make the printable QR sheet.');return;}
   win.document.open();
   win.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mirch Masaala · Table QR codes</title><style>body{font-family:Arial,sans-serif;color:#21160f;padding:22px}h1{text-align:center;margin:0 0 4px}p{text-align:center;margin:0 0 20px;color:#665}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.item{border:1px solid #b9a889;border-radius:12px;padding:10px;text-align:center;break-inside:avoid}.item img{width:100%;max-width:190px;display:block;margin:8px auto;background:#fff}.item strong{font-size:19px;letter-spacing:2px}.url{font-size:9px;overflow-wrap:anywhere;color:#555}.help{font-size:12px;color:#555}@media print{body{padding:0}.grid{gap:8px}.item{padding:6px}}
-/* Customer table picker: 75% of its previous footprint; keep waiter controls unchanged. */
-#tables.table-grid{gap:6px;padding:6px 3px 9px;margin:6px -2px 8px}
-#tables .table-carousel-card{flex:0 0 63px;min-width:63px;height:66px;padding:5px 2px;gap:3px;border-radius:10px;transform:scale(.98);opacity:.9;box-shadow:0 5px 12px rgba(0,0,0,.16)}
-#tables .table-carousel-card strong{font-size:18px;line-height:1}
-#tables .table-carousel-card .table-card-kicker{font-size:6px;letter-spacing:.4px}
-#tables .table-carousel-card .table-card-hint{font-size:7px}
-#tables .table-carousel-card.selected{transform:scale(1.015) translateY(-1px);opacity:1;border-color:var(--gold2);box-shadow:0 0 0 1.5px rgba(240,215,140,.09),0 7px 14px rgba(212,168,75,.13);background:linear-gradient(155deg,rgba(212,168,75,.28),rgba(38,28,24,.98) 75%)}
+
 
 </style></head><body><h1>MIRCH MASAALA</h1><p>Scan each QR to open the matching table menu · Print and place on the correct table</p><p id="qr-sheet-status">Preparing QR codes…</p></body></html>');
   win.document.close();
