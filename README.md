@@ -16,6 +16,16 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 - The public Quick guide shows customer instructions only. Staff-specific help is available from the waiter/kitchen/admin login screen.
 - Admin → Settings requires the owner to enter the restaurant's real merchant UPI ID before UPI payments can be used. Google Pay / PhonePe links use app-specific mobile links where supported, with the standard UPI QR payload available for scanning.
 
+
+## Simplified role workflows
+
+- **Customer:** scan the table QR with the phone camera, add dishes, use the cart to submit one ticket, and use the single **Help & orders** menu for calling a waiter, billing, tracking, or instructions.
+- **Groups at one table:** the QR is a table identifier, not a lock or customer identity. Each submission gets a distinct ticket number so one customer's submission does not intentionally replace another ticket. The tickets are not yet shared across phones; this becomes operational only after database sync is connected.
+- **Waiter:** select a table, add items, and send a ticket. The table selection is visibly highlighted and the confirmation shows the ticket number.
+- **Kitchen:** each ticket is shown with its table number and ticket reference. On mobile, New / Cooking / Ready lanes stack vertically for easier reading.
+- **Owner/Admin:** everyday tools are Orders, Alerts, Menu, QR, and Settings. Reports, party bookings, reviews, and payment log are in **More tools**.
+- **After placing an order:** the customer sees the ticket/progress and three clear actions: Order more, Track my orders, and Request bill / Pay.
+
 ## Publish with GitHub Pages
 
 1. Open **Settings → Pages**.
