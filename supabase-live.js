@@ -352,7 +352,7 @@
     try {
       var noteEl = document.getElementById('w-notes');
       var note = noteEl ? noteEl.value.trim() : '';
-      var order = await createSharedOrder(window.wTable, window.wCart, note ? '[Waiter] ' + note : '[Waiter]');
+      var order = await createSharedOrder(window.wTable, window.wCart, note ? '[Waiter] ' + note : '');
       window.orders = window.orders || [];
       window.orders.unshift(order);
       try { localStorage.setItem('mm_o', JSON.stringify(window.orders)); } catch (e) {}
