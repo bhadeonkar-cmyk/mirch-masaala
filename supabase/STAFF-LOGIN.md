@@ -1,12 +1,12 @@
 # Mirch Masaala staff login
 
-The staff-facing login screen now accepts usernames and passwords. Supabase Auth continues to verify the password, and `staff_profiles` continues to determine the account role. The username is mapped to a synthetic, non-deliverable authentication email inside the browser, so staff do not need to enter or have personal email addresses.
+The staff-facing login screen accepts usernames and passwords. The login form can remember a username on that device; Supabase persists the authenticated session so the staff screen is restored after refresh until the user signs out. The password itself is never saved by the app. Supabase Auth continues to verify the password, and `staff_profiles` continues to determine the account role. The username is mapped to a synthetic, non-deliverable authentication email inside the browser, so staff do not need to enter or have personal email addresses.
 
 ## Default username convention
 
 - Owner/Admin: `owner`
-- Waiter: `waiter1`
-- Kitchen: `kitchen1`
+- Waiter: `waiter`
+- Kitchen: `kitchen`
 
 These are suggested usernames only, not pre-created accounts and not passwords.
 
@@ -15,7 +15,7 @@ These are suggested usernames only, not pre-created accounts and not passwords.
 Until a secure staff-account manager is added to the app, the initial accounts must be created by an owner in the Supabase Dashboard:
 
 1. Open Authentication → Users → Add user.
-2. For `owner`, use the internal email `owner@staff.mirchmasaala.invalid`; for `waiter1`, use `waiter1@staff.mirchmasaala.invalid`; for `kitchen1`, use `kitchen1@staff.mirchmasaala.invalid`.
+2. For `owner`, use the internal email `owner@staff.mirchmasaala.invalid`; for `waiter`, use `waiter@staff.mirchmasaala.invalid`; for `kitchen`, use `kitchen@staff.mirchmasaala.invalid`.
 3. Set a unique private password for each user and confirm the account in the dashboard if prompted. These `.invalid` addresses are internal login aliases, not real mailboxes. Staff should type only the username on the website.
 4. Copy each new user's Auth UID. In the Supabase SQL Editor, assign the role using the matching UID:
 
@@ -23,7 +23,7 @@ Until a secure staff-account manager is added to the app, the initial accounts m
        VALUES ('PASTE_AUTH_USER_UID_HERE'::uuid, 'admin')
        ON CONFLICT (user_id) DO UPDATE SET role = EXCLUDED.role;
 
-Use role `waiter` for `waiter1` and `kitchen` for `kitchen1`. Run the statement once per account, replacing both the UID and role.
+Use role `waiter` for `waiter` and `kitchen` for `kitchen`. Run the statement once per account, replacing both the UID and role.
 
 ## Security notes
 
