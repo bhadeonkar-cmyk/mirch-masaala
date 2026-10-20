@@ -12,6 +12,8 @@
   var customerRefreshBusy = false;
   var menuRefreshBusy = false;
   var lastShownError = '';
+  var publicOrderBoardBusy = false;
+  var publicOrderBoardWarningShown = false;
 
   window.MM_SUPABASE_ENABLED = false;
   window.MM_SUPABASE_STATUS = 'connecting';
@@ -155,6 +157,9 @@
       if (!rows.length) {
         window.orders = [];
         try { localStorage.setItem('mm_o', '[]'); } catch (e) {}
+        if (document.getElementById('waiter') && document.getElementById('waiter').classList.contains('on') && typeof window.drawWaiterOrders === 'function') window.drawWaiterOrders();
+        if (document.getElementById('admin') && document.getElementById('admin').classList.contains('on') && window.role === 'admin' && typeof window.drawAdminOrders === 'function') window.drawAdminOrders();
+        if (document.getElementById('kitchen') && document.getElementById('kitchen').classList.contains('on') && typeof window.drawK === 'function') window.drawK();
         return;
       }
 
@@ -194,6 +199,7 @@
       try { localStorage.setItem('mm_o', JSON.stringify(window.orders)); } catch (e) {}
       if (document.getElementById('admin') && document.getElementById('admin').classList.contains('on') && window.role === 'admin' && typeof window.drawAdminOrders === 'function') window.drawAdminOrders();
       if (document.getElementById('kitchen') && document.getElementById('kitchen').classList.contains('on') && (window.role === 'kitchen' || window.role === 'admin') && typeof window.drawK === 'function') window.drawK();
+      if (document.getElementById('waiter') && document.getElementById('waiter').classList.contains('on') && typeof window.drawWaiterOrders === 'function') window.drawWaiterOrders();
       if (document.getElementById('success') && document.getElementById('success').classList.contains('on') && typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
     } catch (e) {
       notifyError('Order sync failed. Check staff account permissions in Supabase.');
@@ -351,9 +357,12 @@
       window.orders.unshift(order);
       try { localStorage.setItem('mm_o', JSON.stringify(window.orders)); } catch (e) {}
       window.wCart = [];
+      if (window.wTable && window.wDrafts) window.wDrafts[window.wTable] = [];
+      if (window.wTable && window.wNotesDrafts) window.wNotesDrafts[window.wTable] = '';
       if (noteEl) noteEl.value = '';
       if (typeof window.wDrawCart === 'function') window.wDrawCart();
       if (typeof window.wMenu === 'function') window.wMenu();
+      if (typeof window.drawWaiterOrders === 'function') window.drawWaiterOrders();
       notifySuccess('Ticket ' + order.id + ' sent · Table ' + order.table);
       await refreshStaffOrders();
     } catch (e) {
@@ -658,6 +667,35 @@
     return rpcPayload(result.data);
   }
 
+  async function deleteRestaurantReview(reviewId) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    if (window.role !== "admin") throw new Error("Owner/Admin access required.");
+    var result = await client.rpc("mm_admin_delete_restaurant_review", {
+      p_review_id: String(reviewId || "")
+    });
+    if (result.error) throw result.error;
+    return rpcPayload(result.data);
+  }
+
+  async function refreshPublicOrderBoard() {
+    if (!client || !window.MM_SUPABASE_ENABLED || publicOrderBoardBusy) return;
+    publicOrderBoardBusy = true;
+    try {
+      var result = await client.rpc("mm_public_order_board");
+      if (result.error) throw result.error;
+      var rows = Array.isArray(result.data) ? result.data : [];
+      window.MM_PUBLIC_ORDER_ROWS = rows;
+      if (typeof window.renderPublicOrderBoard === "function") window.renderPublicOrderBoard(rows);
+    } catch (e) {
+      if (!publicOrderBoardWarningShown) {
+        console.info("[Mirch Masaala] Public live order board is not enabled yet. Run supabase/restaurant-feedback.sql once.", e && e.message ? e.message : e);
+        publicOrderBoardWarningShown = true;
+      }
+    } finally {
+      publicOrderBoardBusy = false;
+    }
+  }
+
   async function loadWhatsAppSettings() {
     if (!client || window.role !== "admin") throw new Error("Owner/Admin access required.");
     var result = await client.from("mm_whatsapp_settings")
@@ -864,6 +902,7 @@
     window.MM_SUBMIT_RESTAURANT_REVIEW = submitRestaurantReview;
     window.MM_LOAD_RESTAURANT_REVIEWS = loadRestaurantReviews;
     window.MM_ADMIN_SET_REVIEW_STATUS = setRestaurantReviewStatus;
+    window.MM_ADMIN_DELETE_RESTAURANT_REVIEW = deleteRestaurantReview;
     window.MM_LOAD_WHATSAPP_SETTINGS = loadWhatsAppSettings;
     window.MM_SAVE_WHATSAPP_SETTINGS = saveWhatsAppSettings;
     window.MM_LOAD_SHARED_RESTAURANT_CONFIG = loadSharedRestaurantConfig;
@@ -922,9 +961,11 @@
     }, 20000);
     restoreStaffSession();
     refreshCustomerOrders();
+    refreshPublicOrderBoard();
     setInterval(function () { loadMenu(!!window.role, true); }, 20000);
     setInterval(refreshStaffOrders, 3000);
     setInterval(refreshCustomerOrders, 6000);
+    setInterval(refreshPublicOrderBoard, 8000);
     console.info('[Mirch Masaala] Supabase connected. Frontend is using shared menu and orders.');
   }
 
