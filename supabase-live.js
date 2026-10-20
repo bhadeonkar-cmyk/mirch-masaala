@@ -1,0 +1,567 @@
+/* Mirch Masaala shared Supabase connection.
+ * Browser-safe publishable key only. RLS and server-side RPCs protect data.
+ */
+(function () {
+  'use strict';
+
+  var SUPABASE_URL = 'https://adbhxldsqwsyaqzdmxnf.supabase.co';
+  var SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_jAm4636kkOg-EysRgIa_Jw_bt967sZ9';
+  var RESTAURANT_ID = 'a3702d10-6673-4c06-9783-1d61c945ecd5';
+  var client = null;
+  var staffRefreshBusy = false;
+  var customerRefreshBusy = false;
+  var menuRefreshBusy = false;
+  var lastShownError = '';
+
+  window.MM_SUPABASE_ENABLED = false;
+  window.MM_SUPABASE_STATUS = 'connecting';
+
+  function notifyError(message) {
+    message = String(message || 'Unknown connection error');
+    console.error('[Mirch Masaala Supabase]', message);
+    if (message !== lastShownError && typeof window.toast === 'function') {
+      window.toast(message);
+      lastShownError = message;
+      setTimeout(function () { if (lastShownError === message) lastShownError = ''; }, 8000);
+    }
+  }
+
+  function notifySuccess(message) {
+    if (typeof window.toast === 'function') window.toast(message);
+  }
+
+  function existingCategory(name) {
+    var list = (window.MENU && window.MENU.categories) || [];
+    var lower = String(name || '').toLowerCase();
+    return list.find(function (item) {
+      return String(item.name || '').toLowerCase() === lower;
+    }) || null;
+  }
+
+  function tableNumberFor(tableId, tableRows) {
+    var found = tableRows.find(function (t) { return t.id === tableId; });
+    return found ? String(found.table_number).padStart(2, '0') : '??';
+  }
+
+  function rpcPayload(data) {
+    return Array.isArray(data) ? (data[0] || null) : data;
+  }
+
+  async function loadMenu(forStaff, quiet) {
+    if (!client || menuRefreshBusy) return;
+    menuRefreshBusy = true;
+    try {
+      var categoryResult = await client.from('categories')
+        .select('id,name,sort_order,is_active')
+        .eq('restaurant_id', RESTAURANT_ID)
+        .order('sort_order', { ascending: true });
+      if (categoryResult.error) throw categoryResult.error;
+
+      var menuResult = await client.from('menu_items')
+        .select('id,category_id,name,description,price,image_url,is_available,sort_order,is_veg,is_bestseller,spicy_level')
+        .eq('restaurant_id', RESTAURANT_ID)
+        .order('sort_order', { ascending: true });
+      if (menuResult.error) throw menuResult.error;
+
+      var categoryById = {};
+      var oldCategories = (window.MENU && window.MENU.categories) || [];
+      var cats = (categoryResult.data || []).map(function (row, index) {
+        var old = existingCategory(row.name);
+        var category = {
+          id: old ? old.id : (Number(row.sort_order) || index + 1),
+          db_id: row.id,
+          name: row.name,
+          slug: old ? old.slug : String(row.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+          order: Number(row.sort_order) || index + 1,
+          is_visible: !!row.is_active
+        };
+        categoryById[row.id] = category;
+        return category;
+      });
+
+      var items = (menuResult.data || []).map(function (row, index) {
+        var category = categoryById[row.category_id] || { name: 'Other', slug: 'other' };
+        return {
+          id: Number(row.sort_order) || index + 1,
+          db_id: row.id,
+          name: row.name,
+          category: category.name,
+          category_slug: category.slug,
+          description: row.description || '',
+          price: Number(row.price) || 0,
+          is_veg: !!row.is_veg,
+          is_non_veg: !row.is_veg,
+          is_bestseller: !!row.is_bestseller,
+          is_available: !!row.is_available,
+          spicy_level: Number(row.spicy_level) || 0,
+          image: row.image_url || null
+        };
+      });
+
+      if (cats.length) window.MENU.categories = cats;
+      window.MENU.menu_items = items;
+      try { localStorage.setItem('mm_live_menu_loaded', '1'); } catch (e) {}
+
+      if (typeof window.drawCats === 'function') window.drawCats();
+      if (typeof window.drawDietFilters === 'function') window.drawDietFilters();
+      if (typeof window.drawMenu === 'function' && document.getElementById('customer') && document.getElementById('customer').classList.contains('on')) {
+        window.drawMenu();
+        if (typeof window.drawSpecials === 'function') window.drawSpecials();
+      }
+      if (typeof window.wCats === 'function' && document.getElementById('w-cats')) window.wCats();
+      if (typeof window.wMenu === 'function' && document.getElementById('w-menu')) window.wMenu();
+      if (typeof window.drawAdminMenu === 'function' && document.getElementById('a-menu') && document.getElementById('a-menu').style.display !== 'none' && (window.role === 'admin')) window.drawAdminMenu();
+      if (typeof window.drawKMenu === 'function' && document.getElementById('kitchen') && document.getElementById('kitchen').classList.contains('on')) window.drawKMenu();
+
+      if (!quiet) console.info('[Mirch Masaala] Loaded ' + items.length + ' menu items from Supabase');
+    } catch (e) {
+      if (!quiet) notifyError('Could not load shared menu. Check Supabase setup and try refreshing.');
+      console.error('[Mirch Masaala menu sync]', e);
+    } finally {
+      menuRefreshBusy = false;
+    }
+  }
+
+  async function refreshStaffOrders() {
+    if (!client || !window.MM_SUPABASE_ENABLED || !window.role || staffRefreshBusy) return;
+    if (['admin', 'waiter', 'kitchen'].indexOf(window.role) < 0) return;
+    staffRefreshBusy = true;
+    try {
+      var result = await client.from('orders')
+        .select('id,ticket_id,table_id,status,notes,total,created_at,public_token,order_number')
+        .eq('restaurant_id', RESTAURANT_ID)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (result.error) throw result.error;
+      var rows = result.data || [];
+      if (!rows.length) {
+        window.orders = [];
+        try { localStorage.setItem('mm_o', '[]'); } catch (e) {}
+        return;
+      }
+
+      var ids = rows.map(function (r) { return r.id; });
+      var [tableResult, itemResult] = await Promise.all([
+        client.from('restaurant_tables').select('id,table_number').eq('restaurant_id', RESTAURANT_ID),
+        client.from('order_items').select('order_id,item_name,quantity,price,notes').in('order_id', ids)
+      ]);
+      if (tableResult.error) throw tableResult.error;
+      if (itemResult.error) throw itemResult.error;
+      var tableRows = tableResult.data || [];
+      var itemsByOrder = {};
+      (itemResult.data || []).forEach(function (item) {
+        if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+        itemsByOrder[item.order_id].push({
+          name: item.item_name,
+          price: Number(item.price) || 0,
+          qty: Number(item.quantity) || 1,
+          notes: item.notes || ''
+        });
+      });
+
+      window.orders = rows.map(function (row) {
+        return {
+          id: row.ticket_id || ('ORDER-' + row.order_number),
+          dbId: row.id,
+          publicToken: row.public_token,
+          table: tableNumberFor(row.table_id, tableRows),
+          items: itemsByOrder[row.id] || [],
+          total: Number(row.total) || 0,
+          status: String(row.status || 'NEW').toUpperCase(),
+          notes: row.notes || '',
+          createdAt: row.created_at,
+          orderNumber: row.order_number
+        };
+      });
+      try { localStorage.setItem('mm_o', JSON.stringify(window.orders)); } catch (e) {}
+      if (document.getElementById('admin') && document.getElementById('admin').classList.contains('on') && window.role === 'admin' && typeof window.drawAdminOrders === 'function') window.drawAdminOrders();
+      if (document.getElementById('kitchen') && document.getElementById('kitchen').classList.contains('on') && (window.role === 'kitchen' || window.role === 'admin') && typeof window.drawK === 'function') window.drawK();
+      if (document.getElementById('success') && document.getElementById('success').classList.contains('on') && typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    } catch (e) {
+      notifyError('Order sync failed. Check staff account permissions in Supabase.');
+      console.error('[Mirch Masaala order sync]', e);
+    } finally {
+      staffRefreshBusy = false;
+    }
+  }
+
+  function storePublicToken(ticketId, token) {
+    if (!ticketId || !token) return;
+    try {
+      var list = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]');
+      if (!Array.isArray(list)) list = [];
+      list = list.filter(function (x) { return x && x.id !== ticketId; });
+      list.push({ id: ticketId, token: token });
+      localStorage.setItem('mm_live_order_tokens', JSON.stringify(list.slice(-15)));
+    } catch (e) {}
+  }
+
+  async function refreshCustomerOrders() {
+    if (!client || !window.MM_SUPABASE_ENABLED || customerRefreshBusy) return;
+    customerRefreshBusy = true;
+    try {
+      var tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]');
+      if (!Array.isArray(tokens) || !tokens.length) return;
+      var savedOrders = [];
+      try { savedOrders = JSON.parse(localStorage.getItem('mm_o') || '[]') || []; } catch (e) {}
+      for (var i = Math.max(0, tokens.length - 10); i < tokens.length; i++) {
+        var saved = tokens[i];
+        if (!saved || !saved.id || !saved.token) continue;
+        var current = (savedOrders || []).find(function (o) { return o && o.id === saved.id; });
+        if (current && ['SERVED', 'PAID', 'CANCELLED'].indexOf(String(current.status).toUpperCase()) >= 0) continue;
+        var result = await client.rpc('mm_get_public_order', {
+          p_ticket_id: saved.id,
+          p_public_token: saved.token
+        });
+        if (result.error) throw result.error;
+        var remote = rpcPayload(result.data);
+        if (!remote) continue;
+        var updated = {
+          id: remote.id,
+          table: String(remote.table || (current && current.table) || '01').padStart(2, '0'),
+          items: remote.items || (current && current.items) || [],
+          total: Number(remote.total) || 0,
+          status: String(remote.status || 'NEW').toUpperCase(),
+          notes: remote.notes || '',
+          createdAt: remote.createdAt || (current && current.createdAt) || new Date().toISOString(),
+          cancelUntil: current && current.cancelUntil,
+          publicToken: saved.token
+        };
+        var idx = savedOrders.findIndex(function (o) { return o && o.id === updated.id; });
+        if (idx >= 0) savedOrders[idx] = Object.assign({}, savedOrders[idx], updated);
+        else savedOrders.unshift(updated);
+      }
+      window.orders = savedOrders;
+      try { localStorage.setItem('mm_o', JSON.stringify(savedOrders)); } catch (e) {}
+      if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+      if (document.getElementById('myorders') && document.getElementById('myorders').classList.contains('on') && typeof window.myOrders === 'function') window.myOrders();
+    } catch (e) {
+      console.warn('[Mirch Masaala customer order status]', e);
+    } finally {
+      customerRefreshBusy = false;
+    }
+  }
+
+  function buildOrderItems(cartItems) {
+    return (cartItems || []).map(function (cartItem) {
+      var item = (window.MENU.menu_items || []).find(function (candidate) {
+        return String(candidate.id) === String(cartItem.id);
+      });
+      if (!item || !item.db_id) throw new Error('Menu is still connecting. Please wait a moment and try again.');
+      return { menu_item_id: item.db_id, quantity: Number(cartItem.qty) || 1 };
+    });
+  }
+
+  async function createSharedOrder(tableNumber, cartItems, notes) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected yet. Please refresh and try again.');
+    var ticket = window.makeTicketId(tableNumber, new Date());
+    var payload = buildOrderItems(cartItems);
+    var result = await client.rpc('mm_place_order', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_table_number: String(tableNumber).padStart(2, '0'),
+      p_ticket_id: ticket,
+      p_notes: String(notes || '').slice(0, 1000),
+      p_items: payload
+    });
+    if (result.error) throw result.error;
+    var created = rpcPayload(result.data);
+    if (!created || !created.id || !created.publicToken) throw new Error('Supabase did not return the new order ticket. Please refresh and try again.');
+    storePublicToken(created.id, created.publicToken);
+    return {
+      id: created.id,
+      dbId: created.dbId,
+      publicToken: created.publicToken,
+      table: String(created.table || tableNumber).padStart(2, '0'),
+      items: created.items || [],
+      total: Number(created.total) || 0,
+      status: String(created.status || 'NEW').toUpperCase(),
+      notes: created.notes || '',
+      createdAt: created.createdAt || new Date().toISOString(),
+      orderNumber: created.orderNumber,
+      cancelUntil: Date.now() + (7 * 60 * 1000)
+    };
+  }
+
+  async function placeCustomerOrder() {
+    if (window.MM_ORDER_SENDING) return;
+    if (!window.cart || !window.cart.length) return;
+    window.MM_ORDER_SENDING = true;
+    var originalCart = window.cart.slice();
+    var notesEl = document.getElementById('notes');
+    var noteText = notesEl ? notesEl.value.trim() : '';
+    try {
+      var order = await createSharedOrder(window.table || '01', originalCart, noteText);
+      window.orders = window.orders || [];
+      window.orders.unshift(order);
+      try { localStorage.setItem('mm_o', JSON.stringify(window.orders)); } catch (e) {}
+      window.cart = [];
+      try { localStorage.setItem('mm_c_' + String(order.table).padStart(2, '0'), '[]'); } catch (e) {}
+      if (typeof window.closeCart === 'function') window.closeCart();
+      if (notesEl) notesEl.value = '';
+      var sid = document.getElementById('sid');
+      var stbl = document.getElementById('stbl');
+      if (sid) sid.textContent = order.id;
+      if (stbl) stbl.textContent = order.table;
+      if (typeof window.updCart === 'function') window.updCart();
+      window.lastPlacedOrderId = order.id;
+      window.go('success');
+      var host = document.getElementById('success-progress-host');
+      if (host) host.innerHTML = window.progressMarkup(order) + '<p class="waiting-joke" id="waiting-joke">Chef has received your mission. 🍳</p>';
+      if (typeof window.startWaitFun === 'function') window.startWaitFun(order.id);
+      if (typeof window.confetti === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) window.confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
+      notifySuccess('Order sent to kitchen!');
+      refreshCustomerOrders();
+    } catch (e) {
+      notifyError(e && e.message ? e.message : 'Could not send the order. Please ask your waiter.');
+    } finally {
+      window.MM_ORDER_SENDING = false;
+    }
+  }
+
+  async function sendWaiterOrder() {
+    if (window.MM_ORDER_SENDING) return;
+    if (!window.wTable || !window.wCart || !window.wCart.length) {
+      notifyError('Pick a table and add food first.');
+      return;
+    }
+    window.MM_ORDER_SENDING = true;
+    try {
+      var noteEl = document.getElementById('w-notes');
+      var note = noteEl ? noteEl.value.trim() : '';
+      var order = await createSharedOrder(window.wTable, window.wCart, note ? '[Waiter] ' + note : '[Waiter]');
+      window.orders = window.orders || [];
+      window.orders.unshift(order);
+      try { localStorage.setItem('mm_o', JSON.stringify(window.orders)); } catch (e) {}
+      window.wCart = [];
+      if (noteEl) noteEl.value = '';
+      if (typeof window.wDrawCart === 'function') window.wDrawCart();
+      if (typeof window.wMenu === 'function') window.wMenu();
+      notifySuccess('Ticket ' + order.id + ' sent · Table ' + order.table);
+      await refreshStaffOrders();
+    } catch (e) {
+      notifyError(e && e.message ? e.message : 'Could not send the waiter order.');
+    } finally {
+      window.MM_ORDER_SENDING = false;
+    }
+  }
+
+  async function setSharedOrderStatus(ticketId, status) {
+    if (!client || !window.role || ['admin', 'waiter', 'kitchen'].indexOf(window.role) < 0) {
+      notifyError('Please sign in with your staff account first.');
+      return;
+    }
+    try {
+      var result = await client.from('orders')
+        .update({ status: status })
+        .eq('restaurant_id', RESTAURANT_ID)
+        .eq('ticket_id', ticketId);
+      if (result.error) throw result.error;
+      await refreshStaffOrders();
+      if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+      notifySuccess('Order marked ' + status.toLowerCase() + '.');
+    } catch (e) {
+      notifyError('Could not update order status. Check your staff permissions.');
+      console.error('[Mirch Masaala status update]', e);
+    }
+  }
+
+  function ensureEmailField() {
+    var pass = document.getElementById('pass');
+    if (!pass || document.getElementById('staff-email')) return;
+    var email = document.createElement('input');
+    email.type = 'email';
+    email.id = 'staff-email';
+    email.placeholder = 'Staff email address';
+    email.autocomplete = 'username';
+    email.inputMode = 'email';
+    email.setAttribute('aria-label', 'Staff email address');
+    email.style.marginBottom = '8px';
+    pass.parentNode.insertBefore(email, pass);
+  }
+
+  async function secureStaffLogin() {
+    ensureEmailField();
+    var emailInput = document.getElementById('staff-email');
+    var passInput = document.getElementById('pass');
+    var err = document.getElementById('login-err');
+    var requestedRole = window.pendingRole;
+    var email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+    var password = passInput ? passInput.value : '';
+    if (!requestedRole) {
+      notifyError('Choose a staff role first.');
+      return;
+    }
+    if (!email || !password) {
+      if (err) { err.style.display = 'block'; err.textContent = 'Enter your staff email and password.'; }
+      return;
+    }
+    if (!client || !window.MM_SUPABASE_ENABLED) {
+      if (err) { err.style.display = 'block'; err.textContent = 'Database connection is not ready. Refresh this page.'; }
+      return;
+    }
+    if (err) { err.style.display = 'block'; err.textContent = 'Signing in securely…'; }
+    try {
+      var signIn = await client.auth.signInWithPassword({ email: email, password: password });
+      if (signIn.error) throw signIn.error;
+      var roleResult = await client.rpc('get_my_staff_role');
+      if (roleResult.error) throw roleResult.error;
+      var actualRole = rpcPayload(roleResult.data);
+      if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) {
+        await client.auth.signOut();
+        throw new Error('This account has no staff role yet. Ask the owner to finish staff setup.');
+      }
+      if (actualRole !== requestedRole) {
+        await client.auth.signOut();
+        throw new Error('This account is assigned as ' + actualRole + ', not ' + requestedRole + '. Choose the matching role.');
+      }
+      window.role = actualRole;
+      try { sessionStorage.setItem('mm_role', actualRole); } catch (e) {}
+      if (err) err.style.display = 'none';
+      await loadMenu(true, true);
+      await refreshStaffOrders();
+      notifySuccess('Signed in as ' + actualRole + '. Shared orders are connected.');
+      if (actualRole === 'waiter') {
+        window.go('waiter');
+        window.enterWaiter();
+      } else if (actualRole === 'kitchen') {
+        window.go('kitchen');
+        window.enterKitchen();
+      } else {
+        window.go('admin');
+        window.enterAdmin();
+      }
+    } catch (e) {
+      if (err) { err.style.display = 'block'; err.textContent = e && e.message ? e.message : 'Sign-in failed. Check the email and password.'; }
+      console.error('[Mirch Masaala staff login]', e);
+    }
+  }
+
+  async function secureLogout() {
+    try { if (client) await client.auth.signOut(); } catch (e) {}
+    window.role = null;
+    try { sessionStorage.removeItem('mm_role'); } catch (e) {}
+    window.go('home');
+    if (typeof window.setOpenPill === 'function') window.setOpenPill();
+    notifySuccess('Signed out.');
+  }
+
+  async function saveSharedPrice(id) {
+    if (window.role !== 'admin') { notifyError('Owner/Admin access required.'); return; }
+    var item = (window.MENU.menu_items || []).find(function (it) { return String(it.id) === String(id); });
+    var input = document.getElementById('price-edit-' + id);
+    if (!item || !input) return;
+    var price = Number(input.value);
+    if (!Number.isFinite(price) || price < 0 || price > 999999) { notifyError('Enter a valid price.'); input.focus(); return; }
+    try {
+      var result = await client.from('menu_items').update({ price: Math.round(price) })
+        .eq('restaurant_id', RESTAURANT_ID).eq('id', item.db_id);
+      if (result.error) throw result.error;
+      item.price = Math.round(price);
+      (window.cart || []).forEach(function (c) { var m = window.MENU.menu_items.find(function (x) { return String(x.id) === String(c.id); }); if (m) c.price = m.price; });
+      (window.wCart || []).forEach(function (c) { var m = window.MENU.menu_items.find(function (x) { return String(x.id) === String(c.id); }); if (m) c.price = m.price; });
+      if (typeof window.updCart === 'function') window.updCart();
+      if (typeof window.wDrawCart === 'function') window.wDrawCart();
+      if (typeof window.drawAdminMenu === 'function') window.drawAdminMenu();
+      notifySuccess('Price updated for every device.');
+    } catch (e) {
+      notifyError('Price update failed. Confirm you are signed in as the owner.');
+      console.error('[Mirch Masaala price update]', e);
+    }
+  }
+
+  async function toggleSharedItem(id) {
+    if (['admin', 'kitchen'].indexOf(window.role) < 0) { notifyError('Owner or kitchen access required.'); return; }
+    var item = (window.MENU.menu_items || []).find(function (it) { return String(it.id) === String(id); });
+    if (!item) return;
+    var next = !item.is_available;
+    try {
+      var result = await client.from('menu_items').update({ is_available: next })
+        .eq('restaurant_id', RESTAURANT_ID).eq('id', item.db_id);
+      if (result.error) throw result.error;
+      item.is_available = next;
+      if (typeof window.drawAdminMenu === 'function' && document.getElementById('a-menu') && document.getElementById('a-menu').style.display !== 'none') window.drawAdminMenu();
+      if (typeof window.drawKMenu === 'function' && document.getElementById('kitchen') && document.getElementById('kitchen').classList.contains('on')) window.drawKMenu();
+      if (typeof window.drawMenu === 'function' && document.getElementById('customer') && document.getElementById('customer').classList.contains('on')) window.drawMenu();
+      notifySuccess(next ? 'Dish available on every device.' : 'Dish marked sold out on every device.');
+    } catch (e) {
+      notifyError('Could not update availability. Check staff permissions.');
+      console.error('[Mirch Masaala item update]', e);
+    }
+  }
+
+  async function restoreStaffSession() {
+    try {
+      var sessionResult = await client.auth.getSession();
+      if (sessionResult.error || !sessionResult.data || !sessionResult.data.session) return;
+      var roleResult = await client.rpc('get_my_staff_role');
+      if (roleResult.error) return;
+      var actualRole = rpcPayload(roleResult.data);
+      if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) return;
+      window.role = actualRole;
+      await loadMenu(true, true);
+      await refreshStaffOrders();
+    } catch (e) {
+      console.warn('[Mirch Masaala session restore]', e);
+    }
+  }
+
+  function start() {
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+      window.MM_SUPABASE_STATUS = 'library-missing';
+      notifyError('Secure online library failed to load. Refresh or try another network.');
+      return;
+    }
+    client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    });
+    window.MM_SUPABASE_CLIENT = client;
+    window.MM_SUPABASE_ENABLED = true;
+    window.MM_SUPABASE_STATUS = 'connected';
+
+    ensureEmailField();
+    window.openLogin = function (requestedRole) {
+      window.pendingRole = requestedRole;
+      ensureEmailField();
+      var oldEmail = document.getElementById('staff-email');
+      if (oldEmail) oldEmail.value = '';
+      var passInput = document.getElementById('pass');
+      if (passInput) passInput.value = '';
+      var titles = { waiter: 'Waiter login', kitchen: 'Kitchen login', admin: 'Owner/Admin login' };
+      var title = document.getElementById('login-title');
+      var hint = document.getElementById('login-hint');
+      var error = document.getElementById('login-err');
+      if (title) title.textContent = titles[requestedRole] || 'Staff login';
+      if (hint) hint.textContent = 'Secure staff sign-in · Use the email and password created for your role.';
+      if (error) { error.style.display = 'none'; error.textContent = ''; }
+      window.go('login');
+      setTimeout(function () { if (passInput) passInput.focus(); }, 150);
+    };
+    window.doLogin = secureStaffLogin;
+    window.logout = secureLogout;
+    window.placeOrder = placeCustomerOrder;
+    window.wSend = sendWaiterOrder;
+    window.setStatus = setSharedOrderStatus;
+    window.saveItemPrice = saveSharedPrice;
+    window.persistMenuEdits = function () {};
+    window.toggleItem = toggleSharedItem;
+
+    var loginForm = document.getElementById('pass');
+    if (loginForm) loginForm.setAttribute('autocomplete', 'current-password');
+
+    loadMenu(false, true).then(function () {
+      notifySuccess('Shared menu connected.');
+    });
+    restoreStaffSession();
+    refreshCustomerOrders();
+    setInterval(function () { loadMenu(!!window.role, true); }, 20000);
+    setInterval(refreshStaffOrders, 3000);
+    setInterval(refreshCustomerOrders, 6000);
+    console.info('[Mirch Masaala] Supabase connected. Frontend is using shared menu and orders.');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+})();
