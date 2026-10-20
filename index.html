@@ -497,6 +497,24 @@ body{line-height:1.5}
   .customer-bottom #cart-bar{font-size:13px}
 }
 @media(prefers-reduced-motion:reduce){.success-mark,.order-progress,.card{animation:none!important}}
+
+/* Phone-friendly scanner, compact customer tables, waiter drafting and public order status */
+.scan-cta{margin-top:8px!important;border:1px solid rgba(240,215,140,.65);font-size:15px;min-height:48px;box-shadow:0 5px 18px rgba(212,168,75,.22)}
+.scan-manual-panel{margin-top:12px;padding:12px;border:1px solid var(--line);background:rgba(0,0,0,.2);border-radius:14px;text-align:left}
+.scan-manual-panel>label{display:block;font-size:12px;color:var(--gold2);font-weight:800;margin-bottom:8px}
+.scan-manual-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.scan-manual-row input{width:100%;min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.38);color:var(--text);font-size:16px}
+.scan-manual-row .btn{width:auto;min-height:44px;padding:10px 13px;font-size:13px}
+.scan-fallback-help{font-size:11px;color:var(--muted);margin-top:7px;line-height:1.4}
+#qr-reader{width:100%;max-width:340px;margin:0 auto;overflow:hidden;border-radius:14px}#qr-reader video{width:100%!important;max-width:100%;max-height:38vh;object-fit:cover;border-radius:14px}
+#tables.table-grid{gap:8px;padding:7px 3px 10px;margin:6px -2px 8px}#tables .table-carousel-card{flex:0 0 84px;min-width:84px;height:88px;padding:7px 3px;gap:4px;border-radius:14px;transform:scale(.97);opacity:.94}#tables .table-carousel-card strong{font-size:24px}#tables .table-card-kicker{font-size:8px;letter-spacing:.8px}#tables .table-card-hint{font-size:9px}
+#table-swipe-guide{font-size:11px;margin:5px 0}#table-continue{min-height:40px;padding:10px 12px;font-size:14px}
+.waiter-tables-grid{grid-template-columns:repeat(auto-fit,minmax(62px,1fr));gap:7px}.waiter-table-card{aspect-ratio:auto;min-height:58px;padding:7px 4px;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:15px}.waiter-table-card strong{font-size:16px;line-height:1.2}.waiter-table-card small{display:block;font-size:9px;font-weight:700;color:var(--muted);white-space:nowrap}.waiter-table-card.has-draft{border-color:rgba(62,207,142,.65)}
+.waiter-live-queue{margin:12px 0;padding:12px;background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:14px}.waiter-queue-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--gold2);font-size:13px;margin-bottom:5px}.waiter-queue-heading span{font-size:10px;color:var(--ok);border:1px solid rgba(62,207,142,.35);border-radius:999px;padding:3px 7px}.waiter-order-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:8px;margin-top:8px}.waiter-order-card{min-width:0;padding:10px;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:11px;background:var(--card)}.waiter-order-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:5px;font-size:12px}.waiter-order-status{font-size:10px;font-weight:900;border-radius:999px;padding:3px 6px;background:rgba(212,168,75,.14);color:var(--gold2)}.waiter-order-card.ready{border-left-color:var(--ok)}.waiter-order-card.preparing{border-left-color:var(--warn)}.waiter-order-card .waiter-order-items{font-size:12px;margin-top:6px;line-height:1.55}.waiter-order-card .btn{width:auto;min-height:36px;padding:7px 10px;font-size:12px;margin-top:8px}
+#public-order-board{position:fixed;z-index:24;right:10px;bottom:12px;width:min(238px,calc(100vw - 20px));max-height:190px;overflow:auto;padding:10px;background:rgba(24,17,13,.96);border:1px solid rgba(212,168,75,.55);border-radius:14px;box-shadow:0 8px 26px rgba(0,0,0,.45);backdrop-filter:blur(12px)}
+.public-board-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;color:var(--gold2);font-size:11px;font-weight:900;margin-bottom:6px}.public-board-live{font-size:9px;border-radius:999px;padding:2px 5px;color:var(--ok);background:rgba(62,207,142,.13)}.public-board-list{display:grid;gap:5px}.public-board-order{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 6px;padding:6px 7px;border-radius:9px;background:rgba(255,255,255,.035);font-size:11px}.public-board-order strong{font-size:11px}.public-board-order small{font-size:10px;color:var(--muted)}.public-board-order.ready{border-left:3px solid var(--ok)}.public-board-order.preparing{border-left:3px solid var(--warn)}
+@media(max-width:699px){#public-order-board{bottom:86px;right:7px;width:min(220px,calc(100vw - 14px));max-height:155px;padding:8px}.public-board-order{padding:5px 6px}}@media(min-width:700px){#public-order-board{width:250px;max-height:300px}}.btn-sm{min-height:34px!important;padding:7px 10px!important;font-size:12px!important}
+
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -545,9 +563,10 @@ body{line-height:1.5}
     <div class="table-swipe-guide" id="table-swipe-guide" aria-live="polite"><span class="swipe-side">↔</span><span>Swipe sideways to find your table</span><span class="swipe-hand">👆</span></div>
     <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
     <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
-    <button type="button" class="btn btn-soft" id="scan-table-btn" style="margin-top:10px" onclick="openScan()">📷 Scan table QR with camera</button>
+    <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 Scan table QR</button>
     <p class="muted" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
     <button type="button" class="btn btn-soft" style="margin-top:12px" onclick="openGuide()">📖 How to use this app</button>
+    <button type="button" class="btn btn-soft" id="home-visit-link" style="display:none;margin-top:8px" onclick="scrollToVisit()">📍 Visit us & directions</button>
     <section id="visit-section" class="visit-card" style="display:none" aria-label="Restaurant visit information"></section>
     <section id="review-section" style="margin-top:14px;text-align:left" aria-label="Reviews and feedback"></section>
 
@@ -692,7 +711,8 @@ body{line-height:1.5}
   </div>
   <div class="wrap">
     <p class="muted" style="margin-bottom:8px"><b style="color:#fff">1.</b> Choose a table → add items → send a ticket to the kitchen.</p>
-    <div class="table-grid" id="w-tables"></div>
+    <div class="table-grid waiter-tables-grid" id="w-tables"></div>
+    <section class="waiter-live-queue" id="w-live-orders" aria-label="Shared live orders"><div class="waiter-queue-heading"><b>🔄 Live orders · all tables</b><span>Shared</span></div><p class="muted" style="font-size:12px">Orders from every staff device appear here.</p></section>
     <div id="w-area" style="display:none">
       <input class="search" id="w-search" placeholder="Search menu…" oninput="wMenu()">
       <div class="diet-filters" id="w-diet-filters" role="group" aria-label="Filter by food type"></div>
@@ -703,7 +723,7 @@ body{line-height:1.5}
           <span>Ticket</span><span class="gold" id="w-total">₹0</span>
         </div>
         <div id="w-cart" class="muted" style="font-size:13px;min-height:40px"></div>
-        <textarea id="w-notes" class="search" placeholder="Guest note…" style="min-height:48px"></textarea>
+        <textarea id="w-notes" class="search" placeholder="Guest note…" style="min-height:48px" oninput="saveWaiterDraft()"></textarea>
         <button type="button" class="btn btn-main" onclick="wSend()">Send to kitchen</button>
       </div>
     </div>
@@ -780,9 +800,10 @@ body{line-height:1.5}
   <div class="box center">
     <h3 class="gold">Scan table QR</h3>
     <p class="muted" style="margin:8px 0">Point camera at QR on the table</p>
-    <div id="qr-reader"></div>
-    <p class="muted" id="scan-st" style="margin:8px 0;min-height:18px"></p>
-    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeScan()">Close</button>
+    <div id="qr-reader" aria-label="Live camera preview"></div>
+    <p class="muted" id="scan-st" style="margin:8px 0;min-height:18px" aria-live="polite">Allow camera access when your browser asks.</p>
+    <div class="scan-manual-panel"><label for="manual-t">Camera not working? Enter your table number</label><div class="scan-manual-row"><input id="manual-t" type="number" min="1" max="50" step="1" inputmode="numeric" pattern="[0-9]*" placeholder="Table no. (e.g. 5)" aria-label="Table number"><button type="button" class="btn btn-soft" onclick="useManualScanTable()">Open table</button></div><p class="scan-fallback-help">You can also scan the sticker with your phone’s built-in Camera app.</p></div>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeScan()">Close scanner</button>
   </div>
 </div>
 <div class="modal" id="party-modal">
@@ -814,7 +835,7 @@ body{line-height:1.5}
     </div>
     <input id="r-name" placeholder="Your name (optional)">
     <textarea id="r-text" placeholder="Comment (optional)"></textarea>
-    <p class="muted" style="font-size:11px;margin:4px 0 10px">In-app reviews are published after owner approval. You can also leave a separate Google review.</p>
+    <p class="muted" style="font-size:11px;margin:4px 0 10px">Your in-app review is visible to guests. The owner can hide or delete inappropriate comments. You can also leave a separate Google review.</p>
     <button type="button" class="btn btn-main" onclick="sendReview()">Submit review</button>
     <a id="review-google-cta" class="btn btn-soft" href="#" target="_blank" rel="noopener noreferrer" style="display:none;text-decoration:none;margin-top:8px">⭐ Write a Google review</a>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeReview()">Later</button>
@@ -886,6 +907,7 @@ body{line-height:1.5}
 <div class="modal" id="wa-receipt-modal">
   <div class="box center">
     <h3 class="gold">WhatsApp receipt?</h3>
+    <a id="post-payment-review" class="btn btn-soft btn-sm" href="#" target="_blank" rel="noopener noreferrer" style="display:none;text-decoration:none;margin-top:8px;margin-bottom:10px">⭐ Enjoyed your meal? Review on Google</a>
     <p class="muted" style="margin:10px 0;font-size:13px">Do you want a receipt on WhatsApp from <b id="wa-from-name" class="gold">restaurant</b>?</p>
     <p class="muted" style="font-size:12px;margin-bottom:12px">This opens WhatsApp for a one-time receipt action only. It does not sign you up for restaurant announcements or offers; manage those separately in your preferences.</p>
     <button type="button" class="btn btn-main" onclick="sendWhatsAppReceipt(true)">Yes, open WhatsApp</button>
@@ -941,6 +963,7 @@ body{line-height:1.5}
 </div>
 
 <div id="print-area" style="display:none"></div>
+<aside id="public-order-board" aria-label="Live kitchen status" style="display:none"></aside>
 
 <script>window.MM_SUPABASE_REQUIRED = true;</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -961,6 +984,7 @@ var bookings = load('mm_b', []);
 var isOpen = localStorage.getItem('mm_open') !== 'false';
 var stars = 0, scanner = null, lastN = orders.length;
 var wTable = null, wCart = [], wCat = 'all';
+var wDrafts = {}, wNotesDrafts = {};
 
 function load(k, d) { try { return JSON.parse(localStorage.getItem(k) || 'null') || d; } catch(e) { return d; } }
 function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e) { console.warn('Storage unavailable:', e); return false; } }
@@ -979,6 +1003,7 @@ function go(id) {
   }
   if (el) el.classList.add('on');
   try { window.scrollTo(0, 0); } catch (e) {}
+  if (typeof renderPublicOrderBoard === 'function') renderPublicOrderBoard(window.MM_PUBLIC_ORDER_ROWS || []);
 }
 function setOpenPill() {
   var p = document.getElementById('status-pill');
@@ -1275,6 +1300,10 @@ function logout() { role = null; go('home'); setOpenPill();
 /* ===== BOOT: wire everything ===== */
 
 window.go = go;
+window.scrollToVisit = scrollToVisit;
+window.renderPublicOrderBoard = renderPublicOrderBoard;
+window.drawWaiterOrders = drawWaiterOrders;
+window.deleteRestaurantReview = deleteRestaurantReview;
 window.doLogin = doLogin;
 window.openLogin = openLogin;
 window.showStaffPanel = showStaffPanel;
@@ -1657,6 +1686,9 @@ function markPaidFromPay() {
   afterPaidFlow();
 }
 function afterPaidFlow() {
+  var reviewLink = document.getElementById('post-payment-review');
+  var googleURL = safeGoogleReviewURL(SETTINGS.googleReviewsUrl || '');
+  if (reviewLink) { reviewLink.href = googleURL || '#'; reviewLink.style.display = googleURL ? 'inline-flex' : 'none'; }
   // Ask for phone if not known, then WhatsApp receipt permission
   if (!currentCustomer || !currentCustomer.phone) {
     openPhoneModal('receipt');
@@ -2130,55 +2162,103 @@ function parseTable(text) {
 }
 function startScan() {
   stopScan();
-  var status=document.getElementById('scan-st');
-  status.textContent='Loading camera scanner…';
-  ensureHtml5Qrcode().then(function(H5){
-    scanner=new H5('qr-reader');
-    return H5.getCameras();
-  }).then(function(cams){
-    if(!cams.length){status.textContent='No camera detected. Use your phone Camera app on the table sticker or swipe table cards.';return;}
-    var id=cams[0].id,back=cams.find(function(c){return /back|rear|environment/i.test(c.label||'');});
-    if(back)id=back.id;
-    scanner.start(id,{fps:8,qrbox:{width:220,height:220}},function(txt){
-      var t=parseTable(txt);if(t){closeScan();startTable(t);toast('Table '+t);}
-    },function(){}).then(function(){status.textContent='Point at the table QR code';}).catch(function(){
-      status.textContent='Allow camera access, or use your phone Camera app on the table QR sticker.';
+  var status = document.getElementById('scan-st');
+  var reader = document.getElementById('qr-reader');
+  if (reader) reader.innerHTML = '';
+  if (status) status.textContent = 'Requesting rear camera access…';
+  function handleScanText(txt) {
+    var t = parseTable(txt);
+    if (t) { closeScan(); startTable(t); toast('Table ' + t); }
+  }
+  function startWithCamera(H5, camera) {
+    var instance = new H5('qr-reader');
+    scanner = instance;
+    var config = { fps: 10, qrbox: function (viewWidth, viewHeight) {
+      var edge = Math.min(viewWidth, viewHeight);
+      var size = Math.max(150, Math.min(250, Math.floor(edge * 0.72)));
+      return { width: size, height: size };
+    }, aspectRatio: 1 };
+    return instance.start(camera, config, handleScanText, function () {}).then(function () {
+      if (status) status.textContent = 'Camera ready — centre the table QR inside the box.';
+    }).catch(function (err) {
+      if (scanner === instance) scanner = null;
+      try { var cleared = instance.clear(); if (cleared && cleared.catch) cleared.catch(function () {}); } catch (e) {}
+      throw err;
     });
-  }).catch(function(){
-    status.textContent='Scanner library did not load. Use the phone Camera app on the table sticker, or swipe table cards.';
+  }
+  ensureHtml5Qrcode().then(function (H5) {
+    return startWithCamera(H5, { facingMode: 'environment' }).catch(function () {
+      return H5.getCameras().then(function (cams) {
+        if (!cams || !cams.length) throw new Error('No camera was returned by the browser.');
+        var rear = cams.find(function (c) { return /back|rear|environment/i.test(c.label || ''); });
+        return startWithCamera(H5, (rear || cams[0]).id);
+      });
+    });
+  }).catch(function (err) {
+    console.warn('[Mirch Masaala] QR camera scan unavailable:', err);
+    if (status) status.textContent = 'Camera unavailable. Allow camera access in your browser settings, or enter the table number below.';
   });
 }
 function manualTable() {
-  var t = parseTable(document.getElementById('manual-t').value);
-  if (!t) { toast('Enter 1–16'); return; }
+  var input = document.getElementById('manual-t');
+  var t = parseTable(input ? input.value : '');
+  if (!t) { toast('Enter a valid table number'); return; }
+  closeScan(); startTable(t);
+}
+function useManualScanTable() {
+  var input = document.getElementById('manual-t');
+  var t = parseTable(input ? input.value : '');
+  if (!t) { toast('Enter a table number from 1 to ' + tableCount()); if (input) input.focus(); return; }
   closeScan(); startTable(t);
 }
 
 /* Waiter */
 function enterWaiter() {
   if (role !== 'waiter' && role !== 'admin') { openLogin('waiter'); return; }
-  go('waiter');
-  var g = document.getElementById('w-tables');
-  g.innerHTML = '';
-  rebuildTables();
-  MENU.tables.forEach(function(t) {
-    var b = document.createElement('button');
-    b.type = 'button'; b.className = 'tbtn waiter-table-card'; b.textContent = t.number;
-    b.setAttribute('data-table-number',t.number);
-    b.onclick = (function(n,card){ return function(){ pickW(n,card); }; })(t.number,b);
-    g.appendChild(b);
+  go('waiter'); rebuildTables(); renderWaiterTables();
+  if (wTable) pickW(wTable, null);
+  else { wCart = []; document.getElementById('w-area').style.display = 'none'; }
+  drawWaiterOrders();
+}
+function updateWaiterTableIndicators() {
+  document.querySelectorAll('#w-tables .waiter-table-card').forEach(function (b) {
+    var num = b.getAttribute('data-table-number');
+    var count = (wDrafts[num] || []).reduce(function (sum, item) { return sum + (Number(item.qty) || 0); }, 0);
+    b.classList.toggle('on', num === wTable); b.classList.toggle('has-draft', count > 0);
+    b.innerHTML = '<strong>' + esc(num) + '</strong><small>' + (count ? count + ' item' + (count === 1 ? '' : 's') : 'Tap to switch') + '</small>';
   });
-  document.getElementById('w-area').style.display = 'none';
-  wCart = []; wTable = null;
+}
+function renderWaiterTables() {
+  var g = document.getElementById('w-tables'); if (!g) return; g.innerHTML = '';
+  MENU.tables.forEach(function (t) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'tbtn waiter-table-card';
+    b.setAttribute('data-table-number', t.number); b.setAttribute('aria-label', 'Select Table ' + t.number + ' draft');
+    b.onclick = (function (n, card) { return function () { pickW(n, card); }; })(t.number, b); g.appendChild(b);
+  });
+  updateWaiterTableIndicators();
+}
+function saveWaiterDraft() {
+  if (!wTable) return;
+  wDrafts[wTable] = (wCart || []).map(function (item) { return Object.assign({}, item); });
+  var note = document.getElementById('w-notes'); wNotesDrafts[wTable] = note ? note.value : '';
+  updateWaiterTableIndicators();
 }
 function pickW(n, card) {
-  wTable = String(n).padStart(2,'0'); wCart = []; wCat = 'all'; wDietFilter = 'all';
-  document.querySelectorAll('#w-tables .waiter-table-card').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-table-number')===wTable);});
-  if(card){card.classList.add('on');try{card.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(e){}}
+  if (wTable) {
+    wDrafts[wTable] = (wCart || []).map(function (item) { return Object.assign({}, item); });
+    var oldNotes = document.getElementById('w-notes'); wNotesDrafts[wTable] = oldNotes ? oldNotes.value : '';
+  }
+  wTable = String(n).padStart(2, '0');
+  wCart = (wDrafts[wTable] || []).map(function (item) { return Object.assign({}, item); });
+  wCat = 'all'; wDietFilter = 'all';
+  document.querySelectorAll('#w-tables .waiter-table-card').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-table-number') === wTable);
+    if (b.getAttribute('data-table-number') === wTable && card) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
   document.getElementById('w-tbl').textContent = 'Table ' + wTable;
-  document.getElementById('w-area').style.display = 'block';
-  document.getElementById('w-search').value = '';
-  drawWDietFilters(); wCats(); wMenu(); wDrawCart();
+  document.getElementById('w-area').style.display = 'block'; document.getElementById('w-search').value = '';
+  document.getElementById('w-notes').value = wNotesDrafts[wTable] || '';
+  drawWDietFilters(); wCats(); wMenu(); wDrawCart(); drawWaiterOrders();
 }
 function wCats() {
   var h = '<button type="button" class="cat' + (wCat==='all'?' on':'') + '" onclick="setWC(\'all\')">All</button>';
@@ -2215,7 +2295,9 @@ function wQty(id, d) {
 }
 function wDrawCart() {
   document.getElementById('w-total').textContent = '₹' + wCart.reduce(function(s,c){ return s + c.price*c.qty; }, 0);
-  document.getElementById('w-cart').innerHTML = wCart.length ? wCart.map(function(c){ return c.qty + '× ' + c.name; }).join('<br>') : 'Empty';
+  document.getElementById('w-cart').innerHTML = wCart.length ? wCart.map(function(c){ return c.qty + '× ' + esc(c.name); }).join('<br>') : 'Empty';
+  if (wTable) wDrafts[wTable] = (wCart || []).map(function (item) { return Object.assign({}, item); });
+  updateWaiterTableIndicators();
 }
 function wSend() {
   if (window.MM_SUPABASE_REQUIRED && !window.MM_SUPABASE_ENABLED) { toast('Online ordering is connecting. Please wait a moment and try again.'); return; }
@@ -2230,8 +2312,26 @@ function wSend() {
     status: 'NEW', notes: notes ? '[Waiter] ' + notes : '[Waiter]',
     createdAt: date.toISOString(), cancelUntil: date.getTime() + CANCEL_MS
   });
-  save('mm_o', orders); wCart = []; document.getElementById('w-notes').value = '';
-  wDrawCart(); wMenu(); toast('Ticket ' + id + ' sent · Table ' + wTable);
+  save('mm_o', orders); wCart = []; wDrafts[wTable] = []; wNotesDrafts[wTable] = []; document.getElementById('w-notes').value = '';
+  wDrawCart(); wMenu(); drawWaiterOrders(); toast('Ticket ' + id + ' sent · Table ' + wTable);
+}
+
+function drawWaiterOrders() {
+  var host = document.getElementById('w-live-orders'); if (!host) return;
+  var active = (orders || []).filter(function (o) { return o && ['NEW', 'PREPARING', 'READY'].indexOf(String(o.status || '').toUpperCase()) >= 0; })
+    .sort(function (a, b) {
+      var priority = { READY: 0, NEW: 1, PREPARING: 2 };
+      var diff = priority[String(a.status).toUpperCase()] - priority[String(b.status).toUpperCase()];
+      return diff || new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    });
+  var head = '<div class="waiter-queue-heading"><b>🔄 Live orders · all tables</b><span>' + active.length + ' active</span></div>';
+  if (!active.length) { host.innerHTML = head + '<p class="muted" style="font-size:12px">No active tickets. New orders from all devices will appear here.</p>'; return; }
+  host.innerHTML = head + '<div class="waiter-order-list">' + active.slice(0, 30).map(function (o) {
+    var st = String(o.status || 'NEW').toUpperCase(), kind = st === 'READY' ? 'ready' : (st === 'PREPARING' ? 'preparing' : 'new');
+    return '<article class="waiter-order-card ' + kind + '"><div class="waiter-order-head"><b>Table ' + esc(o.table || '—') + ' · #' + esc(o.orderNumber || o.id || '') + '</b><span class="waiter-order-status">' + (st === 'PREPARING' ? 'COOKING' : st) + '</span></div>' +
+      '<div class="waiter-order-items">' + (o.items || []).map(function (item) { return '<div>' + (Number(item.qty) || 1) + '× ' + esc(item.name || '') + '</div>'; }).join('') + (o.notes ? '<div class="muted" style="font-size:11px;margin-top:4px">' + esc(o.notes) + '</div>' : '') + '</div>' +
+      (st === 'READY' ? '<button type="button" class="btn btn-ok" onclick="setStatus(\'' + esc(o.id) + '\',\'SERVED\')">Mark served</button>' : '') + '</article>';
+  }).join('') + '</div>';
 }
 
 /* Kitchen */
@@ -2696,8 +2796,9 @@ async function drawReviews() {
       '<p style="font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere">' + esc(r.text || r.comment || '') + '</p>' +
       '<span class="muted" style="font-size:11px">' + esc(status.toUpperCase()) + (r.created_at || r.at ? ' · ' + esc(new Date(r.created_at || r.at).toLocaleString()) : '') + '</span>' +
       (remote ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-        (status === 'published' ? '' : '<button type="button" class="btn btn-ok" onclick="setRestaurantReviewStatus(\'' + esc(reviewId) + '\',\'published\')">Approve & publish</button>') +
+        (status === 'published' ? '' : '<button type="button" class="btn btn-ok" onclick="setRestaurantReviewStatus(\'' + esc(reviewId) + '\',\'published\')">Publish review</button>') +
         (status === 'hidden' ? '' : '<button type="button" class="btn btn-soft" onclick="setRestaurantReviewStatus(\'' + esc(reviewId) + '\',\'hidden\')">Hide review</button>') +
+        '<button type="button" class="btn btn-bad" onclick="deleteRestaurantReview(\'' + esc(reviewId) + '\')">Delete permanently</button>' +
         '</div>' : '<span class="muted" style="font-size:10px">Stored on this device only</span>') + '</div>';
   }).join('') : '<p class="muted center">No reviews yet</p>';
 }
@@ -2709,6 +2810,15 @@ async function setRestaurantReviewStatus(reviewId, status) {
     toast(status === 'published' ? 'Review approved and published' : 'Review hidden');
     await drawReviews(); renderReviewSection();
   } catch (e) { toast('Could not update review: ' + (e && e.message ? e.message : 'try again')); }
+}
+async function deleteRestaurantReview(reviewId) {
+  if (window.role !== 'admin') { toast('Owner/Admin access required'); return; }
+  if (typeof window.MM_ADMIN_DELETE_RESTAURANT_REVIEW !== 'function') { toast('Review deletion is not configured yet. Run restaurant-feedback.sql in Supabase.'); return; }
+  if (!confirm('Delete this review permanently? This cannot be undone.')) return;
+  try {
+    await window.MM_ADMIN_DELETE_RESTAURANT_REVIEW(reviewId);
+    toast('Review deleted'); await drawReviews(); renderReviewSection();
+  } catch (e) { toast('Could not delete review: ' + (e && e.message ? e.message : 'try again')); }
 }
 
 function openParty() {
@@ -2753,7 +2863,7 @@ async function sendReview() {
     document.getElementById('r-name').value = '';
     document.getElementById('r-text').value = '';
     closeReview();
-    toast('Thank you! Your review was sent to the restaurant for approval.');
+    toast('Thank you! Your review is now visible to everyone.');
     renderReviewSection();
   } catch (err) { toast('Review not submitted: ' + (err && err.message ? err.message : 'Please try again.')); }
   finally { if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Submit review'; } }
@@ -2872,7 +2982,7 @@ function renderHomeTables() {
   var btn=document.getElementById('table-continue');if(btn)btn.style.display='none';
   MENU.tables.forEach(function(t){
     var b=document.createElement('button');b.type='button';b.className='tbtn table-carousel-card';b.setAttribute('data-table-number',t.number);
-    b.innerHTML='<span class="table-card-kicker">TABLE</span><strong>'+t.number+'</strong><span class="table-card-hint">Drag me ↔</span>';
+    b.innerHTML='<span class="table-card-kicker">TABLE</span><strong>'+t.number+'</strong><span class="table-card-hint">Tap to select</span>';
     b.setAttribute('aria-label','Select Table '+t.number);
     b.onclick=(function(num,card){return function(){selectHomeTable(num,card,false);};})(t.number,b);g.appendChild(b);
   });
@@ -3009,10 +3119,12 @@ function safeDirectionsURL(raw) {
 }
 function renderVisitSection() {
   var el=document.getElementById('visit-section');if(!el)return;
+  var homeLink=document.getElementById('home-visit-link');
   var address=String(SETTINGS.restaurantAddress||'').trim(),hours=String(SETTINGS.openingHours||'').trim();
   var phone=String(SETTINGS.restaurantPhone||'').trim(),note=String(SETTINGS.visitNote||'').trim();
   var directions=safeDirectionsURL(SETTINGS.directionsUrl);
-  if(!address&&!hours&&!phone&&!directions&&!note){el.style.display='none';el.innerHTML='';return;}
+  if(!address&&!hours&&!phone&&!directions&&!note){el.style.display='none';el.innerHTML='';if(homeLink)homeLink.style.display='none';return;}
+  if(homeLink)homeLink.style.display='flex';
   var phoneDigits=phone.replace(/[^0-9+]/g,'');
   el.style.display='block';
   el.innerHTML='<div class="visit-card-top"><span class="visit-pin">📍</span><div><div class="visit-eyebrow">COME VISIT US</div><h3>Find Mirch Masaala</h3></div></div>'+
@@ -3021,6 +3133,31 @@ function renderVisitSection() {
     (hours?'<div class="visit-detail"><span>🕒</span><div><b>Opening hours</b><p class="visit-hours">'+esc(hours)+'</p></div></div>':'')+
     (phoneDigits?'<div class="visit-detail"><span>☎️</span><div><b>Contact</b><p><a href="tel:'+esc(phoneDigits)+'">'+esc(phone)+'</a></p></div></div>':'')+
     (directions?'<a class="btn btn-main visit-directions" href="'+esc(directions)+'" target="_blank" rel="noopener noreferrer">🧭 Get directions</a>':'');
+}
+function scrollToVisit() {
+  var section = document.getElementById('visit-section');
+  if (!section || section.style.display === 'none') { toast('Visit details will appear when the owner adds them in Settings.'); return; }
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function renderPublicOrderBoard(rows) {
+  var host = document.getElementById('public-order-board'); if (!host) return;
+  rows = Array.isArray(rows) ? rows.filter(function (row) { return row && ['PREPARING', 'READY'].indexOf(String(row.status || '').toUpperCase()) >= 0; }) : [];
+  window.MM_PUBLIC_ORDER_ROWS = rows;
+  var activeScreen = document.querySelector('.screen.on');
+  if (activeScreen && ['waiter', 'kitchen', 'admin', 'login'].indexOf(activeScreen.id) >= 0) { host.style.display = 'none'; return; }
+  if (!rows.length) { host.style.display = 'none'; host.innerHTML = ''; return; }
+  rows.sort(function (a, b) {
+    var pA = String(a.status).toUpperCase() === 'READY' ? 0 : 1, pB = String(b.status).toUpperCase() === 'READY' ? 0 : 1;
+    return pA - pB || new Date(a.created_at || 0) - new Date(b.created_at || 0);
+  });
+  host.style.bottom = activeScreen && ['customer', 'success', 'myorders'].indexOf(activeScreen.id) >= 0 ? '86px' : '12px';
+  host.style.display = 'block';
+  host.innerHTML = '<div class="public-board-heading"><span>🍳 KITCHEN UPDATES</span><span class="public-board-live">● LIVE</span></div><div class="public-board-list">' +
+    rows.slice(0, 5).map(function (row) {
+      var status = String(row.status).toUpperCase(), kind = status === 'READY' ? 'ready' : 'preparing';
+      var label = status === 'READY' ? '✅ READY' : '🍳 PREPARING';
+      return '<div class="public-board-order ' + kind + '"><span>' + label + '</span><strong>Table ' + esc(row.table_number || '—') + '</strong><small>Order #' + esc(row.ticket || '—') + '</small><small>' + (status === 'READY' ? 'Please collect' : 'Being prepared') + '</small></div>';
+    }).join('') + '</div>';
 }
 function esc(t) {
   return String(t || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
