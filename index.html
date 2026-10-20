@@ -570,6 +570,81 @@ body{line-height:1.5}
 @media(max-width:370px){.home-shortcuts{gap:7px;max-width:255px}.home-icon-btn{width:42px;height:42px;min-width:42px;min-height:42px}.home-shortcut-label{font-size:8px}#tables .table-carousel-card{flex-basis:46px;min-width:46px;height:52px}}
 @media(prefers-reduced-motion:reduce){#tables .table-carousel-card,#tables .table-carousel-card.table-pop{animation:none!important;transition:none!important}}
 
+
+/* Calm, iPhone-inspired refinement: neutral surfaces, less gold fill, tighter rhythm. */
+:root{--bg:#101012;--card:#19191c;--surface:#222226;--gold:#b89545;--gold2:#e5d09b;--text:#f5f5f7;--muted:#a1a1aa;--line:rgba(255,255,255,.11)}
+body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
+.topbar{background:rgba(16,16,18,.94);border-bottom-color:rgba(255,255,255,.09);box-shadow:none}
+.btn{border-radius:12px;font-weight:650;box-shadow:none!important;transition:background .16s,transform .16s,border-color .16s}
+.btn-main{background:var(--gold2);background-image:none;color:#17140d;box-shadow:none!important}
+.btn-soft{background:#1c1c20;background-image:none;color:var(--text);border:1px solid rgba(255,255,255,.12)}
+.big-link,.card,.place,.tip-banner{box-shadow:none}
+.card{background:var(--card);border-color:rgba(255,255,255,.08);border-radius:14px}
+.card .pic{background:#222226;border-radius:12px}
+.tip-banner{background:transparent;border-color:rgba(255,255,255,.1);border-radius:12px;padding:10px 12px}
+.pill.open,.pill.closed{background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:5px 10px}
+.brand-name{letter-spacing:.3px}
+.brand-sub{letter-spacing:1.5px}
+#home .wrap{padding-top:18px!important;padding-bottom:24px!important}
+#home #home-tip{display:none!important}
+#home .logo-row{gap:8px;margin-bottom:0}
+#home .cook-stage#home-cook{width:104px!important;height:96px!important;margin:0 auto 2px}
+#home-cook .chef-main{font-size:28px!important;bottom:17px!important;left:8px!important}
+#home-cook .pot-main{font-size:34px!important;bottom:6px!important}
+#home-cook .chili-main{font-size:18px!important;top:6px!important;right:12px!important}
+#home .brand-name{font-size:1.45rem;line-height:1.12}
+#home .brand-sub{font-size:9px;letter-spacing:1.2px}
+#home .muted{line-height:1.35}
+#home #status-pill{margin:5px 0 8px}
+#home .table-swipe-guide{font-size:11px;font-weight:600;color:var(--muted);min-height:17px;margin:1px 0 3px;padding:0}
+#tables.table-grid{gap:7px;padding:4px 2px 6px;margin:3px -2px 5px;scrollbar-width:none}
+#tables.table-grid::-webkit-scrollbar{display:none}
+#tables .table-carousel-card{flex:0 0 48px;min-width:48px;height:52px;padding:4px 1px;gap:3px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#19191c;box-shadow:none!important;opacity:.9;transform:none;animation:tableCardEnter .24s ease-out both!important;animation-delay:calc(var(--card-index,0) * 10ms)!important}
+#tables .table-carousel-card strong{font-size:15px;color:var(--text);font-weight:700;letter-spacing:0}
+#tables .table-mini-cartoon{font-size:10px;opacity:.75;filter:none}
+#tables .table-carousel-card.selected{background:#2a2925;border-color:var(--gold);color:var(--gold2);opacity:1;transform:translateY(-1px);box-shadow:0 0 0 1px rgba(229,208,155,.09)!important}
+#tables .table-carousel-card.selected strong{color:var(--gold2)}
+#tables .table-carousel-card.table-pop{animation:tableSelectBounce .26s ease-out!important;animation-delay:0ms!important}
+@keyframes tableCardEnter{from{opacity:0;transform:translateY(3px)}to{opacity:.9;transform:none}}
+@keyframes tableSelectBounce{0%{transform:translateY(0)}60%{transform:translateY(-2px)}100%{transform:translateY(-1px)}}
+#table-continue{min-height:40px;padding:9px 12px;font-size:13px}
+.scan-cta{margin-top:7px!important;min-height:46px!important;padding:11px 14px!important;font-size:14px!important;background:var(--gold2)!important;box-shadow:none!important;border:0!important}
+#home .home-shortcuts{margin:7px auto 0;gap:16px;max-width:250px}
+.home-shortcut{min-width:54px;gap:3px}
+.home-icon-btn{width:40px;height:40px;min-width:40px;min-height:40px;font-size:19px;background:#1d1d21;border:1px solid rgba(255,255,255,.12);box-shadow:none}
+.home-icon-btn:active{transform:scale(.96);background:#29292d;box-shadow:none}
+.home-shortcut-label{font-size:9px;color:var(--muted);font-weight:550}
+#home .cook-stage .ambient-spark{opacity:.18!important;animation-duration:4s!important;filter:none}
+#home .steam-puff{opacity:.22}
+#review-section{margin-top:16px!important}
+#review-section .place{margin:0!important;padding:15px 0 0!important;background:transparent!important;border:0!important;border-top:1px solid rgba(255,255,255,.11)!important;border-radius:0!important}
+#review-section .place h3{font-size:15px!important;color:var(--text)!important;margin-bottom:5px!important}
+#review-section .place p{font-size:13px;line-height:1.45;color:var(--muted);margin-bottom:5px}
+#review-section .place .btn{min-height:42px;padding:10px 12px;font-size:13px;border-radius:11px;box-shadow:none!important}
+#review-section .place .btn-main{background:#ded0aa;color:#1a1710}
+#review-section h4.gold{color:var(--text)!important;margin-top:12px!important}
+#review-section .review-card,#public-review-list>div{background:transparent!important;box-shadow:none!important;border-color:rgba(255,255,255,.09)!important}
+.k-queue-title{font-size:12px;letter-spacing:.02em;color:var(--muted);padding:10px 12px 0;font-weight:650}
+.kds{gap:10px}
+.kcol{background:transparent;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:8px}
+.kcol h3{font-size:11px!important;letter-spacing:.04em;border-radius:8px}
+.kcard{background:#19191c!important;border:1px solid rgba(255,255,255,.1)!important;border-left:3px solid var(--ticket-accent,var(--gold))!important;border-radius:12px!important;padding:11px!important;box-shadow:none!important}
+.kitchen-ticket-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px}
+.kitchen-ticket-id{font-size:11px;color:var(--muted);font-weight:600}
+.kitchen-item-row{font-size:13px;line-height:1.4;padding:3px 0}
+.kitchen-note{margin-top:9px;padding:9px 10px;background:rgba(229,208,155,.09);border:1px solid rgba(229,208,155,.38);border-left:3px solid #d7b65d;border-radius:9px;color:var(--text);overflow-wrap:anywhere}
+.kitchen-note-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:5px;font-size:10px;letter-spacing:.045em;font-weight:800;color:#e5d09b}
+.kitchen-note-hint{font-size:9px;letter-spacing:0;color:var(--muted);font-weight:600}
+.kitchen-note-text{font-size:14px;font-weight:750;line-height:1.4;margin-top:4px;white-space:pre-wrap}
+.kitchen-item-notes{margin-top:6px;display:grid;gap:5px}
+.kitchen-item-note{padding:7px 9px;background:rgba(229,208,155,.07);border-radius:8px;border-left:2px solid #d7b65d;display:grid;gap:3px}
+.kitchen-item-note span{font-size:9px;letter-spacing:.04em;color:var(--gold2);font-weight:800}
+.kitchen-item-note b{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.kcard.has-note{border-top-color:rgba(229,208,155,.48)!important}
+.kitchen-status-btn{width:100%;margin-top:9px;padding:10px 12px;font-size:12px;border-radius:10px;border:0;font-weight:750;cursor:pointer;background:var(--ticket-accent,var(--gold2));color:#17140d}
+@media(max-width:699px){.kds{grid-template-columns:1fr;gap:8px}.kcol{min-height:0}.kcard{padding:10px!important}#home .cook-stage#home-cook{width:90px!important;height:86px!important}}
+@media(prefers-reduced-motion:reduce){#tables .table-carousel-card,#tables .table-carousel-card.table-pop{animation:none!important;transition:none!important}.ambient-spark{animation:none!important}}
+
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -2418,26 +2493,42 @@ function setStatus(id, st) {
   o.status = st; save('mm_o', orders); drawK(); drawAdminOrders(); refreshProgressViews(); toast(st);
 }
 function drawK() {
-  document.getElementById('k-time').textContent = new Date().toLocaleTimeString();
+  var time = document.getElementById('k-time');
+  if (time) time.textContent = new Date().toLocaleTimeString();
   var qTitle = document.querySelector('.k-queue-title');
   if (qTitle) {
     var live = orders.filter(function(o){ return o.status==='NEW'||o.status==='PREPARING'||o.status==='READY'; }).length;
-    qTitle.textContent = '🔴 LIVE ORDER QUEUE · ' + live + ' active · updates every few seconds';
+    qTitle.textContent = 'LIVE ORDER QUEUE · ' + live + ' active · auto-updates';
   }
   var N = orders.filter(function(o){ return o.status === 'NEW'; });
   var P = orders.filter(function(o){ return o.status === 'PREPARING'; });
   var R = orders.filter(function(o){ return o.status === 'READY'; });
-  document.getElementById('k-stats').innerHTML =
+  var stats = document.getElementById('k-stats');
+  if (stats) stats.innerHTML =
     '<div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + orders.filter(function(o){return o.status==='SERVED';}).length + '</b>Done</div>';
   function card(o, next, label, col) {
-    return '<div class="kcard" style="border-color:' + col + '"><b>Table ' + o.table + '</b><div class="muted" style="font-size:11px">Ticket ' + o.id + '</div>' +
-      o.items.map(function(i){ return '<div style="font-size:13px">' + i.qty + '× ' + i.name + '</div>'; }).join('') +
-      (o.notes ? '<div class="muted" style="font-size:11px">' + o.notes + '</div>' : '') +
-      '<button type="button" style="background:' + col + ';color:#1a1208" onclick="setStatus(\'' + o.id + '\',\'' + next + '\')">' + label + '</button></div>';
+    var orderNote = String(o.notes || '').trim();
+    if (orderNote === '[Waiter]' || orderNote === '[Waiter] ') orderNote = '';
+    var itemNotes = (o.items || []).filter(function(i){ return String(i.notes || '').trim(); });
+    var hasNotes = !!orderNote || itemNotes.length > 0;
+    var noteHtml = orderNote
+      ? '<div class="kitchen-note" role="note"><div class="kitchen-note-heading"><span>⚑ SPECIAL REQUEST</span><span class="kitchen-note-hint">Read before cooking</span></div><div class="kitchen-note-text">' + esc(orderNote) + '</div></div>'
+      : '';
+    if (itemNotes.length) {
+      noteHtml += '<div class="kitchen-item-notes">' + itemNotes.map(function(i){
+        return '<div class="kitchen-item-note"><span>NOTE · ' + esc(i.name) + '</span><b>' + esc(i.notes) + '</b></div>';
+      }).join('') + '</div>';
+    }
+    return '<article class="kcard' + (hasNotes ? ' has-note' : '') + '" style="border-color:' + col + '">' +
+      '<div class="kitchen-ticket-head"><b>Table ' + esc(o.table || '—') + '</b><span class="kitchen-ticket-id">#' + esc(o.orderNumber || o.id || '') + '</span></div>' +
+      (o.items || []).map(function(i){ return '<div class="kitchen-item-row"><span>' + (Number(i.qty) || 1) + '× ' + esc(i.name) + '</span></div>'; }).join('') +
+      noteHtml +
+      '<button type="button" class="kitchen-status-btn" style="--ticket-accent:' + col + '" onclick="setStatus(\'' + String(o.id || '').replace(/'/g, '') + '\',\'' + next + '\')">' + label + '</button></article>';
   }
-  document.getElementById('k-new').innerHTML = N.map(function(o){ return card(o,'PREPARING','START COOKING', 'var(--gold2)'); }).join('') || '<p class="k-empty">No new orders</p>';
-  document.getElementById('k-prep').innerHTML = P.map(function(o){ return card(o,'READY','MARK READY', 'var(--warn)'); }).join('') || '<p class="k-empty">Nothing cooking</p>';
-  document.getElementById('k-ready').innerHTML = R.map(function(o){ return card(o,'SERVED','SERVED', 'var(--ok)'); }).join('') || '<p class="k-empty">Nothing ready</p>';
+  var newHost = document.getElementById('k-new'), prepHost = document.getElementById('k-prep'), readyHost = document.getElementById('k-ready');
+  if (newHost) newHost.innerHTML = N.map(function(o){ return card(o,'PREPARING','START COOKING', 'var(--gold2)'); }).join('') || '<p class="k-empty">No new orders</p>';
+  if (prepHost) prepHost.innerHTML = P.map(function(o){ return card(o,'READY','MARK READY', 'var(--warn)'); }).join('') || '<p class="k-empty">Nothing cooking</p>';
+  if (readyHost) readyHost.innerHTML = R.map(function(o){ return card(o,'SERVED','SERVED', 'var(--ok)'); }).join('') || '<p class="k-empty">Nothing ready</p>';
 }
 function drawKMenu() {
   document.getElementById('k-menu').innerHTML = MENU.menu_items.slice(0,50).map(availRow).join('');
