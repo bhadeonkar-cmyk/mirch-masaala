@@ -2847,7 +2847,7 @@ applySettings();
 function drawSettings() {
   var s = SETTINGS;
   document.getElementById('a-settings').innerHTML =
-    '<p class="muted" style="margin-bottom:12px">Change display and payment settings. These settings are saved in this browser; secure staff accounts are managed through Supabase Authentication.</p>' +
+    '<p class="muted" style="margin-bottom:12px">Restaurant payment settings sync through the shared database so customers on other phones see the same UPI ID and payment QR. Secure staff accounts are managed through Supabase Authentication.</p>' +
     '<div class="settings-row"><label>Restaurant name</label><input id="set-name" value="' + esc(s.restaurantName) + '"></div>' +
     '<div class="settings-row"><label>Tagline</label><input id="set-tag" value="' + esc(s.tagline) + '"></div>' +
     '<div class="setup"><h3>📍 Visit Us information</h3><p>Add the restaurant’s real address and opening hours. For directions, paste a Google Maps share link.</p></div>' +
@@ -2939,12 +2939,19 @@ function saveSettings() {
   SETTINGS.acceptCard = document.getElementById('set-card').checked;
   SETTINGS.acceptCash = document.getElementById('set-cash').checked;
   save('mm_settings', SETTINGS);
+  if (typeof window.MM_SAVE_SHARED_RESTAURANT_CONFIG === 'function') {
+    window.MM_SAVE_SHARED_RESTAURANT_CONFIG().then(function () {
+      toast('UPI and payment settings synced across devices');
+    }).catch(function (e) {
+      console.warn('[Mirch Masaala] Shared restaurant settings sync:', e);
+      toast('Settings saved on this device only. Run restaurant-config.sql to enable device sync.');
+    });
+  }
   if (typeof window.MM_SAVE_WHATSAPP_SETTINGS === 'function') {
     window.MM_SAVE_WHATSAPP_SETTINGS().then(function () {
-      toast('WhatsApp settings synced across devices');
+      console.info('[Mirch Masaala] WhatsApp settings synced across devices');
     }).catch(function (e) {
       console.warn('[Mirch Masaala] WhatsApp settings cloud sync:', e);
-      toast('Saved on this device; apply the WhatsApp database setup to sync across devices');
     });
   }
   applySettings();
