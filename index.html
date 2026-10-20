@@ -2615,10 +2615,100 @@ function markParty(id) {
   var b = bookings.find(function(x){ return x.id === id; });
   if (b) { b.status = 'CONTACTED'; save('mm_b', bookings); drawParty(); }
 }
-function drawReviews() {
-  document.getElementById('a-reviews').innerHTML = reviews.length ? reviews.map(function(r) {
-    return '<div class="card" style="flex-direction:column"><b>' + r.name + '</b> ' + '★'.repeat(r.stars) + '<div class="muted">' + (r.text||'') + '</div></div>';
-  }).join('') : '<p class="muted center">No reviews</p>';
+function safeGoogleReviewURL(raw) {
+  var value = String(raw || '').trim();
+  if (!value) return '';
+  try {
+    var u = new URL(value);
+    var h = u.hostname.toLowerCase();
+    var googleHost = h === 'google.com' || h.endsWith('.google.com') ||
+      /^google\.(co\.[a-z]{2}|[a-z]{2,3})$/.test(h) ||
+      /^[a-z0-9-]+\.google\.(co\.[a-z]{2}|[a-z]{2,3})$/.test(h);
+    var approvedHost = googleHost || h === 'g.page' || h.endsWith('.g.page') ||
+      h === 'maps.app.goo.gl' || h === 'goo.gl';
+    return u.protocol === 'https:' && approvedHost ? u.href : '';
+  } catch (e) { return ''; }
+}
+var reviewSectionRequest = 0;
+function renderReviewList(host, list) {
+  if (!host) return;
+  var published = (Array.isArray(list) ? list : []).filter(function(r) {
+    return !r.status || r.status === 'published';
+  });
+  if (!published.length) {
+    host.innerHTML = '<p class="muted" style="font-size:12px;padding:8px 0">No published reviews yet. Be the first to share your experience.</p>';
+    return;
+  }
+  host.innerHTML = published.slice(0, 8).map(function(r) {
+    var rating = Math.max(0, Math.min(5, Number(r.stars || r.rating) || 0));
+    var comment = String(r.text || r.comment || '').trim();
+    return '<div class="card" style="flex-direction:column;align-items:flex-start;gap:5px;margin-top:8px">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;width:100%"><b>' + esc(r.name || r.display_name || 'Guest') + '</b><span class="gold" aria-label="' + rating + ' out of 5 stars">' + '★'.repeat(rating) + '☆'.repeat(5-rating) + '</span></div>' +
+      (comment ? '<p style="font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere">' + esc(comment) + '</p>' : '<p class="muted" style="font-size:12px">Rated their visit</p>') +
+      (r.created_at || r.at ? '<span class="muted" style="font-size:10px">' + esc(new Date(r.created_at || r.at).toLocaleDateString()) + '</span>' : '') +
+      '</div>';
+  }).join('');
+}
+function renderReviewSection() {
+  var host = document.getElementById('review-section');
+  if (!host) return;
+  var requestId = ++reviewSectionRequest;
+  var googleURL = safeGoogleReviewURL(SETTINGS.googleReviewsUrl || '');
+  host.innerHTML = '<div class="place" style="margin:0"><h3>⭐ Reviews & feedback</h3><p>Tell us how your visit went. In-app reviews are checked by the restaurant before they appear publicly.</p>' +
+    '<button type="button" class="btn btn-main" style="margin-top:10px" onclick="openReview()">Rate your visit / Write a comment</button>' +
+    (googleURL ? '<a class="btn btn-soft" style="margin-top:8px;text-decoration:none" href="' + esc(googleURL) + '" target="_blank" rel="noopener noreferrer">⭐ Write a Google review</a>' : '<p class="muted" style="font-size:11px;margin-top:8px">Google reviews link will appear here when the owner adds it in Settings.</p>') +
+    '<h4 class="gold" style="margin:16px 0 4px;font-size:13px">Guest reviews</h4><div id="public-review-list"><p class="muted" style="font-size:12px">Loading reviews…</p></div></div>';
+  var modalLink = document.getElementById('review-google-cta');
+  if (modalLink) { modalLink.style.display = googleURL ? 'flex' : 'none'; modalLink.href = googleURL || '#'; }
+  var listHost = document.getElementById('public-review-list');
+  var loader = window.MM_LOAD_RESTAURANT_REVIEWS;
+  if (typeof loader === 'function') {
+    loader(false).then(function(rows) {
+      if (requestId !== reviewSectionRequest) return;
+      renderReviewList(document.getElementById('public-review-list'), rows || []);
+    }).catch(function(err) {
+      if (requestId !== reviewSectionRequest) return;
+      console.warn('[Mirch Masaala] Public reviews could not load:', err);
+      var current = document.getElementById('public-review-list');
+      if (current) current.innerHTML = '<p class="muted" style="font-size:12px">Reviews are temporarily unavailable. Please try again shortly.</p>';
+    });
+  } else renderReviewList(listHost, reviews || []);
+}
+async function drawReviews() {
+  var host = document.getElementById('a-reviews');
+  if (!host) return;
+  host.innerHTML = '<p class="muted center">Loading reviews…</p>';
+  var list = reviews || [];
+  var remote = typeof window.MM_LOAD_RESTAURANT_REVIEWS === 'function';
+  if (remote) {
+    try { list = await window.MM_LOAD_RESTAURANT_REVIEWS(true); reviews = list || []; }
+    catch (err) {
+      host.innerHTML = '<div class="setup"><h3>Reviews database is not ready</h3><p>' + esc(err && err.message ? err.message : 'Apply supabase/restaurant-feedback.sql, then try again.') + '</p><button type="button" class="btn btn-soft" onclick="drawReviews()">Try again</button></div>';
+      return;
+    }
+  }
+  host.innerHTML = (list && list.length) ? list.map(function(r) {
+    var rating = Math.max(0, Math.min(5, Number(r.stars || r.rating) || 0));
+    var status = r.status || 'published';
+    var reviewId = String(r.dbId || r.id || '');
+    return '<div class="card" style="flex-direction:column;align-items:flex-start;gap:8px;margin-top:8px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%"><b>' + esc(r.name || r.display_name || 'Guest') + '</b><span class="gold">' + '★'.repeat(rating) + '☆'.repeat(5-rating) + '</span></div>' +
+      '<p style="font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere">' + esc(r.text || r.comment || '') + '</p>' +
+      '<span class="muted" style="font-size:11px">' + esc(status.toUpperCase()) + (r.created_at || r.at ? ' · ' + esc(new Date(r.created_at || r.at).toLocaleString()) : '') + '</span>' +
+      (remote ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        (status === 'published' ? '' : '<button type="button" class="btn btn-ok" onclick="setRestaurantReviewStatus(\'' + esc(reviewId) + '\',\'published\')">Approve & publish</button>') +
+        (status === 'hidden' ? '' : '<button type="button" class="btn btn-soft" onclick="setRestaurantReviewStatus(\'' + esc(reviewId) + '\',\'hidden\')">Hide review</button>') +
+        '</div>' : '<span class="muted" style="font-size:10px">Stored on this device only</span>') + '</div>';
+  }).join('') : '<p class="muted center">No reviews yet</p>';
+}
+async function setRestaurantReviewStatus(reviewId, status) {
+  if (window.role !== 'admin') { toast('Owner/Admin access required'); return; }
+  if (typeof window.MM_ADMIN_SET_REVIEW_STATUS !== 'function') { toast('Review moderation service is not configured'); return; }
+  try {
+    await window.MM_ADMIN_SET_REVIEW_STATUS(reviewId, status);
+    toast(status === 'published' ? 'Review approved and published' : 'Review hidden');
+    await drawReviews(); renderReviewSection();
+  } catch (e) { toast('Could not update review: ' + (e && e.message ? e.message : 'try again')); }
 }
 
 function openParty() {
@@ -2650,14 +2740,23 @@ function setStar(n) {
   var els = document.querySelectorAll('#stars span');
   for (var i = 0; i < 5; i++) els[i].textContent = i < n ? '★' : '☆';
 }
-function sendReview() {
-  if (stars < 1) { toast('Tap stars'); return; }
-  reviews.unshift({
-    id: Date.now(), stars: stars,
-    name: document.getElementById('r-name').value.trim() || 'Guest',
-    text: document.getElementById('r-text').value.trim(), table: table
-  });
-  save('mm_r', reviews); closeReview(); toast('Thank you!');
+async function sendReview() {
+  if (stars < 1) { toast('Tap a star rating first'); return; }
+  var name = document.getElementById('r-name').value.trim() || 'Guest';
+  var comment = document.getElementById('r-text').value.trim();
+  if (comment.length > 1500) { toast('Please keep your comment under 1,500 characters'); return; }
+  var submitButton = document.querySelector('#review-modal button.btn-main');
+  if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Submitting…'; }
+  try {
+    if (typeof window.MM_SUBMIT_RESTAURANT_REVIEW !== 'function') throw new Error('Review service is not connected yet. Please try again after the restaurant finishes setup.');
+    await window.MM_SUBMIT_RESTAURANT_REVIEW({ name: name, stars: stars, text: comment, table: table });
+    document.getElementById('r-name').value = '';
+    document.getElementById('r-text').value = '';
+    closeReview();
+    toast('Thank you! Your review was sent to the restaurant for approval.');
+    renderReviewSection();
+  } catch (err) { toast('Review not submitted: ' + (err && err.message ? err.message : 'Please try again.')); }
+  finally { if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Submit review'; } }
 }
 
 
