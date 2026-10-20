@@ -456,6 +456,45 @@ button, input, select, textarea { font: inherit; }
 #tables .table-carousel-card.table-pop{animation:tablePop .42s cubic-bezier(.18,.89,.32,1.35)}
 @keyframes tablePop{0%{transform:scale(.92)}60%{transform:scale(1.12) translateY(-5px)}100%{transform:scale(1.06) translateY(-3px)}}@keyframes visitRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.visit-card,#tables .table-carousel-card{animation:none!important}}
+/* Simple, spacious, role-focused layout */
+body{line-height:1.5}
+.wrap{max-width:560px;padding:18px}
+.btn{min-height:46px;border-radius:12px}
+.search{padding:14px 15px;border-radius:12px;margin:10px 0}
+.card{padding:16px;margin:10px 0;gap:14px;border-radius:16px}
+.card .pic{width:60px;height:60px}
+.card .name{font-size:16px;line-height:1.35}
+.card .desc{font-size:13px;line-height:1.45}
+.diet-filters,.cats{padding-top:4px;padding-bottom:10px}
+.diet-filter,.cat{min-height:38px}
+.customer-bottom{display:flex;align-items:center;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(18,12,10,.96);border-top:1px solid var(--line);backdrop-filter:blur(12px)}
+.customer-bottom #cart-bar{min-width:0;flex:1;padding:14px 12px;font-size:14px}
+.customer-bottom .customer-help-btn{width:auto;flex:0 0 auto;padding:14px 12px;font-size:14px}
+.order-success-wrap{max-width:460px;padding-top:32px;padding-bottom:30px}
+.success-mark{margin:4px auto 14px;width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(62,207,142,.15);border:1px solid rgba(62,207,142,.55);color:var(--ok);font-size:32px;font-weight:900}
+.admin-more{flex:0 0 auto;min-width:118px;margin:5px 8px;padding:0 10px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--gold2);font-size:12px;font-weight:700}
+.admin-more.on{border-color:var(--gold2);box-shadow:0 0 0 1px rgba(240,215,140,.15)}
+.tabs{align-items:center;gap:2px}
+.tabs button{flex:0 0 auto;min-width:58px;padding:12px 10px;font-size:12px}
+#admin-more{max-width:145px}
+.kcard{padding:14px;border-radius:14px;margin-bottom:10px}
+.kcard button{min-height:44px;font-size:14px}
+#k-menu{max-height:none!important;overflow:visible!important}
+#w-menu{max-height:none!important;overflow:visible!important}
+@media(max-width:699px){
+  .kds{grid-template-columns:minmax(0,1fr);gap:12px;padding:12px}
+  .kcol{min-height:0;padding:12px}
+  .kcol h3{position:sticky;top:60px;z-index:5}
+  .stats{gap:6px;padding:10px}
+  .stat{padding:10px 4px}
+  .stat b{font-size:1.1rem}
+  .admin-more{min-width:106px}
+  .topbar{padding:12px;gap:8px}
+  .topbar .back{padding:8px 10px}
+  .wrap{padding:16px}
+  .customer-bottom #cart-bar{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){.success-mark,.order-progress,.card{animation:none!important}}
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -645,7 +684,7 @@ button, input, select, textarea { font: inherit; }
     <span class="muted" id="w-tbl" style="font-size:12px">Pick table</span>
   </div>
   <div class="wrap">
-    <p class="muted" style="margin-bottom:8px"><b style="color:#fff">1.</b> Tap guest table &nbsp; <b style="color:#fff">2.</b> Add food &nbsp; <b style="color:#fff">3.</b> Send</p>
+    <p class="muted" style="margin-bottom:8px"><b style="color:#fff">1.</b> Choose a table → add items → send a ticket to the kitchen.</p>
     <div class="table-grid" id="w-tables"></div>
     <div id="w-area" style="display:none">
       <input class="search" id="w-search" placeholder="Search menu…" oninput="wMenu()">
@@ -696,11 +735,14 @@ button, input, select, textarea { font: inherit; }
     <button type="button" data-t="alerts" onclick="tab(this,'alerts')">Alerts</button>
     <button type="button" data-t="menu" onclick="tab(this,'menu')">Menu</button>
     <button type="button" data-t="qr" onclick="tab(this,'qr')">QR</button>
-    <button type="button" data-t="stats" onclick="tab(this,'stats')">Stats</button>
-    <button type="button" data-t="party" onclick="tab(this,'party')">Party</button>
-    <button type="button" data-t="reviews" onclick="tab(this,'reviews')">Reviews</button>
-    <button type="button" data-t="payments" onclick="tab(this,'payments')">Pay log</button>
     <button type="button" data-t="settings" onclick="tab(this,'settings')">Settings</button>
+    <select class="admin-more" id="admin-more" aria-label="More admin tools" onchange="if(this.value)tab(this,this.value)">
+      <option value="">More tools</option>
+      <option value="stats">Stats</option>
+      <option value="party">Party bookings</option>
+      <option value="reviews">Reviews</option>
+      <option value="payments">Payment log</option>
+    </select>
   </div>
   <div id="a-payments" style="display:none;padding:12px"></div>
   <div id="a-orders"></div>
@@ -2063,7 +2105,7 @@ function drawK() {
   document.getElementById('k-stats').innerHTML =
     '<div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + orders.filter(function(o){return o.status==='SERVED';}).length + '</b>Done</div>';
   function card(o, next, label, col) {
-    return '<div class="kcard" style="border-color:' + col + '"><b>Table ' + o.table + '</b><div class="muted" style="font-size:11px">' + o.id + '</div>' +
+    return '<div class="kcard" style="border-color:' + col + '"><b>Table ' + o.table + '</b><div class="muted" style="font-size:11px">Ticket ' + o.id + '</div>' +
       o.items.map(function(i){ return '<div style="font-size:13px">' + i.qty + '× ' + i.name + '</div>'; }).join('') +
       (o.notes ? '<div class="muted" style="font-size:11px">' + o.notes + '</div>' : '') +
       '<button type="button" style="background:' + col + ';color:#1a1208" onclick="setStatus(\'' + o.id + '\',\'' + next + '\')">' + label + '</button></div>';
@@ -2246,7 +2288,14 @@ if (document.readyState === 'loading') {
 }
 function tab(btn, name) {
   document.querySelectorAll('.tabs button').forEach(function(b){ b.classList.remove('on'); });
-  btn.classList.add('on');
+  var more=document.getElementById('admin-more');
+  if(btn && btn.tagName === 'SELECT'){
+    document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on');});
+    if(more)more.classList.add('on');
+  }else{
+    if(btn)btn.classList.add('on');
+    if(more){more.value='';more.classList.remove('on');}
+  }
   ['orders','alerts','menu','qr','stats','party','reviews','payments','settings'].forEach(function(t) {
     document.getElementById('a-' + t).style.display = t === name ? 'block' : 'none';
   });
@@ -2267,7 +2316,7 @@ function drawAdminOrders() {
   function sec(title, list) {
     if (!list.length) return '';
     return '<h3 class="gold" style="font-size:12px;padding:8px 12px">' + title + '</h3>' + list.map(function(o) {
-      return '<div class="card" style="margin:8px 12px;flex-direction:column"><div style="display:flex;justify-content:space-between"><b class="gold">Table ' + o.table + '</b><span class="muted">' + o.status + '</span></div>' +
+      return '<div class="card" style="margin:8px 12px;flex-direction:column"><div style="display:flex;justify-content:space-between"><b class="gold">Table ' + o.table + '</b><span class="muted">' + o.status + '</span></div><div class="muted" style="font-size:11px">Ticket ' + o.id + '</div>' +
         o.items.map(function(i){ return '<div style="font-size:13px">' + i.qty + '× ' + i.name + '</div>'; }).join('') +
         '<b class="gold">₹' + o.total + '</b></div>';
     }).join('');
