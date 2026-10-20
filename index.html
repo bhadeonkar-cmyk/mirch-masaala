@@ -516,7 +516,7 @@ body{line-height:1.5}
 .public-board-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;color:var(--muted);font-size:9px;font-weight:850;letter-spacing:.06em;margin-bottom:4px}.public-board-live{font-size:8px;border-radius:999px;padding:2px 4px;color:#72dba5;background:rgba(62,207,142,.1)}
 .public-board-legend{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:8px;font-weight:700;white-space:nowrap}.public-board-legend .key-new{color:#f1a04e}.public-board-legend .key-preparing{color:#efd05d}.public-board-legend .key-ready{color:#62d79a}
 .public-board-circles{display:flex;align-items:center;justify-content:flex-end;gap:5px;max-width:230px;overflow-x:auto;scrollbar-width:none}.public-board-circles::-webkit-scrollbar{display:none}
-.public-table-circle{width:27px;height:27px;flex:0 0 27px;padding:0;border:1.5px solid currentColor;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:inherit;font-size:10px;font-weight:850;line-height:1;color:var(--text);background:transparent;cursor:pointer;box-shadow:none}
+.public-table-circle{width:27px;height:27px;flex:0 0 27px;padding:0;border:1.5px solid currentColor;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:inherit;font-size:10px;font-weight:850;line-height:1;color:var(--text);background:transparent;box-shadow:none}
 .public-table-circle.new{color:#f1a04e;background:rgba(241,160,78,.06)}
 .public-table-circle.preparing{color:#efd05d;background:rgba(239,208,93,.06)}
 .public-table-circle.ready{color:#62d79a;background:rgba(98,215,154,.07)}
@@ -3604,7 +3604,7 @@ function renderPublicOrderBoard(rows) {
       var status=String(row.status).toUpperCase();
       var cls=status==='NEW'?'new':status==='READY'?'ready':'preparing';
       var label=status==='NEW'?'Waiting to start':status==='READY'?'Ready to collect':'Preparing';
-      return '<button type="button" class="public-table-circle '+cls+'" title="Table '+esc(row.table_number)+' · '+label+'" aria-label="Table '+esc(row.table_number)+' · '+label+'" onclick="go(\'myorders\')">'+esc(row.table_number)+'</button>';
+      return '<span class="public-table-circle '+cls+'" title="Table '+esc(row.table_number)+' · '+label+'" aria-label="Table '+esc(row.table_number)+' · '+label+'">'+esc(row.table_number)+'</span>';
     }).join('') + (extra ? '<span class="public-table-more" aria-label="'+extra+' more table statuses">+'+extra+'</span>' : '') + '</div>';
 }
 function esc(t) {
