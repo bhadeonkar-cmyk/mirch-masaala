@@ -1050,6 +1050,7 @@
     window.MM_RESOLVE_STAFF_NOTIFICATION = resolveStaffNotification;
     window.MM_REFRESH_ROLE_NOTIFICATIONS = refreshRoleNotifications;
     window.MM_ENABLE_BROWSER_NOTIFICATIONS = enableBrowserNotifications;
+    window.notifyCustomerOrderStatus = notifyCustomerOrderStatus;
 
     ensureUsernameField();
     window.openLogin = function (requestedRole) {
