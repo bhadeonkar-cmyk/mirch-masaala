@@ -507,6 +507,16 @@
 
   async function sendWaiterOrder() {
     if (window.MM_ORDER_SENDING) return;
+    if (window.role !== 'waiter') {
+      notifyError('Waiter account required to send this order.');
+      return;
+    }
+    if (!window.MM_WAITER_CONFIRMATION_APPROVED) {
+      if (typeof window.openWaiterConfirm === 'function') window.openWaiterConfirm();
+      else notifyError('Please review the order before sending.');
+      return;
+    }
+    window.MM_WAITER_CONFIRMATION_APPROVED = false;
     if (!window.wTable || !window.wCart || !window.wCart.length) {
       notifyError('Pick a table and add food first.');
       return;
@@ -536,19 +546,34 @@
   }
 
   async function setSharedOrderStatus(ticketId, status) {
-    if (!client || !window.role || ['admin', 'waiter', 'kitchen'].indexOf(window.role) < 0) {
+    var actor = String(window.role || '');
+    var nextStatus = String(status || '').toUpperCase();
+    if (!client || ['admin', 'waiter', 'kitchen'].indexOf(actor) < 0) {
       notifyError('Please sign in with your staff account first.');
+      return;
+    }
+    var permitted = actor === 'admin'
+      ? ['NEW', 'PREPARING', 'READY', 'SERVED', 'PAID', 'CANCELLED'].indexOf(nextStatus) >= 0
+      : actor === 'kitchen'
+        ? ['PREPARING', 'READY'].indexOf(nextStatus) >= 0
+        : nextStatus === 'SERVED';
+    if (!permitted) {
+      notifyError(actor === 'waiter'
+        ? 'Waiter action: mark food served only.'
+        : actor === 'kitchen'
+          ? 'Kitchen action: mark orders cooking or ready only.'
+          : 'This order action is not allowed for this role.');
       return;
     }
     try {
       var result = await client.from('orders')
-        .update({ status: status })
+        .update({ status: nextStatus })
         .eq('restaurant_id', RESTAURANT_ID)
         .eq('ticket_id', ticketId);
       if (result.error) throw result.error;
       await refreshStaffOrders();
       if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
-      notifySuccess('Order marked ' + status.toLowerCase() + '.');
+      notifySuccess('Order marked ' + nextStatus.toLowerCase() + '.');
     } catch (e) {
       notifyError('Could not update order status. Check your staff permissions.');
       console.error('[Mirch Masaala status update]', e);
