@@ -549,6 +549,7 @@ body{line-height:1.5}
     <p class="muted" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
     <button type="button" class="btn btn-soft" style="margin-top:12px" onclick="openGuide()">📖 How to use this app</button>
     <section id="visit-section" class="visit-card" style="display:none" aria-label="Restaurant visit information"></section>
+    <section id="review-section" style="margin-top:14px;text-align:left" aria-label="Reviews and feedback"></section>
 
     <!-- Staff entry hidden from customers — long-press logo or tap footer 5× -->
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line)">
@@ -813,7 +814,9 @@ body{line-height:1.5}
     </div>
     <input id="r-name" placeholder="Your name (optional)">
     <textarea id="r-text" placeholder="Comment (optional)"></textarea>
-    <button type="button" class="btn btn-main" onclick="sendReview()">Submit</button>
+    <p class="muted" style="font-size:11px;margin:4px 0 10px">In-app reviews are published after owner approval. You can also leave a separate Google review.</p>
+    <button type="button" class="btn btn-main" onclick="sendReview()">Submit review</button>
+    <a id="review-google-cta" class="btn btn-soft" href="#" target="_blank" rel="noopener noreferrer" style="display:none;text-decoration:none;margin-top:8px">⭐ Write a Google review</a>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeReview()">Later</button>
   </div>
 </div>
@@ -1339,6 +1342,7 @@ window.dismissTip = dismissTip;
 
 function bootApp() {
   try {
+    if (typeof renderReviewSection === 'function') renderReviewSection();
     if (typeof applySettings === 'function') applySettings();
     if (typeof rebuildTables === 'function') rebuildTables();
     if (typeof renderHomeTables === 'function') renderHomeTables();
@@ -1824,12 +1828,12 @@ async function drawWhatsApp() {
     el.innerHTML =
       '<div class="setup"><h3>💬 WhatsApp customer manager</h3><p>Owner contact number: <b class="gold">+' + esc((SETTINGS.whatsappNumber || '919657076450').replace(/[^0-9]/g, '')) + '</b>. Change it in Settings at any time.</p><p>Only customers who explicitly opted into the selected category are eligible.</p></div>' +
       '<div class="stats" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><b>' + window.MM_WHATSAPP_CUSTOMERS_CACHE.length + '</b>Registered</div><div class="stat"><b>' + orderCount + '</b>Order updates</div><div class="stat"><b>' + marketingCount + '</b>News/offers</div></div>' +
-      '<div class="place"><h3>Send a WhatsApp update</h3><p>Choose a saved default message or edit it for this broadcast. You will confirm before any message is sent.</p>' +
-      '<div class="settings-row"><label>Message category</label><select id="wa-broadcast-kind" onchange="useWhatsAppDefaultMessage()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff"><option value="order_updates">Order/service updates · opt-in only</option><option value="announcement">Restaurant announcement · opt-in only</option><option value="offer">Special offer · opt-in only</option></select></div>' +
+      '<div class="place"><h3>Send a special notification to registered customers</h3><p>Write a custom announcement, event notice or special offer. Preview and confirm before sending via WhatsApp to registered customers who opted in to the selected message category.</p>' +
+      '<div class="settings-row"><label>Notification type / audience</label><select id="wa-broadcast-kind" onchange="useWhatsAppDefaultMessage()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff"><option value="order_updates">Order/service updates · opt-in only</option><option value="announcement">Restaurant announcement · opt-in only</option><option value="offer">Special offer · opt-in only</option></select></div>' +
       '<div class="settings-row"><label>Message text</label><textarea id="wa-broadcast-message" rows="4" maxlength="900" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff">' + esc(waTemplateMessageFor('announcement')) + '</textarea></div>' +
       '<p class="muted" id="wa-broadcast-count" style="font-size:12px;margin:6px 0 10px">' + marketingCount + ' opted-in recipients for announcements.</p>' +
       '<button type="button" class="btn btn-main" id="wa-broadcast-send" onclick="sendWhatsAppBroadcast()">Preview & send to opted-in customers</button>' +
-      '<p class="muted" style="font-size:11px;margin-top:10px">Actual sending uses the official WhatsApp Business Platform through a secure server function. No API token is stored in this page.</p></div>' +
+      '<p class="muted" style="font-size:11px;margin-top:10px">Notifications are sent through the official WhatsApp Business Platform only after the server/API and approved templates are configured. The app never sends messages to customers who have not opted in to this category.</p></div>' +
       '<h3 class="gold" style="margin:16px 0 8px">Recent registered customers</h3>' +
       (customerList || '<p class="muted">No customer profiles have been saved yet.</p>') +
       (window.MM_WHATSAPP_CUSTOMERS_CACHE.length > 20 ? '<p class="muted">Showing the latest 20 of ' + window.MM_WHATSAPP_CUSTOMERS_CACHE.length + ' profiles.</p>' : '') +
@@ -2418,6 +2422,7 @@ window.dismissTip = dismissTip;
 
 function bootApp() {
   try {
+    if (typeof renderReviewSection === 'function') renderReviewSection();
     if (typeof applySettings === 'function') applySettings();
     if (typeof rebuildTables === 'function') rebuildTables();
     if (typeof renderHomeTables === 'function') renderHomeTables();
@@ -2689,6 +2694,7 @@ function defaultSettings() {
     tableCount: 20,
     upiId: '',
     upiName: 'Mirch Masaala',
+    googleReviewsUrl: '',
     payNote: 'Pay via UPI — show this QR to guest',
     whatsappNumber: '919657076450',
     whatsappName: 'Mirch Masaala',
@@ -2872,6 +2878,8 @@ function drawSettings() {
     (!s.upiId ? '<div class="setup" style="border-color:rgba(232,106,106,.55)"><h3>⚠️ Payment setup required</h3><p>Owner: enter the restaurant’s real merchant UPI ID below before enabling digital payments. Do not use a sample ID.</p></div>' : '') +
     '<div class="settings-row"><label>Restaurant merchant UPI ID (required for UPI)</label><input id="set-upi" placeholder="e.g. restaurant@bank" value="' + esc(s.upiId || '') + '"></div>' +
     '<div class="settings-row"><label>UPI display name</label><input id="set-upiname" value="' + esc(s.upiName || '') + '"></div>' +
+    '<div class="settings-row"><label>Google Reviews link (optional)</label><input id="set-google-reviews" type="url" placeholder="https://g.page/r/.../review" value="' + esc(s.googleReviewsUrl || '') + '"></div>' +
+    '<p class="muted" style="font-size:11px;margin:-4px 0 10px">Customers will see a separate button to open your Google review page.</p>' +
     '<div class="settings-row"><label>PhonePe merchant UPI ID (optional override)</label><input id="set-phonepe" placeholder="Leave blank to use main UPI ID" value="' + esc(s.phonepeUpi || '') + '"></div>' +
     '<div class="settings-row"><label>Payment note</label><input id="set-paynote" value="' + esc(s.payNote || '') + '"></div>' +
     '<div class="setup"><h3>💬 WhatsApp customer updates</h3><p>Temporary owner/restaurant contact: +91 9657076450. Change it below any time. Automated broadcasts require WhatsApp Business Platform credentials and approved message templates configured securely in Supabase.</p></div>' +
@@ -2930,6 +2938,8 @@ function saveSettings() {
   SETTINGS.upiId = document.getElementById('set-upi').value.trim();
   SETTINGS.upiName = document.getElementById('set-upiname').value.trim();
   SETTINGS.phonepeUpi = document.getElementById('set-phonepe').value.trim();
+  SETTINGS.googleReviewsUrl = document.getElementById('set-google-reviews').value.trim();
+  if (SETTINGS.googleReviewsUrl && !safeGoogleReviewURL(SETTINGS.googleReviewsUrl)) { toast('Enter a valid HTTPS Google Reviews link'); document.getElementById('set-google-reviews').focus(); return; }
   if (SETTINGS.upiId && !/^[^@\s]+@[^@\s]+$/.test(SETTINGS.upiId)) { toast('Enter a valid merchant UPI ID, e.g. restaurant@bank'); document.getElementById('set-upi').focus(); return; }
   if (SETTINGS.phonepeUpi && !/^[^@\s]+@[^@\s]+$/.test(SETTINGS.phonepeUpi)) { toast('Enter a valid PhonePe UPI ID or leave it blank'); document.getElementById('set-phonepe').focus(); return; }
   SETTINGS.payNote = document.getElementById('set-paynote').value.trim();
@@ -2966,6 +2976,7 @@ function saveSettings() {
   applySettings();
   renderHomeTables();
   renderVisitSection();
+  renderReviewSection();
 
 var staffTapCount = 0;
 var staffTapTimer = null;
@@ -3190,6 +3201,7 @@ window.dismissTip = dismissTip;
 
 function bootApp() {
   try {
+    if (typeof renderReviewSection === 'function') renderReviewSection();
     if (typeof applySavedMenuEdits === 'function') applySavedMenuEdits();
     if (typeof applySettings === 'function') applySettings();
     if (typeof rebuildTables === 'function') rebuildTables();
