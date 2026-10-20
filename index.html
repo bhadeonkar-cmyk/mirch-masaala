@@ -933,7 +933,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <p class="muted" style="margin-bottom:10px">Ticket <b id="sid" style="color:#fff"></b></p>
     <p class="muted" style="margin:0 0 18px">Table <b id="stbl" style="color:#fff"></b> · Your order has its own ticket number.</p>
     <div id="success-progress-host"></div>
-    <button type="button" class="btn btn-soft customer-alert-enable" style="margin-top:10px" onclick="enableCustomerOrderAlerts()">🔔 Enable order alerts</button>
+    <button type="button" class="btn btn-soft customer-alert-enable" style="margin-top:10px" onclick="enableCustomerOrderAlerts()">🔔 Alert options</button>
     <button type="button" class="btn btn-main" style="margin-top:12px" onclick="backMenu()">Order more</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="myOrders()">Track my orders</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="reqBill()">Request bill / Pay</button>
@@ -969,7 +969,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div class="topbar">
     <button type="button" class="back" onclick="wShowTables()">← Tables</button>
     <strong class="gold">Waiter</strong>
-    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Enable browser alerts" title="Enable browser alerts" onclick="enableRoleNotifications()">🔔</button><span class="muted" id="w-tbl" style="font-size:12px">Choose table</span></div>
+    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><span class="muted" id="w-tbl" style="font-size:12px">Choose table</span></div>
   </div>
   <div id="w-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
   <div class="wrap">
@@ -1003,7 +1003,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div class="topbar">
     <button type="button" class="back" onclick="logout()">← Exit</button>
     <strong class="gold">Kitchen</strong>
-    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Enable browser alerts" title="Enable browser alerts" onclick="enableRoleNotifications()">🔔</button><span class="muted" id="k-time" style="font-size:12px"></span></div>
+    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><span class="muted" id="k-time" style="font-size:12px"></span></div>
   </div>
   <div id="k-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
   <p class="k-queue-title">LIVE ORDER QUEUE · tap when each step is done</p>
@@ -1024,7 +1024,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div class="topbar">
     <button type="button" class="back" onclick="logout()">← Exit</button>
     <strong class="gold">Owner</strong>
-    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Enable browser alerts" title="Enable browser alerts" onclick="enableRoleNotifications()">🔔</button><button type="button" class="back" id="open-btn" onclick="toggleOpen()">OPEN</button></div>
+    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><button type="button" class="back" id="open-btn" onclick="toggleOpen()">OPEN</button></div>
   </div>
   <div id="a-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
   <div class="tabs">
@@ -3935,6 +3935,7 @@ function bootApp() {
     if (typeof drawDietFilters === 'function') drawDietFilters();
     if (typeof drawPlaces === 'function') drawPlaces();
     if (typeof renderCustomerHomeOrders === 'function') renderCustomerHomeOrders();
+    if (typeof renderPublicOrderBoard === 'function') renderPublicOrderBoard(window.MM_PUBLIC_ORDER_ROWS || []);
     if (typeof setOpenPill === 'function') setOpenPill();
     if (typeof bindStaffSecrets === 'function') bindStaffSecrets();
     var params = new URLSearchParams(window.location.search);
