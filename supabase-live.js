@@ -63,7 +63,7 @@
   }
 
   function nativeStaffNotification(row) {
-    if (!row || !('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!row || isMobileBrowser() || !('Notification' in window) || Notification.permission !== 'granted') return;
     var type = String(row.notification_type || '').toUpperCase();
     var table = String(row.table_number || '').padStart(2, '0');
     var title = 'Mirch Masaala';
@@ -120,9 +120,37 @@
     }
   }
 
+  function isMobileBrowser() {
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') ||
+      (navigator.platform === 'MacIntel' && Number(navigator.maxTouchPoints || 0) > 1);
+  }
+
+  function isIOSDevice() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
+      (navigator.platform === 'MacIntel' && Number(navigator.maxTouchPoints || 0) > 1);
+  }
+
+  function isStandaloneWebApp() {
+    return !!(navigator.standalone ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+  }
+
   function enableBrowserNotifications() {
+    // This app currently has live in-page alerts, but no push subscription + server push setup.
+    // On iOS, web push additionally requires a Home Screen web app (Apple/WebKit requirements).
+    if (isIOSDevice()) {
+      notifyError(isStandaloneWebApp()
+        ? 'Live alerts work here, but lock-screen push is not set up for this app yet.'
+        : 'iPhone browser tabs cannot show these system alerts. Live updates work while this page is open; background push is not set up yet.');
+      return Promise.resolve(false);
+    }
+    // Notification() constructor is unreliable on mobile browsers; persistent alerts require a service worker.
+    if (isMobileBrowser()) {
+      notifyError('Mobile system alerts are not configured yet. Keep this page open for live in-app alerts.');
+      return Promise.resolve(false);
+    }
     if (!('Notification' in window)) {
-      notifyError('This browser does not support desktop notifications. Keep the staff screen open for in-app alerts.');
+      notifyError('System alerts are not supported in this browser. Live in-app alerts still work while this page is open.');
       return Promise.resolve(false);
     }
     if (Notification.permission === 'granted') {
@@ -134,8 +162,8 @@
       return Promise.resolve(false);
     }
     return Notification.requestPermission().then(function (permission) {
-      if (permission === 'granted') notifySuccess('Browser alerts enabled.');
-      else notifyError('Allow notifications for this site, or keep the app open for in-app alerts.');
+      if (permission === 'granted') notifySuccess('Browser alerts enabled while the browser is available.');
+      else notifyError('Permission was not granted. Live in-app alerts still work while this screen is open.');
       return permission === 'granted';
     });
   }
@@ -150,7 +178,7 @@
       ? 'Your food is ready. Please check with the restaurant team.'
       : 'The kitchen has started preparing your order.';
     if (typeof window.toast === 'function') window.toast('Table ' + updated.table + ' · ' + message);
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (!isMobileBrowser() && 'Notification' in window && Notification.permission === 'granted') {
       try {
         var n = new Notification(status === 'READY' ? 'Your order is ready' : 'Your order is being prepared', {
           body: 'Table ' + updated.table + ' · Ticket ' + updated.id,
@@ -392,6 +420,7 @@
       try { localStorage.setItem('mm_o', JSON.stringify(savedOrders)); } catch (e) {}
       if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
       if (typeof window.renderCustomerHomeOrders === 'function') window.renderCustomerHomeOrders();
+      if (typeof window.renderPublicOrderBoard === 'function') window.renderPublicOrderBoard(window.MM_PUBLIC_ORDER_ROWS || []);
       if (document.getElementById('myorders') && document.getElementById('myorders').classList.contains('on') && typeof window.myOrders === 'function') window.myOrders();
     } catch (e) {
       console.warn('[Mirch Masaala customer order status]', e);
@@ -822,8 +851,12 @@
       if (typeof window.renderPublicOrderBoard === "function") window.renderPublicOrderBoard(rows);
     } catch (e) {
       if (!publicOrderBoardWarningShown) {
-        console.info("[Mirch Masaala] Public live order board is not enabled yet. Run supabase/restaurant-feedback.sql once.", e && e.message ? e.message : e);
+        console.info("[Mirch Masaala] Public live order board is not enabled yet. Run supabase/public-table-status-circles.sql once.", e && e.message ? e.message : e);
         publicOrderBoardWarningShown = true;
+      }
+      // The renderer uses this device's own saved tickets even if the shared public RPC is not installed yet.
+      if (typeof window.renderPublicOrderBoard === "function") {
+        window.renderPublicOrderBoard(window.MM_PUBLIC_ORDER_ROWS || []);
       }
     } finally {
       publicOrderBoardBusy = false;
