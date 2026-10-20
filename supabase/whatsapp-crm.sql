@@ -168,4 +168,33 @@ $$;
 REVOKE ALL ON FUNCTION public.mm_save_customer_profile(uuid, text, text, boolean, boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.mm_save_customer_profile(uuid, text, text, boolean, boolean) TO anon, authenticated;
 
+CREATE OR REPLACE FUNCTION public.mm_admin_stop_customer_whatsapp(p_profile_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $
+BEGIN
+  IF coalesce(public.get_my_staff_role(), '') <> 'admin' THEN
+    RAISE EXCEPTION 'Owner/Admin access required';
+  END IF;
+
+  UPDATE public.mm_customer_profiles
+  SET wa_order_updates = false,
+      wa_marketing_opt_in = false,
+      wa_order_updates_consent_at = NULL,
+      wa_marketing_consent_at = NULL,
+      consent_updated_at = now()
+  WHERE id = p_profile_id
+    AND restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Customer profile not found';
+  END IF;
+  RETURN jsonb_build_object('updated', true, 'messages_disabled', true);
+END
+$;
+REVOKE ALL ON FUNCTION public.mm_admin_stop_customer_whatsapp(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mm_admin_stop_customer_whatsapp(uuid) TO authenticated;
+
 COMMIT;
