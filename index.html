@@ -1803,14 +1803,16 @@ async function drawWhatsApp() {
   try {
     var rows = await window.MM_GET_WHATSAPP_CUSTOMERS();
     window.MM_WHATSAPP_CUSTOMERS_CACHE = rows || [];
+    window.MM_WHATSAPP_BROADCAST_LOGS_CACHE = typeof window.MM_GET_WHATSAPP_LOGS === 'function' ? await window.MM_GET_WHATSAPP_LOGS() : [];
     var orderCount = window.MM_WHATSAPP_CUSTOMERS_CACHE.filter(function (c) { return c.wa_order_updates; }).length;
     var marketingCount = window.MM_WHATSAPP_CUSTOMERS_CACHE.filter(function (c) { return c.wa_marketing_opt_in; }).length;
     var kind = document.getElementById('wa-broadcast-kind');
     var priorKind = kind ? kind.value : 'announcement';
     var customerList = window.MM_WHATSAPP_CUSTOMERS_CACHE.slice(0, 20).map(function (c) {
-      return '<div class="card" style="flex-direction:column;gap:4px"><b>' + esc(c.name || 'Guest') + '</b><span class="muted">' +
+      return '<div class="card" style="flex-direction:column;gap:6px"><b>' + esc(c.name || 'Guest') + '</b><span class="muted">' +
         esc(c.phone || '') + ' · Order updates: ' + (c.wa_order_updates ? 'Yes' : 'No') +
-        ' · News/offers: ' + (c.wa_marketing_opt_in ? 'Yes' : 'No') + '</span></div>';
+        ' · News/offers: ' + (c.wa_marketing_opt_in ? 'Yes' : 'No') + '</span>' +
+        ((c.wa_order_updates || c.wa_marketing_opt_in) ? '<button type="button" class="btn btn-bad" onclick="stopCustomerWhatsApp(\'' + esc(c.id) + '\')">Stop all WhatsApp messages</button>' : '<span class="muted" style="font-size:11px">Not opted in</span>') + '</div>';
     }).join('');
     el.innerHTML =
       '<div class="setup"><h3>💬 WhatsApp customer manager</h3><p>Owner contact number: <b class="gold">+' + esc((SETTINGS.whatsappNumber || '919657076450').replace(/[^0-9]/g, '')) + '</b>. Change it in Settings at any time.</p><p>Only customers who explicitly opted into the selected category are eligible.</p></div>' +
@@ -1823,7 +1825,9 @@ async function drawWhatsApp() {
       '<p class="muted" style="font-size:11px;margin-top:10px">Actual sending uses the official WhatsApp Business Platform through a secure server function. No API token is stored in this page.</p></div>' +
       '<h3 class="gold" style="margin:16px 0 8px">Recent registered customers</h3>' +
       (customerList || '<p class="muted">No customer profiles have been saved yet.</p>') +
-      (window.MM_WHATSAPP_CUSTOMERS_CACHE.length > 20 ? '<p class="muted">Showing the latest 20 of ' + window.MM_WHATSAPP_CUSTOMERS_CACHE.length + ' profiles.</p>' : '');
+      (window.MM_WHATSAPP_CUSTOMERS_CACHE.length > 20 ? '<p class="muted">Showing the latest 20 of ' + window.MM_WHATSAPP_CUSTOMERS_CACHE.length + ' profiles.</p>' : '') +
+      '<h3 class="gold" style="margin:16px 0 8px">Recent broadcasts</h3>' +
+      ((window.MM_WHATSAPP_BROADCAST_LOGS_CACHE || []).map(function (log) { return '<div class="card" style="flex-direction:column;gap:4px"><b>' + esc(log.category || 'message') + ' · ' + esc(log.provider_status || 'completed') + '</b><span class="muted">' + new Date(log.created_at).toLocaleString() + ' · Sent ' + Number(log.sent_count || 0) + ' · Failed ' + Number(log.failed_count || 0) + ' · Audience ' + Number(log.eligible_count || 0) + '</span></div>'; }).join('') || '<p class="muted">No broadcasts sent yet.</p>');
     var kindEl = document.getElementById('wa-broadcast-kind');
     if (kindEl) kindEl.value = priorKind && ['order_updates','announcement','offer'].indexOf(priorKind) >= 0 ? priorKind : 'announcement';
     useWhatsAppDefaultMessage();
@@ -1835,6 +1839,17 @@ async function drawWhatsApp() {
   } catch (e) {
     console.warn('[Mirch Masaala] Could not load WhatsApp audience:', e);
     el.innerHTML = '<div class="setup"><h3>Could not load WhatsApp contacts</h3><p>' + esc(e && e.message ? e.message : 'Check the database setup and admin permissions.') + '</p><button type="button" class="btn btn-soft" onclick="drawWhatsApp()">Try again</button></div>';
+  }
+}
+async function stopCustomerWhatsApp(profileId) {
+  if (window.role !== 'admin') { toast('Owner/Admin access required'); return; }
+  if (!window.confirm('Stop all WhatsApp order updates, announcements and offers for this customer?')) return;
+  try {
+    await window.MM_STOP_CUSTOMER_WHATSAPP(profileId);
+    toast('WhatsApp messages disabled for this customer');
+    await drawWhatsApp();
+  } catch (e) {
+    toast('Could not update customer preferences: ' + (e && e.message ? e.message : 'check permissions'));
   }
 }
 async function sendWhatsAppBroadcast() {
