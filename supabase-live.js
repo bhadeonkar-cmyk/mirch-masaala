@@ -362,7 +362,6 @@
         var saved = tokens[i];
         if (!saved || !saved.id || !saved.token) continue;
         var current = (savedOrders || []).find(function (o) { return o && o.id === saved.id; });
-        if (current && ['SERVED', 'PAID', 'CANCELLED'].indexOf(String(current.status).toUpperCase()) >= 0) continue;
         var result = await client.rpc('mm_get_public_order', {
           p_ticket_id: saved.id,
           p_public_token: saved.token
@@ -392,6 +391,7 @@
       window.orders = savedOrders;
       try { localStorage.setItem('mm_o', JSON.stringify(savedOrders)); } catch (e) {}
       if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+      if (typeof window.renderCustomerHomeOrders === 'function') window.renderCustomerHomeOrders();
       if (document.getElementById('myorders') && document.getElementById('myorders').classList.contains('on') && typeof window.myOrders === 'function') window.myOrders();
     } catch (e) {
       console.warn('[Mirch Masaala customer order status]', e);
