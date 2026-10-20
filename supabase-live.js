@@ -598,8 +598,8 @@
     if (result.error) throw result.error;
     if (!result.data) return null;
     var s = window.SETTINGS || {};
-    s.whatsappNumber = result.data.owner_contact || "919657076450";
-    s.whatsappName = result.data.display_name || "Mirch Masaala";
+    // WhatsApp contact number and display name come from the public shared config,
+    // so customer devices and owner devices use one source of truth.
     s.receiptMessage = result.data.receipt_message || s.receiptMessage || "";
     s.whatsappOrderMessage = result.data.order_update_message || s.whatsappOrderMessage || "";
     s.whatsappAnnouncementMessage = result.data.announcement_message || s.whatsappAnnouncementMessage || "";
@@ -611,7 +611,7 @@
   async function loadSharedRestaurantConfig() {
     if (!client || !window.MM_SUPABASE_ENABLED) return false;
     var result = await client.from("mm_restaurant_config")
-      .select("restaurant_name,tagline,admin_phone,upi_id,upi_name,phonepe_upi,pay_note,accept_card,accept_cash,updated_at")
+      .select("restaurant_name,tagline,admin_phone,upi_id,upi_name,phonepe_upi,whatsapp_number,whatsapp_name,pay_note,accept_card,accept_cash,updated_at")
       .eq("restaurant_id", RESTAURANT_ID)
       .maybeSingle();
     if (result.error) throw result.error;
@@ -629,6 +629,8 @@
     s.upiId = remote.upi_id || "";
     s.upiName = remote.upi_name || "Mirch Masaala";
     s.phonepeUpi = remote.phonepe_upi || "";
+    s.whatsappNumber = String(remote.whatsapp_number || "").replace(/\D/g, "");
+    s.whatsappName = remote.whatsapp_name || s.whatsappName || "Mirch Masaala";
     s.payNote = remote.pay_note || "Review the amount in your payment app before paying.";
     s.acceptCard = remote.accept_card !== false;
     s.acceptCash = remote.accept_cash !== false;
@@ -654,8 +656,10 @@
     var s = window.SETTINGS || {};
     var upiId = String(s.upiId || "").trim();
     var phonepeUpi = String(s.phonepeUpi || "").trim();
+    var restaurantWhatsApp = String(s.whatsappNumber || "").replace(/\D/g, "");
     if (upiId && !/^[^@\s]+@[^@\s]+$/.test(upiId)) throw new Error("Enter a valid restaurant UPI ID before syncing.");
     if (phonepeUpi && !/^[^@\s]+@[^@\s]+$/.test(phonepeUpi)) throw new Error("Enter a valid PhonePe UPI ID before syncing.");
+    if (restaurantWhatsApp && (restaurantWhatsApp.length < 10 || restaurantWhatsApp.length > 15)) throw new Error("Enter a valid restaurant WhatsApp number with country code, or leave it blank.");
     var authResult = await client.auth.getUser();
     if (authResult.error || !authResult.data || !authResult.data.user) throw new Error("Owner session expired. Sign in again.");
     var payload = {
@@ -666,6 +670,8 @@
       upi_id: upiId,
       upi_name: String(s.upiName || s.restaurantName || "Mirch Masaala").slice(0, 150),
       phonepe_upi: phonepeUpi,
+      whatsapp_number: String(s.whatsappNumber || "").replace(/\D/g, ""),
+      whatsapp_name: String(s.whatsappName || s.restaurantName || "Mirch Masaala").slice(0, 150),
       pay_note: String(s.payNote || "Review the amount in your payment app before paying.").slice(0, 300),
       accept_card: s.acceptCard !== false,
       accept_cash: s.acceptCash !== false,
