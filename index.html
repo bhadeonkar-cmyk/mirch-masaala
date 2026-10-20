@@ -454,6 +454,8 @@ button, input, select, textarea { font: inherit; }
 #tables.is-dragging{cursor:grabbing;scroll-snap-type:x proximity;scrollbar-color:var(--gold2) transparent}#tables.is-dragging .table-carousel-card{transition:transform .12s,opacity .12s,box-shadow .12s}
 #tables .table-carousel-card.selected{transform:scale(1.06) translateY(-3px);opacity:1;border-color:var(--gold2);box-shadow:0 0 0 3px rgba(240,215,140,.16),0 15px 30px rgba(212,168,75,.26)}
 #tables .table-carousel-card.table-pop{animation:tablePop .42s cubic-bezier(.18,.89,.32,1.35)}
+.waiter-table-card{transition:background .16s,border-color .16s,transform .16s}
+.waiter-table-card.on{background:rgba(212,168,75,.24);border-color:var(--gold2);box-shadow:0 0 0 2px rgba(240,215,140,.12);transform:translateY(-2px)}
 @keyframes tablePop{0%{transform:scale(.92)}60%{transform:scale(1.12) translateY(-5px)}100%{transform:scale(1.06) translateY(-3px)}}@keyframes visitRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.visit-card,#tables .table-carousel-card{animation:none!important}}
 /* Simple, spacious, role-focused layout */
@@ -532,8 +534,7 @@ body{line-height:1.5}
         <div class="brand-sub" id="brand-tag">INDIAN RESTAURANT</div>
       </div>
     </div>
-    <p class="tap-hint" style="margin-bottom:6px">Tap the pot — food flies out!</p>
-    <p class="muted" style="font-size:12px;margin-top:4px">Premium Indian kitchen · live orders</p>
+    <p class="muted" style="font-size:13px;margin:6px 0 8px">Good food, easy ordering.</p>
     <div id="status-pill" class="pill open">● Open now</div>
     <div class="tip-banner" id="home-tip">
       <span class="ic">👋</span>
@@ -2014,16 +2015,19 @@ function enterWaiter() {
   rebuildTables();
   MENU.tables.forEach(function(t) {
     var b = document.createElement('button');
-    b.type = 'button'; b.className = 'tbtn'; b.textContent = t.number;
-    b.onclick = (function(n){ return function(){ pickW(n); }; })(t.number);
+    b.type = 'button'; b.className = 'tbtn waiter-table-card'; b.textContent = t.number;
+    b.setAttribute('data-table-number',t.number);
+    b.onclick = (function(n,card){ return function(){ pickW(n,card); }; })(t.number,b);
     g.appendChild(b);
   });
   document.getElementById('w-area').style.display = 'none';
   wCart = []; wTable = null;
 }
-function pickW(n) {
-  wTable = n; wCart = []; wCat = 'all'; wDietFilter = 'all';
-  document.getElementById('w-tbl').textContent = 'Table ' + n;
+function pickW(n, card) {
+  wTable = String(n).padStart(2,'0'); wCart = []; wCat = 'all'; wDietFilter = 'all';
+  document.querySelectorAll('#w-tables .waiter-table-card').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-table-number')===wTable);});
+  if(card){card.classList.add('on');try{card.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(e){}}
+  document.getElementById('w-tbl').textContent = 'Table ' + wTable;
   document.getElementById('w-area').style.display = 'block';
   document.getElementById('w-search').value = '';
   drawWDietFilters(); wCats(); wMenu(); wDrawCart();
@@ -2078,7 +2082,7 @@ function wSend() {
     createdAt: date.toISOString(), cancelUntil: date.getTime() + CANCEL_MS
   });
   save('mm_o', orders); wCart = []; document.getElementById('w-notes').value = '';
-  wDrawCart(); wMenu(); toast('Sent to kitchen · Table ' + wTable);
+  wDrawCart(); wMenu(); toast('Ticket ' + id + ' sent · Table ' + wTable);
 }
 
 /* Kitchen */
