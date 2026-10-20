@@ -41,7 +41,8 @@ CREATE POLICY mm_restaurant_reviews_admin_read
     AND public.get_my_staff_role() = 'admin'
   );
 
--- Customers submit reviews through a validated function; they cannot directly publish/edit rows.
+-- Customers submit reviews through a validated function. New reviews are public immediately;
+-- the owner may hide or permanently delete comments from the Admin → Reviews panel.
 REVOKE ALL ON public.mm_restaurant_reviews FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.mm_restaurant_reviews TO anon, authenticated;
 
@@ -81,14 +82,14 @@ BEGIN
   INSERT INTO public.mm_restaurant_reviews
     (restaurant_id, display_name, rating, comment, table_number, status)
   VALUES
-    (p_restaurant_id, v_name, p_rating, v_comment, v_table, 'pending')
+    (p_restaurant_id, v_name, p_rating, v_comment, v_table, 'published')
   RETURNING id INTO v_review_id;
 
   RETURN jsonb_build_object(
     'submitted', true,
     'review_id', v_review_id,
-    'status', 'pending',
-    'message', 'Thank you. Your review was sent to the restaurant for approval.'
+    'status', 'published',
+    'message', 'Thank you. Your review is now visible to everyone.'
   );
 END
 $$;
@@ -128,5 +129,67 @@ $$;
 
 REVOKE ALL ON FUNCTION public.mm_admin_set_restaurant_review_status(uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.mm_admin_set_restaurant_review_status(uuid, text) TO authenticated;
+
+-- Only the owner may permanently delete an in-app review.
+CREATE OR REPLACE FUNCTION public.mm_admin_delete_restaurant_review(
+  p_review_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $$
+BEGIN
+  IF coalesce(public.get_my_staff_role(), '') <> 'admin' THEN
+    RAISE EXCEPTION 'Owner/Admin access required';
+  END IF;
+
+  DELETE FROM public.mm_restaurant_reviews
+  WHERE id = p_review_id
+    AND restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Review not found';
+  END IF;
+
+  RETURN jsonb_build_object('deleted', true);
+END
+$$;
+
+REVOKE ALL ON FUNCTION public.mm_admin_delete_restaurant_review(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mm_admin_delete_restaurant_review(uuid) TO authenticated;
+
+-- Guests may see only a minimal label/status board; never return names, line items, notes,
+-- prices or public_token. PREPARING and READY orders age off the board after four hours.
+CREATE OR REPLACE FUNCTION public.mm_public_order_board()
+RETURNS TABLE (
+  ticket text,
+  table_number text,
+  status text,
+  created_at timestamptz
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $$
+  SELECT
+    coalesce(nullif(o.order_number::text, ''), right(coalesce(o.ticket_id, ''), 4)) AS ticket,
+    lpad(t.table_number::text, 2, '0') AS table_number,
+    upper(o.status)::text AS status,
+    o.created_at
+  FROM public.orders AS o
+  JOIN public.restaurant_tables AS t ON t.id = o.table_id
+  WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+    AND upper(o.status) IN ('PREPARING', 'READY')
+    AND o.created_at >= now() - interval '4 hours'
+  ORDER BY
+    CASE WHEN upper(o.status) = 'READY' THEN 0 ELSE 1 END,
+    o.created_at ASC
+  LIMIT 20
+$$;
+
+REVOKE ALL ON FUNCTION public.mm_public_order_board() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mm_public_order_board() TO anon, authenticated;
 
 COMMIT;
