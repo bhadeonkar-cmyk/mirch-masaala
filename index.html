@@ -552,6 +552,24 @@ body{line-height:1.5}
 .spark-dot{border-radius:50%;box-shadow:0 0 7px rgba(240,215,140,.55);animation:sparkFly 1.15s ease-out forwards}
 @media(prefers-reduced-motion:reduce){.ambient-spark,.spark-dot,.food-fly{animation:none!important}.ambient-spark{opacity:.4}.home-icon-btn{transition:none}}
 
+
+/* Final compact polish: mobile-first, cartoon-like icon actions, and tasteful table motion. */
+.home-shortcuts{gap:12px;margin:6px auto 0;padding:0;flex-wrap:nowrap;justify-content:space-evenly;width:100%;max-width:290px}
+.home-shortcut{gap:3px;min-width:55px;flex:0 1 72px}
+.home-icon-btn{width:44px;height:44px;min-width:44px;min-height:44px;font-size:21px;border:1px solid rgba(240,215,140,.48);background:radial-gradient(circle at 30% 22%,rgba(255,231,164,.26),rgba(74,46,26,.9) 52%,rgba(38,28,24,.98) 100%);box-shadow:0 3px 10px rgba(0,0,0,.2),inset 0 0 0 2px rgba(212,168,75,.08)}
+.home-shortcut-label{font-size:9px;line-height:1.15;letter-spacing:.05px;max-width:78px}
+#home .home-shortcuts{margin-top:5px}
+#tables.table-grid{gap:5px;padding:4px 2px 6px;margin:3px -2px 5px;scroll-padding-inline:calc(50% - 24px)}
+#tables .table-carousel-card{flex:0 0 48px;min-width:48px;height:54px;padding:3px 1px;gap:3px;border-radius:11px;border-width:1px;background:linear-gradient(155deg,rgba(212,168,75,.13),rgba(38,28,24,.97) 72%);box-shadow:0 3px 8px rgba(0,0,0,.14);opacity:.86;transform:translateY(0) scale(.98);animation:tableCardEnter .34s cubic-bezier(.2,.75,.25,1) both!important;animation-delay:calc(var(--card-index,0) * 18ms)!important;transition:background .18s,border-color .18s,box-shadow .18s,opacity .18s}
+#tables .table-carousel-card strong{font-size:15px;line-height:1;font-weight:900;letter-spacing:.2px}
+#tables .table-mini-cartoon{font-size:11px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+#tables .table-carousel-card.selected{transform:translateY(-1px) scale(1.02);opacity:1;border-color:var(--gold2);background:linear-gradient(145deg,rgba(240,215,140,.23),rgba(38,28,24,.98) 78%);box-shadow:0 0 0 1px rgba(240,215,140,.12),0 5px 10px rgba(212,168,75,.13)}
+#tables .table-carousel-card.table-pop{animation:tableSelectBounce .34s cubic-bezier(.18,.89,.32,1.3)!important;animation-delay:0ms!important}
+@keyframes tableCardEnter{0%{opacity:0;transform:translateY(6px) scale(.94)}75%{opacity:1;transform:translateY(-1px) scale(1.015)}100%{opacity:.86;transform:translateY(0) scale(.98)}}
+@keyframes tableSelectBounce{0%{transform:translateY(0) scale(.97)}55%{transform:translateY(-3px) scale(1.07)}78%{transform:translateY(0) scale(1)}100%{transform:translateY(-1px) scale(1.02)}}
+@media(max-width:370px){.home-shortcuts{gap:7px;max-width:255px}.home-icon-btn{width:42px;height:42px;min-width:42px;min-height:42px}.home-shortcut-label{font-size:8px}#tables .table-carousel-card{flex-basis:46px;min-width:46px;height:52px}}
+@media(prefers-reduced-motion:reduce){#tables .table-carousel-card,#tables .table-carousel-card.table-pop{animation:none!important;transition:none!important}}
+
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -3035,7 +3053,7 @@ function renderHomeTables() {
   g.innerHTML='';selectedHomeTable=null;
   var btn=document.getElementById('table-continue');if(btn)btn.style.display='none';
   MENU.tables.forEach(function(t){
-    var b=document.createElement('button');b.type='button';b.className='tbtn table-carousel-card';b.setAttribute('data-table-number',t.number);
+    var b=document.createElement('button');b.type='button';b.className='tbtn table-carousel-card';b.style.setProperty('--card-index',g.children.length);b.setAttribute('data-table-number',t.number);
     b.innerHTML='<span class="table-mini-cartoon" aria-hidden="true">🍽️</span><strong>'+t.number+'</strong>';
     b.setAttribute('aria-label','Select Table '+t.number);
     b.onclick=(function(num,card){return function(){selectHomeTable(num,card,false);};})(t.number,b);g.appendChild(b);
