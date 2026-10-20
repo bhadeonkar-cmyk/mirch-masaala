@@ -556,36 +556,29 @@ button, input, select, textarea { font: inherit; }
 <!-- CUSTOMER -->
 <div id="customer" class="screen">
   <div class="topbar">
-    <button type="button" class="back" onclick="go('home')">← Tables</button>
+    <button type="button" class="back" onclick="go('home')">← Change table</button>
     <div>
       <div style="font-weight:800;color:var(--gold2);font-size:14px">🌶️ Mirch Masaala</div>
       <div class="muted" style="font-size:12px" id="tbl-label">Table</div>
     </div>
-    <div style="display:flex;gap:6px">
-      <button type="button" class="back" onclick="go('home')" title="Change table">🪑</button>
-      <button type="button" class="back" onclick="openCart()">🛒 <span id="badge">0</span></button>
-    </div>
+    <button type="button" class="back" onclick="openCart()">🛒 <span id="badge">0</span></button>
   </div>
   <div class="wrap" style="padding-bottom:100px">
     <div class="tip-banner" id="menu-tip">
       <span class="ic">🍽️</span>
-      <div class="tx"><b>How to order:</b> Tap <b>ADD</b> on dishes → open <b>Cart</b> → Place order. Need help? Tap the ? button.</div>
+      <div class="tx"><b>How to order:</b> Choose dishes, tap <b>ADD</b>, then open your cart to place the order.</div>
       <button type="button" class="x" onclick="dismissTip('menu-tip')">×</button>
     </div>
-    <p style="font-size:12px;font-weight:700;color:var(--gold2);margin:4px 0 6px">✨ Suggested for you</p>
-    <div class="specials-row" id="specials"></div>
+    <input class="search" id="search" placeholder="Search dishes…" oninput="drawMenu()" aria-label="Search menu">
     <input class="search" id="search" placeholder="Search food…" oninput="drawMenu()">
     <div class="diet-filters" id="diet-filters" role="group" aria-label="Filter by food type"></div>
     <div class="cats" id="cats"></div>
     <div id="menu"></div>
   </div>
-  <button type="button" class="guide-dot" onclick="openGuide()" title="Help">?</button>
-  <div class="bottom" style="display:flex;gap:8px;flex-wrap:wrap">
-    <button type="button" class="btn btn-soft btn-sm" onclick="callWaiter()">🙋 Waiter</button>
-    <button type="button" class="btn btn-soft btn-sm" onclick="reqBill()">🧾 Bill / Pay</button>
-    <button type="button" class="btn btn-soft btn-sm" onclick="myOrders()">📋 My orders</button>
+  <div class="bottom customer-bottom">
     <button type="button" class="btn btn-main" id="cart-bar" style="display:none;flex:1" onclick="openCart()">View cart</button>
-  </div>
+    <button type="button" class="btn btn-soft customer-help-btn" onclick="openCustomerActions()">Help & orders</button>
+  </div>  </div>
 </div>
 
 <div class="drawer" id="cart">
@@ -608,27 +601,16 @@ button, input, select, textarea { font: inherit; }
 
 <!-- SUCCESS -->
 <div id="success" class="screen">
-  <div class="wrap center" style="padding-top:40px">
-    <div style="font-size:56px">🎉</div>
-    <h1 class="gold" style="margin:8px 0">Order placed!</h1>
-    <p class="muted">Order <b id="sid" style="color:#fff"></b> · Table <span id="stbl"></span></p>
-    <p class="muted" style="margin:10px 0 18px">You can cancel within <b class="gold">7 minutes</b> if kitchen has not started.</p>
+  <div class="wrap center order-success-wrap">
+    <div class="success-mark">✓</div>
+    <h1 class="gold" style="margin:8px 0">Order received!</h1>
+    <p class="muted" style="margin-bottom:10px">Ticket <b id="sid" style="color:#fff"></b></p>
+    <p class="muted" style="margin:0 0 18px">Table <b id="stbl" style="color:#fff"></b> · Your order has its own ticket number.</p>
     <div id="success-progress-host"></div>
-    <button type="button" class="btn btn-main" onclick="backMenu()">Order more</button>
-    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="myOrders()">Track / Cancel</button>
-    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="openReview()">⭐ Rate us</button>
-    <button type="button" class="btn btn-main" style="margin-top:8px" onclick="reqBill()">💳 Pay bill</button>
-    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="openPhoneModal('profile')">📱 Save my number</button>
-    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line);text-align:left">
-      <p class="muted" style="font-size:12px;margin-bottom:8px;text-align:center">WHILE YOU WAIT</p>
-      <button type="button" class="big-link" onclick="openParty()">
-        <span class="ic">🎉</span><span>Party booking<small>Birthday · Anniversary</small></span>
-      </button>
-      <button type="button" class="big-link" onclick="go('explore')">
-        <span class="ic">🌿</span><span>Places near Kas Plateau<small>6 spots · saved in app</small></span>
-      </button>
-    </div>
-    <button type="button" class="back" style="margin-top:20px" onclick="go('home')">← Home</button>
+    <button type="button" class="btn btn-main" style="margin-top:16px" onclick="backMenu()">Order more</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="myOrders()">Track my orders</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="reqBill()">Request bill / Pay</button>
+    <p class="muted" style="font-size:12px;margin-top:18px">Dining with friends? Everyone can scan the same table QR. Each submission is a separate ticket for the same table.</p>
   </div>
 </div>
 
@@ -732,6 +714,17 @@ button, input, select, textarea { font: inherit; }
 </div>
 
 <!-- MODALS -->
+<div class="modal" id="customer-actions">
+  <div class="box center">
+    <h3 class="gold">Need anything?</h3>
+    <p class="muted" style="margin:6px 0 14px">Table <b id="customer-actions-table">—</b></p>
+    <button type="button" class="btn btn-main" onclick="closeCustomerActions();callWaiter()">🙋 Call waiter</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeCustomerActions();reqBill()">🧾 Bill & payment</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeCustomerActions();myOrders()">📋 Track my orders</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeCustomerActions();openGuide()">❔ How to order</button>
+    <button type="button" class="back" style="margin-top:10px" onclick="closeCustomerActions()">Close</button>
+  </div>
+</div>
 <div class="modal" id="scan-modal">
   <div class="box center">
     <h3 class="gold">Scan table QR</h3>
@@ -1357,7 +1350,7 @@ function updCart() {
   var tot = cart.reduce(function(s,c){ return s + c.price * c.qty; }, 0);
   document.getElementById('badge').textContent = n;
   var bar = document.getElementById('cart-bar');
-  if (n > 0) { bar.style.display = 'block'; bar.textContent = n + ' items · ₹' + tot + ' · Cart'; }
+  if (n > 0) { bar.style.display = 'flex'; bar.textContent = '🛒 View cart · ' + n + ' items · ₹' + tot; }
   else bar.style.display = 'none';
 }
 function openCart() {
@@ -1441,10 +1434,17 @@ function startWaitFun(id) {
   }, 4500);
 }
 
+function makeTicketId(tableNo, date) {
+  var d=date||new Date();
+  var day=d.toISOString().slice(0,10).replace(/-/g,'');
+  var clock=d.toTimeString().slice(0,8).replace(/:/g,'');
+  var random=Math.random().toString(36).slice(2,7).toUpperCase().padEnd(5,'X');
+  return 'T'+String(tableNo).padStart(2,'0')+'-'+day+'-'+clock+'-'+random;
+}
 function placeOrder() {
   if (!cart.length) return;
   var date = new Date();
-  var id = 'MM-' + date.toISOString().slice(0,10).replace(/-/g,'') + '-' + String(orders.filter(function(o){ return o.createdAt.slice(0,10) === date.toISOString().slice(0,10); }).length + 1).padStart(3,'0');
+  var id = makeTicketId(table, date);
   orders.unshift({
     id: id, table: table,
     items: cart.map(function(c){ return { name: c.name, price: c.price, qty: c.qty }; }),
@@ -1725,6 +1725,15 @@ function drawAdminPayments() {
 
 
 
+function openCustomerActions() {
+  var label=document.getElementById('customer-actions-table');
+  if(label)label.textContent=table;
+  document.getElementById('customer-actions').classList.add('on');
+}
+function closeCustomerActions() {
+  var el=document.getElementById('customer-actions');
+  if(el)el.classList.remove('on');
+}
 function callWaiter() {
   notifs.unshift({ id: Date.now(), type: 'WAITER', message: 'Waiter for Table ' + table, at: new Date().toISOString(), done: false });
   save('mm_n', notifs); toast('Waiter called');
@@ -2017,7 +2026,7 @@ function wDrawCart() {
 function wSend() {
   if (!wTable || !wCart.length) { toast('Pick table & add food'); return; }
   var date = new Date();
-  var id = 'MM-' + date.toISOString().slice(0,10).replace(/-/g,'') + '-' + String(orders.filter(function(o){ return o.createdAt.slice(0,10) === date.toISOString().slice(0,10); }).length + 1).padStart(3,'0');
+  var id = makeTicketId(wTable, date);
   var notes = (document.getElementById('w-notes').value || '').trim();
   orders.unshift({
     id: id, table: wTable,
