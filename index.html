@@ -800,7 +800,7 @@ body{line-height:1.5}
     <input id="p-guests" type="number" placeholder="e.g. 15">
     <label class="muted" style="font-size:12px">Notes</label>
     <textarea id="p-notes" placeholder="Cake, time…"></textarea>
-    <p class="muted" style="font-size:12px">Admin contact: <b class="gold">+91 9657076450</b></p>
+    <p class="muted" style="font-size:12px">Restaurant WhatsApp: <b class="gold" id="party-admin-contact">+91 9657076450</b></p>
     <button type="button" class="btn btn-main" onclick="sendParty()">Send request</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeParty()">Close</button>
   </div>
@@ -2614,7 +2614,14 @@ function drawReviews() {
   }).join('') : '<p class="muted center">No reviews</p>';
 }
 
-function openParty() { document.getElementById('party-modal').classList.add('on'); }
+function openParty() {
+  var contact = document.getElementById('party-admin-contact');
+  if (contact) {
+    var digits = String(SETTINGS.whatsappNumber || '').replace(/\D/g, '');
+    contact.textContent = digits ? '+' + digits : 'Not configured';
+  }
+  document.getElementById('party-modal').classList.add('on');
+}
 function closeParty() { document.getElementById('party-modal').classList.remove('on'); }
 function sendParty() {
   var name = document.getElementById('p-name').value.trim();
