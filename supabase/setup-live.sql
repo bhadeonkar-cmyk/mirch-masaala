@@ -49,7 +49,7 @@ AS $$
 $$;
 
 REVOKE ALL ON FUNCTION public.get_my_staff_role() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_my_staff_role() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_staff_role() TO anon, authenticated;
 
 -- Public menu and active tables are readable; inactive items stay staff-only.
 DROP POLICY IF EXISTS mm_restaurant_public_read ON public.restaurants;
@@ -167,7 +167,7 @@ DECLARE
   v_role text;
 BEGIN
   v_role := public.get_my_staff_role();
-  IF v_role NOT IN ('admin', 'kitchen') THEN
+  IF v_role IS NULL OR v_role NOT IN ('admin', 'kitchen') THEN
     RAISE EXCEPTION 'Staff role is not allowed to edit the menu';
   END IF;
 
@@ -192,7 +192,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  IF public.get_my_staff_role() NOT IN ('admin', 'waiter', 'kitchen') THEN
+  IF coalesce(public.get_my_staff_role(), '') NOT IN ('admin', 'waiter', 'kitchen') THEN
     RAISE EXCEPTION 'Staff login required to update an order';
   END IF;
   IF NEW.status NOT IN ('NEW', 'PREPARING', 'READY', 'SERVED', 'PAID', 'CANCELLED') THEN
