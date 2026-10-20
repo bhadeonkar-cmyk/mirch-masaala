@@ -114,9 +114,11 @@
       if (typeof window.drawKMenu === 'function' && document.getElementById('kitchen') && document.getElementById('kitchen').classList.contains('on')) window.drawKMenu();
 
       if (!quiet) console.info('[Mirch Masaala] Loaded ' + items.length + ' menu items from Supabase');
+      return true;
     } catch (e) {
       if (!quiet) notifyError('Could not load shared menu. Check Supabase setup and try refreshing.');
       console.error('[Mirch Masaala menu sync]', e);
+      return false;
     } finally {
       menuRefreshBusy = false;
     }
@@ -548,8 +550,8 @@
     var loginForm = document.getElementById('pass');
     if (loginForm) loginForm.setAttribute('autocomplete', 'current-password');
 
-    loadMenu(false, true).then(function () {
-      notifySuccess('Shared menu connected.');
+    loadMenu(false, true).then(function (ok) {
+      if (ok) notifySuccess('Shared menu connected.');
     });
     restoreStaffSession();
     refreshCustomerOrders();
