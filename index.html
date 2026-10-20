@@ -738,6 +738,8 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 /* Leave a clear strip for the compact status tray at the top right. */
 #home .wrap{padding-top:68px!important}
 
+
+#success .order-success-wrap{padding-top:72px!important}
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -3573,33 +3575,70 @@ function renderCustomerHomeOrders() {
   if (host) { host.style.display = 'none'; host.innerHTML = ''; }
 }
 function renderPublicOrderBoard(rows) {
-  var host = document.getElementById('public-order-board'); if (!host) return;
-  rows = Array.isArray(rows) ? rows.filter(function(row) {
-    return row && ['NEW', 'PREPARING', 'READY'].indexOf(String(row.status || '').toUpperCase()) >= 0;
-  }) : [];
-  window.MM_PUBLIC_ORDER_ROWS = rows;
-  var activeScreen = document.querySelector('.screen.on');
-  if (!activeScreen || activeScreen.id !== 'home') { host.style.display = 'none'; return; }
-  if (!rows.length) { host.style.display = 'none'; host.innerHTML = ''; return; }
+  var host = document.getElementById('public-order-board');
+  if (!host) return;
 
-  // Keep only one small circle per table + active state; never show ticket details or dish names publicly.
-  var unique = {};
-  rows.forEach(function(row) {
-    var tableNo = String(row.table_number || '').padStart(2, '0');
+  // Merge shared restaurant statuses with this guest's own recent tickets as a fallback.
+  // That means the guest sees their own table status even before the public SQL function is updated.
+  var combined = Array.isArray(rows) ? rows.slice() : [];
+  try {
+    var tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || [];
+    var savedOrders = JSON.parse(localStorage.getItem('mm_o') || '[]') || [];
+    if (Array.isArray(tokens) && Array.isArray(savedOrders)) {
+      var allowed = {};
+      tokens.forEach(function(t) { if (t && t.id && t.token) allowed[String(t.id)] = true; });
+      savedOrders.forEach(function(o) {
+        if (!o || !allowed[String(o.id)]) return;
+        var status = String(o.status || '').toUpperCase();
+        if (['NEW','PREPARING','READY'].indexOf(status) < 0) return;
+        combined.push({
+          table_number: String(o.table || '').padStart(2,'0'),
+          status: status,
+          created_at: o.createdAt || '',
+          ticket: o.orderNumber || o.id || ''
+        });
+      });
+    }
+  } catch (e) {}
+
+  combined = combined.filter(function(row) {
+    return row && ['NEW','PREPARING','READY'].indexOf(String(row.status || '').toUpperCase()) >= 0;
+  });
+  window.MM_PUBLIC_ORDER_ROWS = Array.isArray(rows) ? rows : [];
+
+  var activeScreen = document.querySelector('.screen.on');
+  if (!activeScreen || ['home','success'].indexOf(activeScreen.id) < 0) {
+    host.style.display = 'none';
+    return;
+  }
+
+  // One circle per table: prioritize ready food, then cooking, then waiting.
+  var priority = {NEW:1, PREPARING:2, READY:3};
+  var byTable = {};
+  combined.forEach(function(row) {
+    var tableNo = String(row.table_number || '').trim().padStart(2,'0');
     var status = String(row.status || '').toUpperCase();
-    if (!tableNo || tableNo === '—') return;
-    var key = tableNo + ':' + status;
-    if (!unique[key]) unique[key] = {table_number:tableNo,status:status,created_at:row.created_at};
+    if (!tableNo || tableNo === '—' || !/^\\d{2}$/.test(tableNo)) return;
+    var existing = byTable[tableNo];
+    if (!existing || priority[status] > priority[existing.status]) {
+      byTable[tableNo] = {table_number:tableNo,status:status};
+    }
   });
-  var items = Object.keys(unique).map(function(key){ return unique[key]; });
-  var rank = {NEW:0,PREPARING:1,READY:2};
+  var items = Object.keys(byTable).map(function(k){ return byTable[k]; });
   items.sort(function(a,b){
-    return rank[a.status]-rank[b.status] || String(a.table_number).localeCompare(String(b.table_number),undefined,{numeric:true});
+    return priority[a.status]-priority[b.status] ||
+      String(a.table_number).localeCompare(String(b.table_number),undefined,{numeric:true});
   });
-  var shown = items.slice(0, 15);
-  var extra = Math.max(0, items.length - shown.length);
+  if (!items.length) {
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+
+  var shown = items.slice(0,15);
+  var extra = Math.max(0,items.length-shown.length);
   host.style.display = 'block';
-  host.setAttribute('aria-label','Public table status: orange waiting to start, yellow preparing, green ready');
+  host.setAttribute('aria-label','Table statuses: orange waiting to start, yellow preparing, green ready');
   host.innerHTML =
     '<div class="public-board-heading"><span>TABLE STATUS</span><span class="public-board-live">LIVE</span></div>' +
     '<div class="public-board-legend"><span class="key-new">● New</span><span class="key-preparing">● Cooking</span><span class="key-ready">● Ready</span></div>' +
@@ -3608,7 +3647,7 @@ function renderPublicOrderBoard(rows) {
       var cls=status==='NEW'?'new':status==='READY'?'ready':'preparing';
       var label=status==='NEW'?'Waiting to start':status==='READY'?'Ready to collect':'Preparing';
       return '<span class="public-table-circle '+cls+'" title="Table '+esc(row.table_number)+' · '+label+'" aria-label="Table '+esc(row.table_number)+' · '+label+'">'+esc(row.table_number)+'</span>';
-    }).join('') + (extra ? '<span class="public-table-more" aria-label="'+extra+' more table statuses">+'+extra+'</span>' : '') + '</div>';
+    }).join('') + (extra ? '<span class="public-table-more">+'+extra+'</span>' : '') + '</div>';
 }
 function esc(t) {
   return String(t || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
