@@ -2456,7 +2456,7 @@ function wSend() {
     id: id, table: wTable,
     items: wCart.map(function(c){ return { name: c.name, price: c.price, qty: c.qty }; }),
     total: wCart.reduce(function(s,c){ return s + c.price*c.qty; }, 0),
-    status: 'NEW', notes: notes ? '[Waiter] ' + notes : '[Waiter]',
+    status: 'NEW', notes: notes ? '[Waiter] ' + notes : '',
     createdAt: date.toISOString(), cancelUntil: date.getTime() + CANCEL_MS
   });
   save('mm_o', orders); wCart = []; wDrafts[wTable] = []; wNotesDrafts[wTable] = []; document.getElementById('w-notes').value = '';
@@ -2917,7 +2917,7 @@ function renderReviewSection() {
   if (!host) return;
   var requestId = ++reviewSectionRequest;
   var googleURL = safeGoogleReviewURL(SETTINGS.googleReviewsUrl || '');
-  host.innerHTML = '<div class="place" style="margin:0"><h3>⭐ Reviews & feedback</h3><p>Tell us how your visit went. In-app reviews are checked by the restaurant before they appear publicly.</p>' +
+  host.innerHTML = '<div class="place" style="margin:0"><h3>⭐ Reviews & feedback</h3><p>Share feedback about your visit. Helpful comments may be visible to other guests.</p>' +
     '<button type="button" class="btn btn-main" style="margin-top:10px" onclick="openReview()">Rate your visit / Write a comment</button>' +
     (googleURL ? '<a class="btn btn-soft" style="margin-top:8px;text-decoration:none" href="' + esc(googleURL) + '" target="_blank" rel="noopener noreferrer">⭐ Write a Google review</a>' : '<p class="muted" style="font-size:11px;margin-top:8px">Google reviews link will appear here when the owner adds it in Settings.</p>') +
     '<h4 class="gold" style="margin:16px 0 4px;font-size:13px">Guest reviews</h4><div id="public-review-list"><p class="muted" style="font-size:12px">Loading reviews…</p></div></div>';
