@@ -47,6 +47,18 @@
     return Array.isArray(data) ? (data[0] || null) : data;
   }
 
+  function isValidGoogleReviewsUrl(value) {
+    if (!value) return true;
+    try {
+      var u = new URL(String(value).trim());
+      var h = u.hostname.toLowerCase();
+      var googleHost = h === "google.com" || h.endsWith(".google.com") ||
+        /^google\.(co\.[a-z]{2}|[a-z]{2,3})$/.test(h) ||
+        /^[a-z0-9-]+\.google\.(co\.[a-z]{2}|[a-z]{2,3})$/.test(h);
+      return u.protocol === "https:" && (googleHost || h === "g.page" || h.endsWith(".g.page") || h === "maps.app.goo.gl" || h === "goo.gl");
+    } catch (e) { return false; }
+  }
+
   async function loadMenu(forStaff, quiet) {
     if (!client) return false;
     if (menuRefreshBusy) {
@@ -589,6 +601,63 @@
     return rpcPayload(result.data);
   }
 
+  async function submitRestaurantReview(review) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    var rating = Number(review && review.stars);
+    var comment = String(review && review.text || "").trim();
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error("Choose a rating from 1 to 5 stars.");
+    if (comment.length > 1500) throw new Error("Comment must be 1,500 characters or fewer.");
+    var result = await client.rpc("mm_submit_restaurant_review", {
+      p_restaurant_id: RESTAURANT_ID,
+      p_name: String(review && review.name || "Guest").slice(0, 80),
+      p_rating: rating,
+      p_comment: comment,
+      p_table_number: String(review && review.table || "").slice(0, 20)
+    });
+    if (result.error) throw result.error;
+    return rpcPayload(result.data);
+  }
+
+  async function loadRestaurantReviews(forAdmin) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    if (forAdmin && window.role !== "admin") throw new Error("Owner/Admin access required.");
+    var query = client.from("mm_restaurant_reviews")
+      .select("id,display_name,rating,comment,table_number,status,created_at")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .order("created_at", { ascending: false })
+      .limit(forAdmin ? 100 : 50);
+    if (!forAdmin) query = query.eq("status", "published");
+    var result = await query;
+    if (result.error) throw result.error;
+    return (result.data || []).map(function (row) {
+      return {
+        id: row.id,
+        dbId: row.id,
+        name: row.display_name || "Guest",
+        display_name: row.display_name || "Guest",
+        stars: Number(row.rating) || 0,
+        rating: Number(row.rating) || 0,
+        text: row.comment || "",
+        comment: row.comment || "",
+        table: row.table_number || "",
+        status: row.status || "pending",
+        created_at: row.created_at
+      };
+    });
+  }
+
+  async function setRestaurantReviewStatus(reviewId, status) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    if (window.role !== "admin") throw new Error("Owner/Admin access required.");
+    if (["published", "hidden"].indexOf(status) < 0) throw new Error("Invalid review status.");
+    var result = await client.rpc("mm_admin_set_restaurant_review_status", {
+      p_review_id: String(reviewId || ""),
+      p_status: status
+    });
+    if (result.error) throw result.error;
+    return rpcPayload(result.data);
+  }
+
   async function loadWhatsAppSettings() {
     if (!client || window.role !== "admin") throw new Error("Owner/Admin access required.");
     var result = await client.from("mm_whatsapp_settings")
@@ -611,7 +680,7 @@
   async function loadSharedRestaurantConfig() {
     if (!client || !window.MM_SUPABASE_ENABLED) return false;
     var result = await client.from("mm_restaurant_config")
-      .select("restaurant_name,tagline,admin_phone,upi_id,upi_name,phonepe_upi,whatsapp_number,whatsapp_name,pay_note,accept_card,accept_cash,updated_at")
+      .select("restaurant_name,tagline,admin_phone,upi_id,upi_name,phonepe_upi,whatsapp_number,whatsapp_name,google_reviews_url,pay_note,accept_card,accept_cash,updated_at")
       .eq("restaurant_id", RESTAURANT_ID)
       .maybeSingle();
     if (result.error) throw result.error;
@@ -637,6 +706,8 @@
     s.phonepeUpi = remote.phonepe_upi || "";
     s.whatsappNumber = String(remote.whatsapp_number || "").replace(/\D/g, "");
     s.whatsappName = remote.whatsapp_name || s.whatsappName || "Mirch Masaala";
+    var previousGoogleReviewsUrl = String(s.googleReviewsUrl || "");
+    s.googleReviewsUrl = remote.google_reviews_url || "";
     s.payNote = remote.pay_note || "Review the amount in your payment app before paying.";
     s.acceptCard = remote.accept_card !== false;
     s.acceptCash = remote.accept_cash !== false;
@@ -659,6 +730,9 @@
     if (payModal && payModal.classList.contains("on") && paymentConfigBefore !== paymentConfigAfter && typeof window.selectPayMethod === "function") {
       window.selectPayMethod((window.payContext && window.payContext.method) || "gpay");
     }
+    if (previousGoogleReviewsUrl !== String(s.googleReviewsUrl || "") && typeof window.renderReviewSection === "function") {
+      window.renderReviewSection();
+    }
     return true;
   }
 
@@ -668,8 +742,10 @@
     var s = window.SETTINGS || {};
     var upiId = String(s.upiId || "").trim();
     var phonepeUpi = String(s.phonepeUpi || "").trim();
+    var googleReviewsUrl = String(s.googleReviewsUrl || "").trim();
     var restaurantWhatsApp = String(s.whatsappNumber || "").replace(/\D/g, "");
     if (upiId && !/^[^@\s]+@[^@\s]+$/.test(upiId)) throw new Error("Enter a valid restaurant UPI ID before syncing.");
+    if (!isValidGoogleReviewsUrl(googleReviewsUrl)) throw new Error("Enter a valid HTTPS Google Reviews link.");
     if (phonepeUpi && !/^[^@\s]+@[^@\s]+$/.test(phonepeUpi)) throw new Error("Enter a valid PhonePe UPI ID before syncing.");
     if (restaurantWhatsApp && (restaurantWhatsApp.length < 10 || restaurantWhatsApp.length > 15)) throw new Error("Enter a valid restaurant WhatsApp number with country code, or leave it blank.");
     var authResult = await client.auth.getUser();
@@ -684,6 +760,7 @@
       phonepe_upi: phonepeUpi,
       whatsapp_number: String(s.whatsappNumber || "").replace(/\D/g, ""),
       whatsapp_name: String(s.whatsappName || s.restaurantName || "Mirch Masaala").slice(0, 150),
+      google_reviews_url: googleReviewsUrl.slice(0, 500),
       pay_note: String(s.payNote || "Review the amount in your payment app before paying.").slice(0, 300),
       accept_card: s.acceptCard !== false,
       accept_cash: s.acceptCash !== false,
@@ -784,6 +861,9 @@
     window.MM_SUPABASE_ENABLED = true;
     window.MM_SUPABASE_STATUS = 'connected';
     window.MM_SAVE_CUSTOMER_PROFILE = saveRemoteCustomerProfile;
+    window.MM_SUBMIT_RESTAURANT_REVIEW = submitRestaurantReview;
+    window.MM_LOAD_RESTAURANT_REVIEWS = loadRestaurantReviews;
+    window.MM_ADMIN_SET_REVIEW_STATUS = setRestaurantReviewStatus;
     window.MM_LOAD_WHATSAPP_SETTINGS = loadWhatsAppSettings;
     window.MM_SAVE_WHATSAPP_SETTINGS = saveWhatsAppSettings;
     window.MM_LOAD_SHARED_RESTAURANT_CONFIG = loadSharedRestaurantConfig;
@@ -831,7 +911,10 @@
     // Payment/UPI settings are shared centrally and refresh on every device.
     loadSharedRestaurantConfig().catch(function (e) {
       console.info('[Mirch Masaala] Shared payment settings are not set up yet:', e.message || e);
+    }).finally(function () {
+      if (typeof window.renderReviewSection === "function") window.renderReviewSection();
     });
+    if (typeof window.renderReviewSection === "function") window.renderReviewSection();
     setInterval(function () {
       loadSharedRestaurantConfig().catch(function (e) {
         console.info('[Mirch Masaala] Shared payment settings refresh:', e.message || e);
