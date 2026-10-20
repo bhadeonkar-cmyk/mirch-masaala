@@ -386,6 +386,29 @@
     pass.parentNode.insertBefore(username, pass);
   }
 
+  function rememberedUsernameKey(role) {
+    return 'mm_staff_username_' + String(role || '').toLowerCase();
+  }
+
+  function defaultUsernameForRole(role) {
+    return role === 'admin' ? 'owner' : (role === 'waiter' ? 'waiter' : (role === 'kitchen' ? 'kitchen' : ''));
+  }
+
+  function loadRememberedUsername(role) {
+    var value = '';
+    try { value = localStorage.getItem(rememberedUsernameKey(role)) || ''; } catch (e) {}
+    return value || defaultUsernameForRole(role);
+  }
+
+  function saveRememberedUsername(role, username, enabled) {
+    try {
+      if (enabled && username) localStorage.setItem(rememberedUsernameKey(role), username);
+      else localStorage.removeItem(rememberedUsernameKey(role));
+    } catch (e) {
+      console.warn('[Mirch Masaala] Could not save remembered username on this device:', e);
+    }
+  }
+
   function authEmailForCredential(value) {
     var credential = String(value || '').trim().toLowerCase();
     // Existing accounts using a real email remain compatible during migration.
@@ -441,6 +464,8 @@
       }
       window.role = actualRole;
       try { sessionStorage.setItem('mm_role', actualRole); } catch (e) {}
+      var rememberBox = document.getElementById('remember-staff-login');
+      saveRememberedUsername(actualRole, username, !rememberBox || rememberBox.checked);
       if (err) err.style.display = 'none';
       await loadMenu(true, true);
       await refreshStaffOrders();
@@ -530,6 +555,21 @@
       window.role = actualRole;
       await loadMenu(true, true);
       await refreshStaffOrders();
+      // Supabase Auth already persists the session securely on this device.
+      // Return staff to the correct screen after a refresh; logout clears the session.
+      if (actualRole === 'waiter') {
+        window.go('waiter');
+        if (typeof window.enterWaiter === 'function') window.enterWaiter();
+      } else if (actualRole === 'kitchen') {
+        window.go('kitchen');
+        if (typeof window.enterKitchen === 'function') window.enterKitchen();
+      } else if (actualRole === 'admin') {
+        window.go('admin');
+        if (typeof window.enterAdmin === 'function') window.enterAdmin();
+        loadWhatsAppSettings().catch(function (e) {
+          console.info('[Mirch Masaala] WhatsApp settings use local defaults until CRM SQL is applied:', e.message || e);
+        });
+      }
     } catch (e) {
       console.warn('[Mirch Masaala session restore]', e);
     }
@@ -669,9 +709,11 @@
       window.pendingRole = requestedRole;
       ensureUsernameField();
       var oldUsername = document.getElementById('staff-username');
-      if (oldUsername) oldUsername.value = '';
+      if (oldUsername) oldUsername.value = loadRememberedUsername(requestedRole);
       var passInput = document.getElementById('pass');
       if (passInput) passInput.value = '';
+      var rememberBox = document.getElementById('remember-staff-login');
+      if (rememberBox) rememberBox.checked = true;
       var titles = { waiter: 'Waiter login', kitchen: 'Kitchen login', admin: 'Owner/Admin login' };
       var title = document.getElementById('login-title');
       var hint = document.getElementById('login-hint');
