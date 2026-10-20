@@ -700,6 +700,33 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 @media(max-width:699px){.kitchen-note{background:#3a301b!important;border-color:#ecd18a!important}.kitchen-note-heading{color:#ffe8a7!important;font-size:11px!important}.kitchen-note-text{font-size:17px!important;line-height:1.45!important;color:#fff!important}.waiter-tables-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.waiter-table-card{min-height:60px!important}.role-alert-host{padding:0 8px}}
 @media(min-width:700px){.waiter-tables-grid{grid-template-columns:repeat(auto-fit,minmax(95px,1fr))}.urgent-table-number{font-size:64px}}
 
+
+/* Home screen: simple order status, no full review card on landing. */
+.home-my-orders{margin:12px 0 4px;padding:13px;background:#19191c;border:1px solid rgba(255,255,255,.1);border-radius:14px}
+.home-orders-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
+.home-orders-heading strong{font-size:14px;font-weight:800}
+.home-orders-heading small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.home-orders-link{border:0;background:transparent;color:var(--gold2);font-size:12px;font-weight:750;padding:8px;min-height:38px}
+.home-order-row{padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
+.home-order-row:first-child{border-top:0}
+.home-order-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.home-order-top>b{font-size:13px}
+.home-order-status{font-size:10px;font-weight:900;letter-spacing:.025em;padding:5px 7px;border-radius:6px;background:rgba(255,255,255,.06);color:#dedee4;text-align:center}
+.home-order-row.waiting .home-order-status{color:#efcc87;background:rgba(239,204,135,.12)}
+.home-order-row.cooking .home-order-status{color:#a8cfff;background:rgba(117,175,240,.12)}
+.home-order-row.ready .home-order-status{color:#94edbd;background:rgba(68,201,142,.14)}
+.home-order-row.served .home-order-status{color:#b7bdc4;background:rgba(183,189,196,.1)}
+.home-order-row.cancelled .home-order-status{color:#ffb6ad;background:rgba(229,91,81,.12)}
+.home-order-items{font-size:11px;color:var(--text);margin-top:5px;line-height:1.35;overflow-wrap:anywhere}
+.home-order-hint{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}
+.home-order-steps{display:flex;align-items:center;gap:4px;margin-top:9px;font-size:8px;color:#777780;white-space:nowrap}
+.home-order-steps span{flex:0 0 auto}
+.home-order-steps span.done{color:#e5d09b;font-weight:750}
+.home-order-steps i{display:block;flex:1;height:2px;background:#37373d;border-radius:2px;min-width:5px}
+.home-order-steps i.done{background:#a8905b}
+.waiter-signout-link{display:block;margin:16px auto 0;padding:8px 12px;border:0;background:transparent;color:var(--muted);font-size:11px;text-decoration:underline;cursor:pointer}
+@media(max-width:370px){.home-order-steps{font-size:7px;gap:3px}.home-my-orders{padding:10px}.home-order-status{font-size:9px}}
+
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -752,6 +779,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
     <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 Scan table QR</button>
     <p class="muted" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
+    <section id="home-my-orders" class="home-my-orders" style="display:none;text-align:left" aria-live="polite" aria-label="Your recent order statuses"></section>
     <div class="home-shortcuts" aria-label="Helpful links">
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" aria-label="How to use this app" title="How to use this app" onclick="openGuide()"><span aria-hidden="true">📖</span></button>
@@ -765,9 +793,11 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
         <button type="button" class="home-icon-btn" id="home-visit-link" aria-label="Visit us and directions" title="Visit us and directions" onclick="scrollToVisit()"><span aria-hidden="true">📍</span></button>
         <span class="home-shortcut-label">Visit us</span>
       </div>
+      <div class="home-shortcut">
+        <button type="button" class="home-icon-btn" id="home-reviews-link" aria-label="Reviews and feedback" title="Reviews and feedback" onclick="go('reviews-page')"><span aria-hidden="true">☆</span></button>
+        <span class="home-shortcut-label">Reviews</span>
+      </div>
     </div>
-    <section id="visit-section" class="visit-card" style="display:none" aria-label="Restaurant visit information"></section>
-    <section id="review-section" style="margin-top:14px;text-align:left" aria-label="Reviews and feedback"></section>
 
     <!-- Staff entry hidden from customers — long-press logo or tap footer 5× -->
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line)">
@@ -794,6 +824,26 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   </div>
 </div>
 
+<!-- VISIT INFO: separate screen to keep the landing page spacious -->
+<div id="visit-page" class="screen">
+  <div class="topbar">
+    <button type="button" class="back" onclick="go('home')">← Home</button>
+    <strong class="gold">Visit us</strong>
+    <span></span>
+  </div>
+  <div class="wrap"><section id="visit-section" class="visit-card" style="display:none" aria-label="Restaurant visit information"></section></div>
+</div>
+
+<!-- REVIEWS: separate screen instead of a large home-page card -->
+<div id="reviews-page" class="screen">
+  <div class="topbar">
+    <button type="button" class="back" onclick="go('home')">← Home</button>
+    <strong class="gold">Reviews & feedback</strong>
+    <span></span>
+  </div>
+  <div class="wrap"><section id="review-section" style="text-align:left" aria-label="Reviews and feedback"></section></div>
+</div>
+
 <!-- LOGIN -->
 <div id="login" class="screen">
   <div class="login-box center">
@@ -809,7 +859,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <input type="checkbox" id="remember-staff-login" checked style="width:17px;height:17px;min-width:17px;margin:0;accent-color:var(--gold2)">
       Remember username on this device
     </label>
-    <p class="muted" style="font-size:11px;margin-bottom:8px;text-align:left">Your password is never saved by Mirch Masaala. Sign out when you finish on a shared device.</p>
+    <p class="muted" style="font-size:11px;margin-bottom:8px;text-align:left">After a successful login, this device can keep you signed in securely. Your password is never stored by the app. Sign out on shared devices.</p>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="openStaffGuide()">📖 How to use this staff screen</button>
     <p id="login-err" style="color:var(--bad);font-size:13px;display:none;margin-bottom:8px"></p>
     <button type="button" class="btn btn-main" onclick="doLogin()">Login</button>
@@ -905,7 +955,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 <!-- WAITER -->
 <div id="waiter" class="screen">
   <div class="topbar">
-    <button type="button" class="back" onclick="logout()">← Exit</button>
+    <button type="button" class="back" onclick="wShowTables()">← Tables</button>
     <strong class="gold">Waiter</strong>
     <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Enable browser alerts" title="Enable browser alerts" onclick="enableRoleNotifications()">🔔</button><span class="muted" id="w-tbl" style="font-size:12px">Choose table</span></div>
   </div>
@@ -932,6 +982,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
         <button type="button" class="btn btn-main" onclick="wSend()">Send to kitchen</button>
       </div>
     </div>
+    <button type="button" class="waiter-signout-link" onclick="confirmWaiterSignOut()">Sign out</button>
   </div>
 </div>
 
@@ -1211,6 +1262,9 @@ function go(id) {
   if (el) el.classList.add('on');
   try { window.scrollTo(0, 0); } catch (e) {}
   if (typeof renderPublicOrderBoard === 'function') renderPublicOrderBoard(window.MM_PUBLIC_ORDER_ROWS || []);
+  if (id === 'home' && typeof renderCustomerHomeOrders === 'function') renderCustomerHomeOrders();
+  if (id === 'reviews-page' && typeof renderReviewSection === 'function') renderReviewSection();
+  if (id === 'visit-page' && typeof renderVisitSection === 'function') renderVisitSection();
 }
 function setOpenPill() {
   var p = document.getElementById('status-pill');
@@ -1512,6 +1566,8 @@ function logout() { role = null; go('home'); setOpenPill();
 window.go = go;
 window.scrollToVisit = scrollToVisit;
 window.renderPublicOrderBoard = renderPublicOrderBoard;
+window.renderCustomerHomeOrders = renderCustomerHomeOrders;
+window.confirmWaiterSignOut = confirmWaiterSignOut;
 window.drawWaiterOrders = drawWaiterOrders;
 window.deleteRestaurantReview = deleteRestaurantReview;
 window.doLogin = doLogin;
@@ -2448,6 +2504,9 @@ function enterWaiter() {
   var label = document.getElementById('w-tbl'); if (label) label.textContent = 'Choose table';
   drawWaiterOrders();
   if (typeof window.MM_REFRESH_ROLE_NOTIFICATIONS === 'function') window.MM_REFRESH_ROLE_NOTIFICATIONS();
+}
+function confirmWaiterSignOut() {
+  if (confirm('Sign out of the waiter account on this device?')) logout();
 }
 function wShowTables() {
   if (wTable) {
@@ -3489,7 +3548,49 @@ function renderVisitSection() {
 function scrollToVisit() {
   var section = document.getElementById('visit-section');
   if (!section || section.style.display === 'none') { toast('Visit details will appear when the owner adds them in Settings.'); return; }
-  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (typeof renderVisitSection === 'function') renderVisitSection();
+  go('visit-page');
+}
+function renderCustomerHomeOrders() {
+  var host = document.getElementById('home-my-orders');
+  if (!host) return;
+  var saved = [];
+  var tokens = [];
+  try { saved = JSON.parse(localStorage.getItem('mm_o') || '[]') || []; } catch (e) {}
+  try { tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || []; } catch (e) {}
+  if (!Array.isArray(saved)) saved = [];
+  if (!Array.isArray(tokens)) tokens = [];
+  var allowed = {};
+  tokens.forEach(function(t){ if (t && t.id && t.token) allowed[String(t.id)] = true; });
+  var own = saved.filter(function(o){ return o && allowed[String(o.id)]; })
+    .sort(function(a,b){ return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); })
+    .slice(0, 5);
+  if (!own.length) {
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+  var meta = {
+    NEW: {label:'WAITING FOR KITCHEN', hint:'Order received. Kitchen has not started yet.', css:'waiting', step:1},
+    PREPARING: {label:'BEING PREPARED', hint:'The kitchen is cooking your order.', css:'cooking', step:2},
+    READY: {label:'READY', hint:'Your order is ready. Please check with staff.', css:'ready', step:3},
+    SERVED: {label:'SERVED', hint:'Enjoy your meal!', css:'served', step:4},
+    PAID: {label:'PAID', hint:'Payment recorded. Thank you!', css:'served', step:4},
+    CANCELLED: {label:'CANCELLED', hint:'This order was cancelled.', css:'cancelled', step:0}
+  };
+  host.style.display = 'block';
+  host.innerHTML = '<div class="home-orders-heading"><div><strong>📋 Your orders</strong><small>Updates automatically</small></div><button type="button" onclick="myOrders()" class="home-orders-link">View all</button></div>' +
+    own.map(function(o) {
+      var status = String(o.status || 'NEW').toUpperCase();
+      var m = meta[status] || meta.NEW;
+      var items = (o.items || []).map(function(i){ return (Number(i.qty) || 1) + '× ' + esc(i.name || 'Item'); }).join(' · ');
+      return '<article class="home-order-row ' + m.css + '">' +
+        '<div class="home-order-top"><b>Table ' + esc(String(o.table || '—').padStart(2,'0')) + '</b><span class="home-order-status">' + m.label + '</span></div>' +
+        '<div class="home-order-items">' + esc(items) + '</div>' +
+        '<p class="home-order-hint">' + m.hint + '</p>' +
+        (status !== 'CANCELLED' ? '<div class="home-order-steps"><span class="' + (m.step>=1?'done':'') + '">Received</span><i class="' + (m.step>=2?'done':'') + '"></i><span class="' + (m.step>=2?'done':'') + '">Preparing</span><i class="' + (m.step>=3?'done':'') + '"></i><span class="' + (m.step>=3?'done':'') + '">Ready</span><i class="' + (m.step>=4?'done':'') + '"></i><span class="' + (m.step>=4?'done':'') + '">Served</span></div>' : '') +
+        '</article>';
+    }).join('');
 }
 function renderPublicOrderBoard(rows) {
   var host = document.getElementById('public-order-board'); if (!host) return;
