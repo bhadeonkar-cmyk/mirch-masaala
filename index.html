@@ -2628,8 +2628,7 @@ function drawK() {
   if (stats) stats.innerHTML =
     '<div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + orders.filter(function(o){return o.status==='SERVED';}).length + '</b>Done</div>';
   function card(o, next, label, col) {
-    var orderNote = String(o.notes || '').trim();
-    if (orderNote === '[Waiter]' || orderNote === '[Waiter] ') orderNote = '';
+    var orderNote = String(o.notes || '').replace(/^\[Waiter\]\s*/, '').trim();
     var itemNotes = (o.items || []).filter(function(i){ return String(i.notes || '').trim(); });
     var hasNotes = !!orderNote || itemNotes.length > 0;
     var noteHtml = orderNote
@@ -2910,7 +2909,7 @@ function renderRoleNotifications(rows) {
         type === 'ORDER_READY' ? 'Please check the ready ticket.' : (n.item_name || n.message || 'A menu item is unavailable.');
       var bigTable = isCall ? '<div class="urgent-table-number">' + esc(tableNo) + '</div><div class="urgent-table-caption">TABLE · GO NOW</div>' :
         (tableNo && ['NEW_ORDER','ORDER_READY','BILL_REQUEST'].indexOf(type)>=0 ? '<div class="role-alert-table-small">TABLE ' + esc(tableNo) + '</div>' : '');
-      var details = type === 'ITEM_SOLD_OUT' ? esc(n.item_name || n.message || '') : (n.ticket_id ? 'Ticket #' + esc(n.ticket_id) : '');
+      var details = type === 'ITEM_SOLD_OUT' ? '' : (n.ticket_id ? 'Ticket #' + esc(n.ticket_id) : '');
       return '<article class="role-alert-card ' + (isCall ? 'role-alert-call' : 'role-alert-' + type.toLowerCase()) + '">' +
         '<div class="role-alert-title"><span>' + (isCall ? '🔔' : type==='BILL_REQUEST' ? '💳' : type==='NEW_ORDER' ? '🍳' : type==='ORDER_READY' ? '✅' : '⚠️') + ' ' + title + '</span><button type="button" class="role-alert-dismiss" aria-label="Mark alert handled" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button></div>' +
         bigTable + '<p class="role-alert-message">' + line + '</p>' +
