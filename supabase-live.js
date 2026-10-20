@@ -608,6 +608,75 @@
     return result.data;
   }
 
+  async function loadSharedRestaurantConfig() {
+    if (!client || !window.MM_SUPABASE_ENABLED) return false;
+    var result = await client.from("mm_restaurant_config")
+      .select("restaurant_name,tagline,admin_phone,upi_id,upi_name,phonepe_upi,pay_note,accept_card,accept_cash,updated_at")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .maybeSingle();
+    if (result.error) throw result.error;
+    if (!result.data) return false;
+
+    // Never overwrite in-progress edits while the owner is using Settings.
+    var settingsPanel = document.getElementById("a-settings");
+    if (window.role === "admin" && settingsPanel && settingsPanel.style.display !== "none") return true;
+
+    var remote = result.data;
+    var s = window.SETTINGS || {};
+    s.restaurantName = remote.restaurant_name || s.restaurantName || "MIRCH MASAALA";
+    s.tagline = remote.tagline || s.tagline || "INDIAN RESTAURANT";
+    s.adminPhone = remote.admin_phone || s.adminPhone || "+91 9657076450";
+    s.upiId = remote.upi_id || "";
+    s.upiName = remote.upi_name || "Mirch Masaala";
+    s.phonepeUpi = remote.phonepe_upi || "";
+    s.payNote = remote.pay_note || "Review the amount in your payment app before paying.";
+    s.acceptCard = remote.accept_card !== false;
+    s.acceptCash = remote.accept_cash !== false;
+    try { localStorage.setItem("mm_settings", JSON.stringify(s)); } catch (e) {}
+
+    if (typeof window.applySettings === "function") window.applySettings();
+    else {
+      if (typeof window.renderVisitSection === "function") window.renderVisitSection();
+      if (typeof window.renderHomeTables === "function") window.renderHomeTables();
+    }
+
+    // If the customer already has the payment dialog open, refresh its QR/link immediately.
+    var payModal = document.getElementById("pay-modal");
+    if (payModal && payModal.classList.contains("on") && typeof window.selectPayMethod === "function") {
+      window.selectPayMethod((window.payContext && window.payContext.method) || "gpay");
+    }
+    return true;
+  }
+
+  async function saveSharedRestaurantConfig() {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
+    if (window.role !== "admin") throw new Error("Only the Owner/Admin can change restaurant payment settings.");
+    var s = window.SETTINGS || {};
+    var upiId = String(s.upiId || "").trim();
+    var phonepeUpi = String(s.phonepeUpi || "").trim();
+    if (upiId && !/^[^@\s]+@[^@\s]+$/.test(upiId)) throw new Error("Enter a valid restaurant UPI ID before syncing.");
+    if (phonepeUpi && !/^[^@\s]+@[^@\s]+$/.test(phonepeUpi)) throw new Error("Enter a valid PhonePe UPI ID before syncing.");
+    var authResult = await client.auth.getUser();
+    if (authResult.error || !authResult.data || !authResult.data.user) throw new Error("Owner session expired. Sign in again.");
+    var payload = {
+      restaurant_id: RESTAURANT_ID,
+      restaurant_name: String(s.restaurantName || "MIRCH MASAALA").slice(0, 150),
+      tagline: String(s.tagline || "INDIAN RESTAURANT").slice(0, 200),
+      admin_phone: String(s.adminPhone || "+91 9657076450").slice(0, 40),
+      upi_id: upiId,
+      upi_name: String(s.upiName || s.restaurantName || "Mirch Masaala").slice(0, 150),
+      phonepe_upi: phonepeUpi,
+      pay_note: String(s.payNote || "Review the amount in your payment app before paying.").slice(0, 300),
+      accept_card: s.acceptCard !== false,
+      accept_cash: s.acceptCash !== false,
+      updated_at: new Date().toISOString(),
+      updated_by: authResult.data.user.id
+    };
+    var result = await client.from("mm_restaurant_config").upsert(payload, { onConflict: "restaurant_id" });
+    if (result.error) throw result.error;
+    return true;
+  }
+
   async function saveWhatsAppSettings() {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error("Shared database is not connected.");
     if (window.role !== "admin") throw new Error("Owner/Admin access required.");
@@ -699,6 +768,8 @@
     window.MM_SAVE_CUSTOMER_PROFILE = saveRemoteCustomerProfile;
     window.MM_LOAD_WHATSAPP_SETTINGS = loadWhatsAppSettings;
     window.MM_SAVE_WHATSAPP_SETTINGS = saveWhatsAppSettings;
+    window.MM_LOAD_SHARED_RESTAURANT_CONFIG = loadSharedRestaurantConfig;
+    window.MM_SAVE_SHARED_RESTAURANT_CONFIG = saveSharedRestaurantConfig;
     window.MM_GET_WHATSAPP_CUSTOMERS = getWhatsAppCustomers;
     window.MM_GET_WHATSAPP_LOGS = getWhatsAppBroadcastLogs;
     window.MM_STOP_CUSTOMER_WHATSAPP = stopCustomerWhatsApp;
@@ -739,6 +810,15 @@
     loadMenu(false, false).then(function (ok) {
       if (ok) notifySuccess('Shared menu connected.');
     });
+    // Payment/UPI settings are shared centrally and refresh on every device.
+    loadSharedRestaurantConfig().catch(function (e) {
+      console.info('[Mirch Masaala] Shared payment settings are not set up yet:', e.message || e);
+    });
+    setInterval(function () {
+      loadSharedRestaurantConfig().catch(function (e) {
+        console.info('[Mirch Masaala] Shared payment settings refresh:', e.message || e);
+      });
+    }, 20000);
     restoreStaffSession();
     refreshCustomerOrders();
     setInterval(function () { loadMenu(!!window.role, true); }, 20000);
