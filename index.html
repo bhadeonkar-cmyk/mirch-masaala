@@ -586,6 +586,11 @@ body{line-height:1.5}
     <h2 class="gold" id="login-title" style="margin:8px 0">Staff Login</h2>
     <p class="muted" id="login-hint">Enter password</p>
     <input type="password" id="pass" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin();}">
+    <label for="remember-staff-login" style="display:flex;align-items:center;gap:9px;text-align:left;font-size:12px;color:var(--muted);margin:2px 0 12px">
+      <input type="checkbox" id="remember-staff-login" checked style="width:17px;height:17px;min-width:17px;margin:0;accent-color:var(--gold2)">
+      Remember username and keep me signed in on this device
+    </label>
+    <p class="muted" style="font-size:11px;margin-bottom:8px;text-align:left">Your password is never saved by Mirch Masaala. Sign out when you finish on a shared device.</p>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="openStaffGuide()">📖 How to use this staff screen</button>
     <p id="login-err" style="color:var(--bad);font-size:13px;display:none;margin-bottom:8px"></p>
     <button type="button" class="btn btn-main" onclick="doLogin()">Login</button>
