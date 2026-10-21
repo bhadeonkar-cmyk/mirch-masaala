@@ -722,10 +722,14 @@
       var actualRole = rpcPayload(roleResult.data);
       if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) {
         await client.auth.signOut({ scope: 'local' });
+        window.role = null;
+        try { sessionStorage.removeItem('mm_role'); } catch (e) {}
         throw new Error('This account has no staff role yet. Ask the owner to finish staff setup.');
       }
       if (actualRole !== requestedRole) {
         await client.auth.signOut({ scope: 'local' });
+        window.role = null;
+        try { sessionStorage.removeItem('mm_role'); } catch (e) {}
         throw new Error('This account is assigned as ' + actualRole + ', not ' + requestedRole + '. Choose the matching role.');
       }
       window.role = actualRole;
