@@ -746,6 +746,7 @@
       }
       window.role = actualRole;
       try { sessionStorage.setItem('mm_role', actualRole); } catch (e) {}
+      try { localStorage.setItem('mm_last_staff_role', actualRole); } catch (e) {}
       var rememberBox = document.getElementById('remember-staff-login');
       saveRememberedUsername(actualRole, username, !rememberBox || rememberBox.checked);
       if (err) err.style.display = 'none';
@@ -792,6 +793,7 @@
     if (logoutFlowVersion !== staffAuthFlowVersion) return;
     window.role = null;
     try { sessionStorage.removeItem('mm_role'); } catch (e) {}
+    try { localStorage.removeItem('mm_last_staff_role'); } catch (e) {}
     window.go('home');
     if (typeof window.setOpenPill === 'function') window.setOpenPill();
     notifySuccess('Signed out.');
@@ -880,26 +882,14 @@
       if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) return;
       if (restoreFlowVersion !== staffAuthFlowVersion || staffLoginHasUserInput()) return;
       if (requestedRole && requestedRole !== actualRole) {
-        // Never silently switch roles, and never auto-sign-out a user during page restore.
-        // Keep this page unprivileged; the correct account must authenticate for this role.
-        window.role = null;
-        try { sessionStorage.removeItem('mm_role'); } catch (e) {}
-        var roleMismatchMessage = 'This saved session belongs to ' + actualRole +
-          ', not ' + requestedRole + '. No staff access was granted. Sign in with the correct account.';
-        var loginError = document.getElementById('login-err');
-        if (loginError && document.getElementById('login') && document.getElementById('login').classList.contains('on')) {
-          loginError.style.display = 'block';
-          loginError.textContent = roleMismatchMessage;
-        } else {
-          notifyError(roleMismatchMessage);
-        }
-        console.warn('[Mirch Masaala role restore] Refused cross-role restore:', {
+        console.info('[Mirch Masaala role restore] URL role differs from the verified account; opening the verified account role.', {
           requestedRole: requestedRole,
           actualRole: actualRole
         });
-        return;
       }
       window.role = actualRole;
+      try { sessionStorage.setItem('mm_role', actualRole); } catch (e) {}
+      try { localStorage.setItem('mm_last_staff_role', actualRole); } catch (e) {}
       // Restore the correct dashboard before waiting for menu/order network calls.
       if (actualRole === 'waiter') {
         window.go('waiter');
@@ -1228,18 +1218,44 @@
       notifyError('Secure online library failed to load. Refresh or try another network.');
       return;
     }
-    var authStorageRole = 'public';
+    // Use one stable Supabase local-storage key on every staff URL. This is the
+    // standard Supabase key and keeps sessions available when a staff URL changes
+    // or the app is refreshed. Migrate existing role-specific keys before creating
+    // the client so already-signed-in staff do not have to sign in again.
+    var projectRef = 'adbhxldsqwsyaqzdmxnf';
+    try { projectRef = new URL(SUPABASE_URL).hostname.split('.')[0] || projectRef; } catch (e) {}
+    var authStorageKey = 'sb-' + projectRef + '-auth-token';
     try {
       var authParams = new URLSearchParams(window.location.search);
       var staffParam = String(authParams.get('staff') || '').toLowerCase();
       var roleParam = String(authParams.get('role') || '').toLowerCase();
       var authAllowedRoles = ['admin', 'kitchen', 'waiter'];
-      if (authAllowedRoles.indexOf(staffParam) >= 0) authStorageRole = staffParam;
-      else if (authAllowedRoles.indexOf(roleParam) >= 0) authStorageRole = roleParam;
-    } catch (e) {}
-    // Separate local auth persistence per role. Never let Owner and Kitchen tabs
-    // share the same Supabase storage key on this browser origin.
-    var authStorageKey = 'mm-mirch-masaala-auth-v1-' + authStorageRole;
+      var requestedStorageRole = authAllowedRoles.indexOf(staffParam) >= 0 ? staffParam :
+        (authAllowedRoles.indexOf(roleParam) >= 0 ? roleParam : '');
+      var legacyPrefix = 'mm-mirch-masaala-auth-v1-';
+      var defaultSession = localStorage.getItem(authStorageKey);
+      var legacySession = requestedStorageRole ? localStorage.getItem(legacyPrefix + requestedStorageRole) : null;
+      if (!legacySession && !defaultSession) {
+        var lastRole = String(localStorage.getItem('mm_last_staff_role') || '').toLowerCase();
+        var candidates = [];
+        if (authAllowedRoles.indexOf(lastRole) >= 0) candidates.push(lastRole);
+        authAllowedRoles.forEach(function (candidate) { if (candidates.indexOf(candidate) < 0) candidates.push(candidate); });
+        for (var legacyIndex = 0; legacyIndex < candidates.length; legacyIndex++) {
+          legacySession = localStorage.getItem(legacyPrefix + candidates[legacyIndex]);
+          if (legacySession) break;
+        }
+      }
+      if (legacySession) {
+        localStorage.setItem(authStorageKey, legacySession);
+      }
+      if (localStorage.getItem(authStorageKey)) {
+        authAllowedRoles.forEach(function (candidate) {
+          localStorage.removeItem(legacyPrefix + candidate);
+        });
+      }
+    } catch (storageMigrationError) {
+      console.warn('[Mirch Masaala auth] Session storage migration was skipped:', storageMigrationError);
+    }
     client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       auth: {
         storageKey: authStorageKey,
