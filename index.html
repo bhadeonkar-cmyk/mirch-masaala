@@ -4199,7 +4199,31 @@ window.setWDietFilter = setWDietFilter;
       'home-kitchen-required': 'Staff login required',
       'home-owner-admin': 'Owner / Admin',
       'home-owner-required': 'Authorised staff only',
-      'home-hide-staff': 'Hide'
+      'home-hide-staff': 'Hide',
+      'menu-tip-title': 'How to order:',
+      'menu-tip-message': 'Choose dishes, tap ADD, then open your cart to place the order.',
+      'customer-help-button': 'Help & orders',
+      'cart-back-button': '← Back to menu',
+      'cart-title': 'Your order',
+      'cart-note-label': 'Any special request?',
+      'place-order-button': 'Place order',
+      'cart-change-items': '← Change items',
+      'sp-add': 'Add to cart',
+      'sp-not-now': 'Not now',
+      'w-back-tables': '← Tables',
+      'waiter-header-title': 'Waiter',
+      'w-table-picker-hint': 'Tap a table to start. Highlighted tables already have orders.',
+      'w-taking-order-label': 'TAKING ORDER FOR',
+      'w-table-word': 'Table',
+      'w-change-table': '← Change table',
+      'w-ticket-label': 'Ticket',
+      'w-send-button': 'Send to kitchen',
+      'w-signout-button': 'Sign out',
+      'waiter-confirm-title': 'Check order before sending',
+      'waiter-confirm-subtitle': 'Please check the table, food and guest note.',
+      'w-confirm-table-label': 'TABLE',
+      'waiter-confirm-send': '✓ Confirm & send to kitchen',
+      'waiter-confirm-edit': '← Back to edit'
     },
     mr: {
       'home-tagline': 'चविष्ट जेवण, सोपी ऑर्डर.',
@@ -4224,8 +4248,113 @@ window.setWDietFilter = setWDietFilter;
       'home-kitchen-required': 'कर्मचारी लॉगिन आवश्यक',
       'home-owner-admin': 'मालक / प्रशासक',
       'home-owner-required': 'फक्त अधिकृत कर्मचारी',
-      'home-hide-staff': 'लपवा'
+      'home-hide-staff': 'लपवा',
+      'menu-tip-title': 'ऑर्डर कशी द्यावी:',
+      'menu-tip-message': 'पदार्थ निवडा, जोडा बटण दाबा आणि ऑर्डर देण्यासाठी कार्ट उघडा.',
+      'customer-help-button': 'मदत व ऑर्डर्स',
+      'cart-back-button': '← मेनूकडे परत',
+      'cart-title': 'तुमची ऑर्डर',
+      'cart-note-label': 'काही खास सूचना?',
+      'place-order-button': 'ऑर्डर द्या',
+      'cart-change-items': '← पदार्थ बदला',
+      'sp-add': 'कार्टमध्ये जोडा',
+      'sp-not-now': 'आत्ता नको',
+      'w-back-tables': '← टेबल्स',
+      'waiter-header-title': 'वेटर',
+      'w-table-picker-hint': 'सुरू करण्यासाठी टेबल निवडा. हायलाइट केलेल्या टेबलवर ऑर्डर आहेत.',
+      'w-taking-order-label': 'या टेबलसाठी ऑर्डर',
+      'w-table-word': 'टेबल',
+      'w-change-table': '← टेबल बदला',
+      'w-ticket-label': 'ऑर्डर',
+      'w-send-button': 'किचनला पाठवा',
+      'w-signout-button': 'साइन आउट',
+      'waiter-confirm-title': 'पाठवण्यापूर्वी ऑर्डर तपासा',
+      'waiter-confirm-subtitle': 'टेबल, पदार्थ आणि ग्राहकाची सूचना तपासा.',
+      'w-confirm-table-label': 'टेबल',
+      'waiter-confirm-send': '✓ खात्री करून किचनला पाठवा',
+      'waiter-confirm-edit': '← बदलण्यासाठी परत'
     }
+  };
+  var mrDishById = {
+    1:'मंचाव सूप (चिकन)',2:'मंचाव सूप (व्हेज)',3:'हॉट अँड सॉर सूप (चिकन)',4:'हॉट अँड सॉर सूप (व्हेज)',
+    5:'मटण अलणी सूप',6:'चिकन अलणी सूप',7:'मटण पाया सूप',8:'हिरवे सलाड',9:'मसाला पापड',10:'तळलेला पापड',11:'भाजलेला पापड',
+    12:'मिनरल वॉटर',13:'शीतपेय (मोठे)',14:'शीतपेय (लहान)',15:'मटण रान',16:'मटण बोटी कबाब',17:'मटण खर्डा',18:'मटण फ्राय',
+    19:'मटण उकड',20:'वजडी फ्राय',21:'चिकन रान',22:'चिकन टिक्का',23:'चिकन बंजारा टिक्का',24:'चिकन हरियाली टिक्का',
+    25:'चिकन खर्डा',26:'चिकन फ्राय',27:'चिकन उकड',28:'चिकन कोळीवाडा फ्राय',29:'चिकन चिली ड्राय',
+    30:'चिकन मंचुरियन ड्राय',31:'चिकन ६५ ड्राय',32:'पनीर टिक्का',33:'पनीर बंजारा टिक्का',34:'पनीर हरियाली टिक्का',
+    35:'तंदुरी मशरूम',36:'पालक पनीर शामी कबाब',37:'कोथिंबीर वडी',38:'थालीपीठ',39:'व्हेज मंचुरियन ड्राय',
+    40:'पनीर चिली ड्राय',41:'पनीर मंचुरियन ड्राय',42:'मशरूम चिली ड्राय',43:'मशरूम मंचुरियन ड्राय',
+    44:'मटण गावाकडची थाळी',45:'स्पेशल मटण थाळी',46:'चिकन गावाकडची थाळी',47:'स्पेशल चिकन थाळी',48:'शाकाहारी थाळी',
+    49:'मटण हंडी (फुल)',50:'मटण हंडी (हाफ)',51:'हैदराबादी पाया कोरमा',52:'मटण खिमा मसाला',53:'मटण कोल्हापुरी लोणचे',
+    54:'मटण कोल्हापुरी करी',55:'मटण खर्डा (मुख्य पदार्थ)',56:'मटण अलणी',57:'चिकन हंडी (फुल)',58:'चिकन हंडी (हाफ)',
+    59:'चिकन कोल्हापुरी करी',60:'चिकन खिमा मसाला',61:'चिकन कोल्हापुरी लोणचे',62:'चिकन खर्डा (मुख्य पदार्थ)',63:'चिकन अलणी',
+    64:'चिकन टिक्का मसाला',65:'पनीर बटर मसाला',66:'पनीर भुर्जी मसाला',67:'पनीर मिरची मसाला',68:'पनीर टका टक',
+    69:'व्हेज कोल्हापुरी',70:'व्हेज अमृतसरी',71:'व्हेज मिरच मसाला',72:'पनीर मटर',73:'मशरूम मटर',74:'शेवगा मसाला',
+    75:'मेथी बेसन',76:'भरली वांगी',77:'पिठलं',78:'डाळ फ्राय',79:'डाळ तडका',
+    80:'हैदराबादी देघ बिर्याणी (मटण)',81:'हैदराबादी देघ बिर्याणी (चिकन)',82:'अलणी भात (मटण)',83:'अलणी भात (चिकन)',
+    84:'साधा भात (फुल)',85:'साधा भात (हाफ)',86:'जिरा / वाफवलेला / इंद्रायणी भात',87:'शेजवान फ्राइड राईस (चिकन)',
+    88:'शेजवान फ्राइड राईस (व्हेज)',89:'शेजवान फ्राइड राईस (अंडी)',90:'फ्राइड राईस (चिकन)',91:'फ्राइड राईस (व्हेज)',
+    92:'फ्राइड राईस (अंडी)',93:'डाळ खिचडी',94:'डाळ तडका खिचडी',95:'रोटी (साधी)',96:'रोटी (बटर)',97:'रोटी (गार्लिक)',
+    98:'नान (साधा)',99:'नान (बटर)',100:'नान (गार्लिक)',101:'नान (चीज)',102:'नान (चीज गार्लिक)',
+    103:'चपाती (साधी)',104:'चपाती (बटर)',105:'भाकरी (साधी)',106:'भाकरी (बटर)'
+  };
+  var mrCategories = {
+    all:'सर्व पदार्थ', soup:'सूप व स्टार्टर', 'mutton-starters':'मटण स्टार्टर','chicken-starters':'चिकन स्टार्टर',
+    'veg-starters':'शाकाहारी स्टार्टर',thali:'थाळी','non-veg-mains':'मांसाहारी मुख्य पदार्थ',
+    'veg-mains':'शाकाहारी मुख्य पदार्थ','rice-breads':'भात व रोटी',beverages:'पेये'
+  };
+  var mrDescriptions = {
+    44:'मटण फ्राय, तांबडा रस्सा, पांढरा रस्सा, पुलाव किंवा इंद्रायणी भात, दही-कांदा आणि भाकरी / चपाती / रोटी.',
+    45:'मटण फ्राय, मटण खिमा, तांबडा रस्सा, पांढरा रस्सा, बिर्याणी किंवा अलणी भात, दही-कांदा, उकडलेले अंडे आणि भाकरी / चपाती / रोटी.',
+    46:'चिकन फ्राय, तांबडा रस्सा, पांढरा रस्सा, पुलाव किंवा इंद्रायणी भात, दही-कांदा आणि भाकरी / चपाती / रोटी.',
+    47:'चिकन फ्राय, चिकन खिमा, तांबडा रस्सा, पांढरा रस्सा, बिर्याणी किंवा अलणी भात, दही-कांदा, उकडलेले अंडे आणि भाकरी / चपाती / रोटी.',
+    48:'सुकी भाजी, रस्सा भाजी, डाळ, भात, दही-कांदा आणि भाकरी / चपाती / रोटी.'
+  };
+  var mrBasic = {
+    'Vegetarian chef pick':'शेफची शाकाहारी खास निवड','Chef special recommendation':'शेफची खास शिफारस',
+    'All foods':'सर्व पदार्थ','All':'सर्व','Veg only':'फक्त शाकाहारी','Non-veg only':'फक्त मांसाहारी',
+    'ADD':'जोडा','Added':'पदार्थ जोडला','No items':'पदार्थ उपलब्ध नाहीत','Empty':'रिकामी',
+    'Search dishes…':'पदार्थ शोधा…','Search menu':'मेनू शोधा','Search dishes':'पदार्थ शोधा','Guest note…':'ग्राहकाची नोंद…',
+    'Ticket':'ऑर्डर','Table':'टेबल','Waiter':'वेटर','Choose table':'टेबल निवडा','Cart empty':'कार्ट रिकामी आहे',
+    'NEW':'नवीन','PREPARING':'बनत आहे','COOKING':'बनत आहे','READY':'तयार','SERVED':'वाढले','CANCELLED':'रद्द','PAID':'पैसे भरले',
+    'Food served ✓':'जेवण दिले ✓','Guest note':'ग्राहकाची नोंद','recent tickets':'अलीकडील ऑर्डर्स','active':'सुरू',
+    'No active tickets':'सध्या ऑर्डर नाहीत',
+    'No order yet for this table. Add the guest’s dishes below.':'या टेबलसाठी अजून ऑर्डर नाही. खाली पदार्थ निवडा.',
+    'Please go to the guest now.':'कृपया लगेच ग्राहकाकडे जा.',
+    'A guest needs help with the bill.':'ग्राहकाला बिलासाठी मदत हवी आहे.',
+    'A new ticket is waiting in the kitchen queue.':'किचनमध्ये नवीन ऑर्डर आली आहे.',
+    'Please check the ready ticket.':'तयार ऑर्डर तपासा.',
+    'A menu item is unavailable.':'हा पदार्थ सध्या उपलब्ध नाही.',
+    'WAITER CALLED':'वेटरला बोलावले','BILL REQUEST':'बिलाची विनंती','NEW ORDER':'नवीन ऑर्डर','ORDER READY':'ऑर्डर तयार','SOLD OUT':'संपला',
+    'Done':'झाले','I AM GOING · MARK HANDLED':'मी येत आहे · पूर्ण करा'
+  };
+  window.mmI18n = function (english, marathi) {
+    return window.MM_HOME_LANGUAGE === 'mr' ? (marathi || mrBasic[english] || english) : english;
+  };
+  window.mmDishName = function (value) {
+    var item = value && typeof value === 'object' ? value : null;
+    var name = String(item ? (item.name || '') : (value || ''));
+    if (window.MM_HOME_LANGUAGE !== 'mr') return name;
+    var id = item ? Number(item.id) : NaN;
+    if (Number.isFinite(id) && mrDishById[id]) return mrDishById[id];
+    if (window.MENU && Array.isArray(window.MENU.menu_items)) {
+      var match = window.MENU.menu_items.find(function (x) {
+        return String(x.name || '').trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase();
+      });
+      if (match && mrDishById[Number(match.id)]) return mrDishById[Number(match.id)];
+    }
+    return name;
+  };
+  window.mmDishDescription = function (item) {
+    if (!item || !item.description) return '';
+    if (window.MM_HOME_LANGUAGE !== 'mr') return String(item.description);
+    return mrDescriptions[Number(item.id)] || String(item.description);
+  };
+  window.mmCategoryName = function (category) {
+    if (window.MM_HOME_LANGUAGE !== 'mr') return category.name || category;
+    var slug = category && typeof category === 'object' ? category.slug : '';
+    var name = category && typeof category === 'object' ? category.name : String(category || '');
+    return mrCategories[slug] || mrCategories[String(name).toLocaleLowerCase()] || name;
   };
   function savedLanguage() {
     try { return localStorage.getItem('mm_home_language') === 'mr' ? 'mr' : 'en'; }
@@ -4255,6 +4384,35 @@ window.setWDietFilter = setWDietFilter;
       if (continueButton) continueButton.textContent = dict['table-continue'];
       var scanButton = document.getElementById('scan-table-btn');
       if (scanButton) scanButton.setAttribute('aria-label', window.MM_HOME_LANGUAGE === 'mr' ? 'टेबलचा QR स्कॅन करा' : 'Scan table QR');
+    }
+    var waiterToggle = document.getElementById('waiter-language-toggle');
+    if (waiterToggle) {
+      waiterToggle.textContent = window.MM_HOME_LANGUAGE === 'mr' ? 'English' : 'मराठी';
+      waiterToggle.title = window.MM_HOME_LANGUAGE === 'mr' ? 'Switch language to English' : 'भाषा मराठीत बदला';
+      waiterToggle.setAttribute('aria-label', waiterToggle.title);
+    }
+    var search = document.getElementById('search');
+    if (search) { search.placeholder = window.mmI18n('Search dishes…','पदार्थ शोधा…'); search.setAttribute('aria-label', window.mmI18n('Search menu','मेनू शोधा')); }
+    var wSearch = document.getElementById('w-search');
+    if (wSearch) { wSearch.placeholder = window.mmI18n('Search dishes…','पदार्थ शोधा…'); wSearch.setAttribute('aria-label', window.mmI18n('Search dishes','पदार्थ शोधा')); }
+    var wNotes = document.getElementById('w-notes');
+    if (wNotes) wNotes.placeholder = window.mmI18n('Guest note…','ग्राहकाची नोंद…');
+    var filters = document.getElementById('diet-filters');
+    if (filters) filters.setAttribute('aria-label', window.mmI18n('Filter by food type','अन्नप्रकार निवडा'));
+    var wFilters = document.getElementById('w-diet-filters');
+    if (wFilters) wFilters.setAttribute('aria-label', window.mmI18n('Filter by food type','अन्नप्रकार निवडा'));
+    if (typeof window.drawCats === 'function') window.drawCats();
+    if (typeof window.drawDietFilters === 'function') window.drawDietFilters();
+    if (typeof window.drawMenu === 'function') window.drawMenu();
+    if (typeof window.drawSpecials === 'function') window.drawSpecials();
+    if (typeof window.updCart === 'function') window.updCart();
+    if (document.getElementById('cart') && document.getElementById('cart').classList.contains('on') && typeof window.drawCart === 'function') window.drawCart();
+    if (document.getElementById('waiter') && document.getElementById('waiter').classList.contains('on')) {
+      if (typeof window.drawWDietFilters === 'function') window.drawWDietFilters();
+      if (typeof window.wCats === 'function') window.wCats();
+      if (typeof window.wMenu === 'function') window.wMenu();
+      if (typeof window.wDrawCart === 'function') window.wDrawCart();
+      if (typeof window.drawWaiterOrders === 'function') window.drawWaiterOrders();
     }
     if (typeof window.setOpenPill === 'function') window.setOpenPill();
   };
