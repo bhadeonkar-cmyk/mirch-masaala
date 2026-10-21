@@ -8,6 +8,9 @@
   var SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_jAm4636kkOg-EysRgIa_Jw_bt967sZ9';
   var RESTAURANT_ID = 'a3702d10-6673-4c06-9783-1d61c945ecd5';
   var client = null;
+  // Changes whenever a user explicitly opens a role/login or starts a login/logout.
+  // Async restore work must not repaint a screen after a newer user action.
+  var staffAuthFlowVersion = 0;
   var staffRefreshBusy = false;
   var customerRefreshBusy = false;
   var menuRefreshBusy = false;
@@ -687,6 +690,7 @@
   }
 
   async function secureStaffLogin() {
+    var loginFlowVersion = ++staffAuthFlowVersion;
     ensureUsernameField();
     var usernameInput = document.getElementById('staff-username');
     var passInput = document.getElementById('pass');
@@ -716,8 +720,10 @@
     if (err) { err.style.display = 'block'; err.textContent = 'Signing in securely…'; }
     try {
       var signIn = await client.auth.signInWithPassword({ email: authEmail, password: password });
+      if (loginFlowVersion !== staffAuthFlowVersion) return;
       if (signIn.error) throw signIn.error;
       var roleResult = await client.rpc('get_my_staff_role');
+      if (loginFlowVersion !== staffAuthFlowVersion) return;
       if (roleResult.error) throw roleResult.error;
       var actualRole = rpcPayload(roleResult.data);
       if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) {
@@ -738,7 +744,9 @@
       saveRememberedUsername(actualRole, username, !rememberBox || rememberBox.checked);
       if (err) err.style.display = 'none';
       await loadMenu(true, true);
+      if (loginFlowVersion !== staffAuthFlowVersion) return;
       await refreshStaffOrders();
+      if (loginFlowVersion !== staffAuthFlowVersion) return;
       notifySuccess('Signed in as ' + actualRole + '. Shared orders are connected.');
       if (actualRole === 'waiter') {
         window.go('waiter');
@@ -756,12 +764,14 @@
         });
       }
     } catch (e) {
-      if (err) { err.style.display = 'block'; err.textContent = e && e.message ? e.message : 'Sign-in failed. Check the email and password.'; }
+      if (loginFlowVersion !== staffAuthFlowVersion) return;
+      if (err) { err.style.display = 'block'; err.textContent = e && e.message ? e.message : 'Sign-in failed. Check the username and password.'; }
       console.error('[Mirch Masaala staff login]', e);
     }
   }
 
   async function secureLogout() {
+    ++staffAuthFlowVersion;
     try { if (client) await client.auth.signOut({ scope: 'local' }); } catch (e) {}
     window.role = null;
     try { sessionStorage.removeItem('mm_role'); } catch (e) {}
@@ -829,15 +839,18 @@
   }
 
   async function restoreStaffSession() {
+    var restoreFlowVersion = staffAuthFlowVersion;
     var requestedRole = requestedStaffShortcutRole();
     try {
       var sessionResult = await client.auth.getSession();
+      if (restoreFlowVersion !== staffAuthFlowVersion) return;
       if (sessionResult.error || !sessionResult.data || !sessionResult.data.session) {
         // A role shortcut opens the matching login only when there is no valid session.
         if (requestedRole && typeof window.openLogin === 'function') window.openLogin(requestedRole);
         return;
       }
       var roleResult = await client.rpc('get_my_staff_role');
+      if (restoreFlowVersion !== staffAuthFlowVersion) return;
       if (roleResult.error) return;
       var actualRole = rpcPayload(roleResult.data);
       if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) return;
@@ -846,8 +859,10 @@
         // Clear this browser's session only; do not invalidate the owner's other devices.
         try {
           var signOutResult = await client.auth.signOut({ scope: 'local' });
+          if (restoreFlowVersion !== staffAuthFlowVersion) return;
           if (signOutResult && signOutResult.error) throw signOutResult.error;
         } catch (signOutError) {
+          if (restoreFlowVersion !== staffAuthFlowVersion) return;
           window.role = null;
           try { sessionStorage.removeItem('mm_role'); } catch (e) {}
           if (typeof window.openLogin === 'function') window.openLogin(requestedRole);
@@ -863,7 +878,9 @@
       }
       window.role = actualRole;
       await loadMenu(true, true);
+      if (restoreFlowVersion !== staffAuthFlowVersion) return;
       await refreshStaffOrders();
+      if (restoreFlowVersion !== staffAuthFlowVersion) return;
       // Supabase Auth already persists the session securely on this device.
       // Return staff to the correct screen after a refresh; logout clears the session.
       if (actualRole === 'waiter') {
@@ -1234,6 +1251,7 @@
         notifyError('Choose a valid staff role.');
         return;
       }
+      ++staffAuthFlowVersion;
       try {
         var loginParams = new URLSearchParams(window.location.search);
         if (String(loginParams.get('staff') || '').toLowerCase() !== requestedRole) {
