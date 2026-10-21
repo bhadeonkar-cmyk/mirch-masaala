@@ -696,10 +696,16 @@
     var passInput = document.getElementById('pass');
     var err = document.getElementById('login-err');
     var requestedRole = window.pendingRole;
+    var routeRole = requestedStaffShortcutRole();
     var username = usernameInput ? usernameInput.value.trim().toLowerCase() : '';
     var password = passInput ? passInput.value : '';
     if (!requestedRole) {
       notifyError('Choose a staff role first.');
+      return;
+    }
+    if (routeRole && routeRole !== requestedRole) {
+      if (err) { err.style.display = 'block'; err.textContent = 'This page is locked to the ' + routeRole + ' login. Open the correct role page to continue.'; }
+      notifyError('Role mismatch. Open the correct staff login page.');
       return;
     }
     if (!username || !password) {
@@ -771,8 +777,9 @@
   }
 
   async function secureLogout() {
-    ++staffAuthFlowVersion;
+    var logoutFlowVersion = ++staffAuthFlowVersion;
     try { if (client) await client.auth.signOut({ scope: 'local' }); } catch (e) {}
+    if (logoutFlowVersion !== staffAuthFlowVersion) return;
     window.role = null;
     try { sessionStorage.removeItem('mm_role'); } catch (e) {}
     window.go('home');
