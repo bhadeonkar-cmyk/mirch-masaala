@@ -2650,10 +2650,12 @@ function updateWaiterTableIndicators() {
     b.classList.toggle('has-draft', draftCount > 0);
     b.classList.toggle('has-live-order', tableOrders.length > 0);
     b.classList.toggle('has-ready-order', active === 'READY');
-    var label = draftCount ? draftCount + ' item' + (draftCount === 1 ? '' : 's') + ' selected' :
-      (active === 'READY' ? 'READY · SERVE' : active === 'PREPARING' ? 'COOKING' : active === 'NEW' ? 'NEW ORDER' : 'No active order');
+    var label = draftCount ? draftCount + ' ' + window.mmI18n('item' + (draftCount === 1 ? '' : 's') + ' selected', 'पदार्थ निवडले') :
+      (active === 'READY' ? window.mmI18n('READY · SERVE','तयार · वाढा') :
+       active === 'PREPARING' ? window.mmI18n('COOKING','बनत आहे') :
+       active === 'NEW' ? window.mmI18n('NEW ORDER','नवीन ऑर्डर') : window.mmI18n('No active order','सध्या ऑर्डर नाही'));
     b.innerHTML = '<strong>' + esc(num) + '</strong><small>' + label + '</small>';
-    b.setAttribute('aria-label', 'Table ' + num + (active ? ', ' + active.toLowerCase() : '') + (draftCount ? ', ' + draftCount + ' draft items' : ''));
+    b.setAttribute('aria-label', window.mmI18n('Table','टेबल') + ' ' + num + (active ? ', ' + window.mmI18n(active, ({READY:'तयार',PREPARING:'बनत आहे',NEW:'नवीन ऑर्डर'})[active] || active.toLowerCase()) : '') + (draftCount ? ', ' + draftCount + ' ' + window.mmI18n('draft items','ड्राफ्ट पदार्थ') : ''));
   });
 }
 function renderWaiterTables() {
@@ -3129,7 +3131,7 @@ function renderRoleNotifications(rows) {
       var line = isCall ? window.mmI18n('Please go to the guest now.','कृपया लगेच ग्राहकाकडे जा.') :
         type === 'BILL_REQUEST' ? window.mmI18n('A guest needs help with the bill.','ग्राहकाला बिलासाठी मदत हवी आहे.') :
         type === 'NEW_ORDER' ? window.mmI18n('A new ticket is waiting in the kitchen queue.','किचनमध्ये नवीन ऑर्डर आली आहे.') :
-        type === 'ORDER_READY' ? window.mmI18n('Please check the ready ticket.','तयार ऑर्डर तपासा.') : (n.item_name || n.message || window.mmI18n('A menu item is unavailable.','हा पदार्थ सध्या उपलब्ध नाही.'));
+        type === 'ORDER_READY' ? window.mmI18n('Please check the ready ticket.','तयार ऑर्डर तपासा.') : (n.item_name ? window.mmDishName(n.item_name) : (n.message || window.mmI18n('A menu item is unavailable.','हा पदार्थ सध्या उपलब्ध नाही.')));
       var bigTable = isCall ? '<div class="urgent-table-number">' + esc(tableNo) + '</div><div class="urgent-table-caption">' + window.mmI18n('TABLE · GO NOW','टेबल · लगेच जा') + '</div>' :
         (tableNo && ['NEW_ORDER','ORDER_READY','BILL_REQUEST'].indexOf(type)>=0 ? '<div class="role-alert-table-small">' + window.mmI18n('TABLE','टेबल') + ' ' + esc(tableNo) + '</div>' : '');
       var details = type === 'ITEM_SOLD_OUT' ? '' : (n.ticket_id ? 'Ticket #' + esc(n.ticket_id) : '');
@@ -4313,6 +4315,12 @@ window.setWDietFilter = setWDietFilter;
     98:'नान (साधा)',99:'नान (बटर)',100:'नान (गार्लिक)',101:'नान (चीज)',102:'नान (चीज गार्लिक)',
     103:'चपाती (साधी)',104:'चपाती (बटर)',105:'भाकरी (साधी)',106:'भाकरी (बटर)'
   };
+  var enDishById = {};
+  if (window.MENU && Array.isArray(window.MENU.menu_items)) {
+    window.MENU.menu_items.forEach(function (item) {
+      enDishById[Number(item.id)] = String(item.name || '');
+    });
+  }
   var mrCategories = {
     all:'सर्व पदार्थ', soup:'सूप व स्टार्टर', 'mutton-starters':'मटण स्टार्टर','chicken-starters':'चिकन स्टार्टर',
     'veg-starters':'शाकाहारी स्टार्टर',thali:'थाळी','non-veg-mains':'मांसाहारी मुख्य पदार्थ',
@@ -4351,12 +4359,15 @@ window.setWDietFilter = setWDietFilter;
     var name = String(item ? (item.name || '') : (value || ''));
     if (window.MM_HOME_LANGUAGE !== 'mr') return name;
     var id = item ? Number(item.id) : NaN;
-    if (Number.isFinite(id) && mrDishById[id]) return mrDishById[id];
+    if (Number.isFinite(id) && mrDishById[id] &&
+        (!enDishById[id] || enDishById[id].trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase())) return mrDishById[id];
     if (window.MENU && Array.isArray(window.MENU.menu_items)) {
       var match = window.MENU.menu_items.find(function (x) {
         return String(x.name || '').trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase();
       });
-      if (match && mrDishById[Number(match.id)]) return mrDishById[Number(match.id)];
+      var matchId = match ? Number(match.id) : NaN;
+      if (match && mrDishById[matchId] &&
+          (!enDishById[matchId] || enDishById[matchId].trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase())) return mrDishById[matchId];
     }
     return name;
   };
