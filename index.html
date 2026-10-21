@@ -1600,6 +1600,20 @@ function startTable(n) {
 function backMenu() { startTable(table); }
 
 function openLogin(r) {
+  // Keep each staff role on its own URL before initializing authentication.
+  var staffRoles = ['admin', 'kitchen', 'waiter'];
+  if (staffRoles.indexOf(r) >= 0) {
+    try {
+      var loginParams = new URLSearchParams(window.location.search);
+      if (String(loginParams.get('staff') || '').toLowerCase() !== r) {
+        loginParams.delete('table');
+        loginParams.delete('role');
+        loginParams.set('staff', r);
+        window.location.replace(window.location.pathname + '?' + loginParams.toString() + window.location.hash);
+        return;
+      }
+    } catch (e) {}
+  }
   pendingRole = r;
   var titles = { waiter: 'Waiter login', kitchen: 'Kitchen login', admin: 'Admin login' };
   var hints = {
