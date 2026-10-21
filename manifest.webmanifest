@@ -1,20 +1,84 @@
 {
   "id": "./",
-  "name": "Mirch Masaala Digital Menu",
-  "short_name": "Mirch Masaala",
-  "description": "QR-based digital menu and ordering for Mirch Masaala.",
+  "name": "Mirch Masaala",
+  "short_name": "Mirch",
+  "description": "Mirch Masaala menu, ordering and staff workspaces.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
-  "background_color": "#120c0a",
-  "theme_color": "#120c0a",
+  "background_color": "#101012",
+  "theme_color": "#101012",
+  "prefer_related_applications": false,
   "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
     {
       "src": "./icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Waiter workspace",
+      "short_name": "Waiter",
+      "description": "Open waiter sign-in or restore the signed-in waiter session.",
+      "url": "./?staff=waiter",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Kitchen display",
+      "short_name": "Kitchen",
+      "description": "Open kitchen sign-in or restore the signed-in kitchen session.",
+      "url": "./?staff=kitchen",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Owner dashboard",
+      "short_name": "Owner",
+      "description": "Open owner sign-in or restore the signed-in owner session.",
+      "url": "./?staff=admin",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }
