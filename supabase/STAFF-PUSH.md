@@ -17,7 +17,7 @@ The second script creates a private table for each staff device's push subscript
 
 In Supabase Dashboard → Edge Functions → Secrets, add:
 
-- `VAPID_PUBLIC_KEY` = `BFfNaha9B9Qr2km9sJF7nOJ6zc8BGUMp85rVplwULF3BpCF0ut0TFNcEL8vzvG4ya5DFR1ZMRJA5_cB2UGk6kA0`
+- `VAPID_PUBLIC_KEY` = `BH8rULqiO6c1_QtspafwRyxbpHz3V48VXf7If1UTv1u4s3WUyNw5IeUBDMcISfOCoLEM6spSfJ5Jf1TH0xNgjto`
 - `VAPID_PRIVATE_KEY` = keep this private; get the value from the app owner, then paste it into Supabase Secrets only. **Never commit this value to GitHub or place it in browser code.**
 - `VAPID_SUBJECT` = `https://bhadeonkar-cmyk.github.io/mirch-masaala/`
 
