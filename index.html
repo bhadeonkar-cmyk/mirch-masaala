@@ -936,7 +936,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div class="wrap" style="padding-bottom:100px">
     <div class="tip-banner" id="menu-tip">
       <span class="ic">🍽️</span>
-      <div class="tx"><b>How to order:</b> Choose dishes, tap <b>ADD</b>, then open your cart to place the order.</div>
+      <div class="tx"><b id="menu-tip-title">How to order:</b> <span id="menu-tip-message">Choose dishes, tap ADD, then open your cart to place the order.</span></div>
       <button type="button" class="x" onclick="dismissTip('menu-tip')">×</button>
     </div>
     <input class="search" id="search" placeholder="Search dishes…" oninput="drawMenu()" aria-label="Search menu">
@@ -947,25 +947,25 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   </div>
   <div class="bottom customer-bottom">
     <button type="button" class="btn btn-main" id="cart-bar" style="display:none;flex:1" onclick="openCart()">View cart</button>
-    <button type="button" class="btn btn-soft customer-help-btn" onclick="openCustomerActions()">Help & orders</button>
+    <button type="button" class="btn btn-soft customer-help-btn" id="customer-help-button" onclick="openCustomerActions()">Help & orders</button>
   </div>  </div>
 </div>
 
 <div class="drawer" id="cart">
   <div class="topbar">
-    <button type="button" class="back" onclick="closeCart()">← Back to menu</button>
-    <strong class="gold">Your order</strong>
+    <button type="button" class="back" id="cart-back-button" onclick="closeCart()">← Back to menu</button>
+    <strong class="gold" id="cart-title">Your order</strong>
     <span></span>
   </div>
   <div class="body" id="cart-list"></div>
   <div class="foot">
-    <label class="muted" style="font-size:12px">Any special request?</label>
+    <label class="muted" id="cart-note-label" style="font-size:12px">Any special request?</label>
     <textarea id="notes" class="search" style="margin:6px 0;min-height:56px" placeholder="Less spicy…"></textarea>
     <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:800;margin:10px 0">
       <span>Total</span><span class="gold" id="total">₹0</span>
     </div>
-    <button type="button" class="btn btn-main" onclick="placeOrder()">Place order</button>
-    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeCart()">← Change items</button>
+    <button type="button" class="btn btn-main" id="place-order-button" onclick="placeOrder()">Place order</button>
+    <button type="button" class="btn btn-soft" id="cart-change-items" style="margin-top:8px" onclick="closeCart()">← Change items</button>
   </div>
 </div>
 
@@ -1011,9 +1011,9 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 <!-- WAITER -->
 <div id="waiter" class="screen">
   <div class="topbar">
-    <button type="button" class="back" onclick="wShowTables()">← Tables</button>
-    <strong class="gold">Waiter</strong>
-    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><span class="muted" id="w-tbl" style="font-size:12px">Choose table</span></div>
+    <button type="button" class="back" id="w-back-tables" onclick="wShowTables()">← Tables</button>
+    <strong class="gold" id="waiter-header-title">Waiter</strong>
+    <div class="staff-top-actions"><button type="button" id="waiter-language-toggle" onclick="toggleHomeLanguage()" aria-label="भाषा मराठीत बदला" title="भाषा मराठीत बदला" style="min-height:36px;padding:6px 9px;border:1px solid var(--gold);border-radius:9px;background:var(--surface);color:var(--gold2);font-size:12px;font-weight:800">मराठी</button><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><span class="muted" id="w-tbl" style="font-size:12px">Choose table</span></div>
   </div>
   <div id="w-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
   <div class="wrap">
@@ -1021,8 +1021,8 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <div class="table-grid waiter-tables-grid" id="w-tables"></div>
     <div id="w-area" style="display:none">
       <div class="waiter-selected-table">
-        <div><small>TAKING ORDER FOR</small><strong>Table <span id="w-selected-number">01</span></strong></div>
-        <button type="button" class="back" onclick="wShowTables()">← Change table</button>
+        <div><small id="w-taking-order-label">TAKING ORDER FOR</small><strong><span id="w-table-word">Table</span> <span id="w-selected-number">01</span></strong></div>
+        <button type="button" class="back" id="w-change-table" onclick="wShowTables()">← Change table</button>
       </div>
       <section class="waiter-live-queue" id="w-live-orders" aria-label="Orders for selected table"></section>
       <input class="search" id="w-search" placeholder="Search dishes…" oninput="wMenu()" aria-label="Search dishes">
@@ -1031,14 +1031,14 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <div id="w-menu" style="max-height:32vh;overflow:auto;margin-bottom:10px"></div>
       <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px">
         <div style="display:flex;justify-content:space-between;font-weight:800;margin-bottom:6px">
-          <span>Ticket</span><span class="gold" id="w-total">₹0</span>
+          <span id="w-ticket-label">Ticket</span><span class="gold" id="w-total">₹0</span>
         </div>
         <div id="w-cart" class="muted" style="font-size:13px;min-height:40px"></div>
         <textarea id="w-notes" class="search" placeholder="Guest note…" style="min-height:48px" oninput="saveWaiterDraft()"></textarea>
-        <button type="button" class="btn btn-main" onclick="wSend()">Send to kitchen</button>
+        <button type="button" class="btn btn-main" id="w-send-button" onclick="wSend()">Send to kitchen</button>
       </div>
     </div>
-    <button type="button" class="waiter-signout-link" onclick="confirmWaiterSignOut()">Sign out</button>
+    <button type="button" class="waiter-signout-link" id="w-signout-button" onclick="confirmWaiterSignOut()">Sign out</button>
   </div>
 </div>
 
@@ -1272,7 +1272,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <p class="muted" id="sp-desc" style="margin-bottom:12px"></p>
     <p class="gold" style="font-size:22px;font-weight:800" id="sp-price"></p>
     <button type="button" class="btn btn-main" style="margin-top:12px" id="sp-add">Add to cart</button>
-    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeSpecial()">Not now</button>
+    <button type="button" class="btn btn-soft" id="sp-not-now" style="margin-top:8px" onclick="closeSpecial()">Not now</button>
   </div>
 </div>
 
@@ -1281,13 +1281,13 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 <div class="modal" id="waiter-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="waiter-confirm-title">
   <div class="box waiter-confirm-box">
     <h3 id="waiter-confirm-title" class="gold">Check order before sending</h3>
-    <p class="muted" style="margin:6px 0 12px">Please check the table, food and guest note.</p>
-    <div class="waiter-confirm-table">TABLE <strong id="w-confirm-table">—</strong></div>
+    <p class="muted" id="waiter-confirm-subtitle" style="margin:6px 0 12px">Please check the table, food and guest note.</p>
+    <div class="waiter-confirm-table"><span id="w-confirm-table-label">TABLE</span> <strong id="w-confirm-table">—</strong></div>
     <div id="w-confirm-items" class="waiter-confirm-items"></div>
     <div class="waiter-confirm-total"><span>Total</span><strong id="w-confirm-total">₹0</strong></div>
     <div id="w-confirm-note" class="waiter-confirm-note" style="display:none"></div>
-    <button type="button" class="btn btn-main" style="margin-top:14px" onclick="confirmWaiterSend()">✓ Confirm &amp; send to kitchen</button>
-    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeWaiterConfirm()">← Back to edit</button>
+    <button type="button" class="btn btn-main" id="waiter-confirm-send" style="margin-top:14px" onclick="confirmWaiterSend()">✓ Confirm &amp; send to kitchen</button>
+    <button type="button" class="btn btn-soft" id="waiter-confirm-edit" style="margin-top:8px" onclick="closeWaiterConfirm()">← Back to edit</button>
   </div>
 </div>
 
