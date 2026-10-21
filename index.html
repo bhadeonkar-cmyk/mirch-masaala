@@ -7,7 +7,7 @@
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Masaala">
+<meta name="apple-mobile-web-app-title" content="Mirch Masaala">
 <meta name="mobile-web-app-capable" content="yes">\n<meta name="application-name" content="Mirch Masaala">
 <meta name="theme-color" content="#120c0a">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -1737,7 +1737,7 @@ if (document.readyState === 'loading') {
   bootApp();
 }
 
-/* Service worker intentionally disabled in the single-file build. This avoids stale mobile caches. */
+/* The PWA service worker is registered separately near the page end; app content is not cached. */
  }
 
 function drawCats() {
@@ -3014,7 +3014,7 @@ if (document.readyState === 'loading') {
   bootApp();
 }
 
-/* Service worker intentionally disabled in the single-file build to prevent stale mobile caches. */
+/* The PWA service worker is registered separately near the page end; app content is not cached. */
  toast(isOpen ? 'Open' : 'Closed');
 }
 function tab(btn, name) {
@@ -4079,7 +4079,7 @@ if (document.readyState === 'loading') {
   bootApp();
 }
 
-/* Service worker intentionally disabled in the single-file build to prevent stale mobile caches. */
+/* The PWA service worker is registered separately near the page end; app content is not cached. */
 
 window.drawAdminMenu = drawAdminMenu;
 window.saveItemPrice = saveItemPrice;
