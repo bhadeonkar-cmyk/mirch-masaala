@@ -1556,7 +1556,7 @@ function openSpecial(id) {
   document.getElementById('sp-add').onclick = function() {
     add(id);
     closeSpecial();
-    toast('Added · ' + item.name);
+    toast(window.mmI18n('Added · ','पदार्थ जोडला · ') + window.mmDishName(item));
   };
   document.getElementById('special-modal').classList.add('on');
 }
@@ -1918,7 +1918,7 @@ function makeTicketId(tableNo, date) {
   return 'T'+String(tableNo).padStart(2,'0')+'-'+day+'-'+clock+'-'+random;
 }
 function placeOrder() {
-  if (window.MM_SUPABASE_REQUIRED && !window.MM_SUPABASE_ENABLED) { toast('Online ordering is connecting. Please wait a moment and try again.'); return; }
+  if (window.MM_SUPABASE_REQUIRED && !window.MM_SUPABASE_ENABLED) { toast(window.mmI18n('Online ordering is connecting. Please wait a moment and try again.','ऑनलाइन ऑर्डर जोडली जात आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.')); return; }
   if (!cart.length) return;
   var date = new Date();
   var id = makeTicketId(table, date);
@@ -2633,7 +2633,7 @@ function wShowTables() {
   var area = document.getElementById('w-area'); if (area) area.style.display = 'none';
   var picker = document.getElementById('w-tables'); if (picker) picker.style.display = 'grid';
   var hint = document.getElementById('w-table-picker-hint'); if (hint) hint.style.display = 'block';
-  var label = document.getElementById('w-tbl'); if (label) label.textContent = 'Choose table';
+  var label = document.getElementById('w-tbl'); if (label) label.textContent = window.mmI18n('Choose table','टेबल निवडा');
   renderWaiterTables();
   drawWaiterOrders();
 }
@@ -2735,7 +2735,7 @@ function wDrawCart() {
   updateWaiterTableIndicators();
 }
 function openWaiterConfirm() {
-  if (role !== 'waiter') { toast('Please use the waiter login to send this order.'); return; }
+  if (role !== 'waiter') { toast(window.mmI18n('Please use the waiter login to send this order.','ऑर्डर पाठवण्यासाठी वेटर लॉगिन वापरा.')); return; }
   if (!wTable || !Array.isArray(wCart) || !wCart.length) { toast('Choose a table and add food first.'); return; }
   if (window.MM_SUPABASE_REQUIRED && !window.MM_SUPABASE_ENABLED) { toast('Order connection is loading. Please wait a moment.'); return; }
   var tableHost = document.getElementById('w-confirm-table');
@@ -2763,19 +2763,19 @@ function closeWaiterConfirm() {
   if (modal) modal.classList.remove('on');
 }
 function confirmWaiterSend() {
-  if (role !== 'waiter') { closeWaiterConfirm(); toast('Waiter login required.'); return; }
-  if (!wTable || !Array.isArray(wCart) || !wCart.length) { closeWaiterConfirm(); toast('Order is empty. Please add food.'); return; }
+  if (role !== 'waiter') { closeWaiterConfirm(); toast(window.mmI18n('Waiter login required.','वेटर लॉगिन आवश्यक आहे.')); return; }
+  if (!wTable || !Array.isArray(wCart) || !wCart.length) { closeWaiterConfirm(); toast(window.mmI18n('Order is empty. Please add food.','ऑर्डर रिकामी आहे. कृपया पदार्थ जोडा.')); return; }
   if (window.MM_ORDER_SENDING) return;
   closeWaiterConfirm();
   window.MM_WAITER_CONFIRMATION_APPROVED = true;
   if (typeof window.wSend === 'function') window.wSend();
 }
 function wSend() {
-  if (role !== 'waiter') { toast('Please use the waiter login to send this order.'); return; }
+  if (role !== 'waiter') { toast(window.mmI18n('Please use the waiter login to send this order.','ऑर्डर पाठवण्यासाठी वेटर लॉगिन वापरा.')); return; }
   if (!window.MM_WAITER_CONFIRMATION_APPROVED) { openWaiterConfirm(); return; }
   window.MM_WAITER_CONFIRMATION_APPROVED = false;
-  if (window.MM_SUPABASE_REQUIRED && !window.MM_SUPABASE_ENABLED) { toast('Online ordering is connecting. Please wait a moment and try again.'); return; }
-  if (!wTable || !wCart.length) { toast('Pick table & add food'); return; }
+  if (window.MM_SUPABASE_REQUIRED && !window.MM_SUPABASE_ENABLED) { toast(window.mmI18n('Online ordering is connecting. Please wait a moment and try again.','ऑनलाइन ऑर्डर जोडली जात आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.')); return; }
+  if (!wTable || !wCart.length) { toast(window.mmI18n('Pick table & add food','टेबल निवडा आणि पदार्थ जोडा')); return; }
   var date = new Date();
   var id = makeTicketId(wTable, date);
   var notes = (document.getElementById('w-notes').value || '').trim();
@@ -2787,7 +2787,7 @@ function wSend() {
     createdAt: date.toISOString(), cancelUntil: date.getTime() + CANCEL_MS
   });
   save('mm_o', orders); wCart = []; wDrafts[wTable] = []; wNotesDrafts[wTable] = []; document.getElementById('w-notes').value = '';
-  wDrawCart(); wMenu(); drawWaiterOrders(); toast('Ticket ' + id + ' sent · Table ' + wTable);
+  wDrawCart(); wMenu(); drawWaiterOrders(); toast(window.mmI18n('Ticket ','ऑर्डर ') + id + window.mmI18n(' sent · Table ',' पाठवली · टेबल ') + wTable);
 }
 
 function drawWaiterOrders() {
@@ -2831,7 +2831,7 @@ function enterKitchen() {
 }
 function setStatus(id, st) {
   var o = orders.find(function(x){ return x.id === id; }); if (!o) return;
-  o.status = st; save('mm_o', orders); drawK(); drawAdminOrders(); refreshProgressViews(); toast(st);
+  o.status = st; save('mm_o', orders); drawK(); drawAdminOrders(); refreshProgressViews(); toast(window.mmI18n(st, ({NEW:'नवीन',PREPARING:'बनत आहे',COOKING:'बनत आहे',READY:'तयार',SERVED:'वाढले',CANCELLED:'रद्द',PAID:'पैसे भरले'})[st] || st));
 }
 function drawK() {
   var time = document.getElementById('k-time');
