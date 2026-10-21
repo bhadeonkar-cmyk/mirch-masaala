@@ -8,10 +8,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Masaala">
-<meta name="mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">\n<meta name="application-name" content="Mirch Masaala">
 <meta name="theme-color" content="#120c0a">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="apple-touch-icon" href="./icon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
 <link rel="icon" type="image/svg+xml" href="./icon.svg">
 
 <title>Mirch Masaala</title>
@@ -757,6 +758,24 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .waiter-confirm-box .btn{width:100%;min-height:46px;font-size:13px}
 @media(max-width:370px){.waiter-confirm-box{padding:15px}.waiter-confirm-item{font-size:12px}}
 
+
+/* Installable staff app help. */
+.install-staff-btn{margin-top:6px;min-height:44px;padding:10px 14px;font-size:13px}
+.install-staff-caption{text-align:center;font-size:11px!important;margin:6px 0 2px}
+.install-modal-box{width:calc(100% - 28px);max-width:460px;max-height:82vh;overflow:auto;text-align:left}
+.install-modal-box h3{text-align:center;font-size:19px;margin:4px 0 8px}
+.install-app-icon{display:flex;justify-content:center;margin-bottom:6px}
+.install-app-icon img{border-radius:15px;box-shadow:0 4px 12px rgba(0,0,0,.22)}
+.install-app-steps{margin:13px 0;display:grid;gap:9px}
+.install-step{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.install-step-num{flex:0 0 26px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface);color:var(--gold2);font-size:12px;font-weight:900}
+.install-step-text{font-size:13px;line-height:1.45;color:var(--text)}
+.install-step-text small{display:block;font-size:11px;line-height:1.4;margin-top:2px;color:var(--muted)}
+.install-shortcut-links{display:grid;gap:6px;margin:12px 0}
+.install-shortcut-links a{display:block;padding:10px 12px;border:1px solid var(--line);border-radius:9px;color:var(--gold2);font-size:12px;text-decoration:none;font-weight:700}
+.install-app-small{font-size:10px!important;line-height:1.4;margin:8px 0 12px}
+.install-modal-box>.btn{min-height:44px;font-size:13px}
+
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -833,6 +852,8 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <button type="button" class="btn btn-soft" id="staff-open-btn" style="font-size:13px;opacity:.85" onclick="showStaffPanel()">🔐 Staff access</button>
       <div id="staff-panel" style="display:none;margin-top:12px">
         <p class="muted" style="font-size:12px;margin-bottom:8px">Authorised team only. Ask the owner for your login details.</p>
+        <button type="button" class="btn btn-main install-staff-btn" onclick="installMirchMasaalaApp()">⬇ Install staff app</button>
+        <p class="muted install-staff-caption">Add one icon to your home screen for quick, full-screen access.</p>
         <button type="button" class="big-link" onclick="openLogin('waiter')">
           <span class="ic">🛎️</span>
           <span>Waiter Pad<small>Staff login required</small></span>
@@ -1261,6 +1282,23 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <div id="w-confirm-note" class="waiter-confirm-note" style="display:none"></div>
     <button type="button" class="btn btn-main" style="margin-top:14px" onclick="confirmWaiterSend()">✓ Confirm &amp; send to kitchen</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeWaiterConfirm()">← Back to edit</button>
+  </div>
+</div>
+
+
+<div class="modal" id="install-app-modal" role="dialog" aria-modal="true" aria-labelledby="install-app-title">
+  <div class="box install-modal-box">
+    <div class="install-app-icon"><img src="./icons/icon-192.png" width="64" height="64" alt="Mirch Masaala app icon"></div>
+    <h3 id="install-app-title" class="gold">Install Mirch Masaala</h3>
+    <p id="install-app-intro" class="muted">Install it once on each staff device. Tap the icon to open the app without the browser address bar.</p>
+    <div id="install-app-steps" class="install-app-steps"></div>
+    <div class="install-shortcut-links">
+      <a href="./?staff=waiter">Waiter login link</a>
+      <a href="./?staff=kitchen">Kitchen login link</a>
+      <a href="./?staff=admin">Owner login link</a>
+    </div>
+    <p class="muted install-app-small">These shortcuts still require the assigned staff login. The app never saves the password itself.</p>
+    <button type="button" class="btn btn-main" onclick="closeInstallAppHelp()">Got it</button>
   </div>
 </div>
 
@@ -4053,6 +4091,79 @@ window.selectHomeTable = selectHomeTable;
 window.continueHomeTable = continueHomeTable;
 window.setWDietFilter = setWDietFilter;
 </script>
+<script>
+(function () {
+  var deferredInstallPrompt = null;
+  var modal = function () { return document.getElementById('install-app-modal'); };
+  var stepsHost = function () { return document.getElementById('install-app-steps'); };
+  function isStandaloneApp() {
+    return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || !!navigator.standalone;
+  }
+  function setSteps() {
+    var host = stepsHost(); if (!host) return;
+    var ua = navigator.userAgent || '';
+    var isiOS = /iPhone|iPad|iPod/i.test(ua) ||
+      (navigator.platform === 'MacIntel' && Number(navigator.maxTouchPoints || 0) > 1);
+    var isAndroid = /Android/i.test(ua);
+    var rows = isiOS ? [
+      ['Open in Safari','Use Safari for the first installation, not an in-app browser.'],
+      ['Tap Share','Tap the Share icon, then choose “Add to Home Screen”.'],
+      ['Enable app mode','Turn on “Open as Web App”, then tap Add.'],
+      ['Open the new icon','Tap Mirch Masaala on the home screen. Sign in once; the secure session can be restored on this device.']
+    ] : isAndroid ? [
+      ['Open in Chrome','Use Chrome and open the Mirch Masaala website.'],
+      ['Install','Tap ⋮ in Chrome, then “Install app” or “Add to Home screen”.'],
+      ['Open the icon','Tap Mirch Masaala from your home screen.'],
+      ['Sign in once','Choose your role and use the login supplied by the owner. The app restores the secure session on this device.']
+    ] : [
+      ['Install','Use the Install icon in the address bar, or your browser menu → Install app / Create shortcut.'],
+      ['Open the icon','Launch Mirch Masaala from your home screen, desktop or app list.'],
+      ['Sign in once','Choose your staff role and use the login supplied by the owner.'],
+      ['Role shortcuts','Where supported, long-press the installed icon for direct Waiter, Kitchen and Owner shortcuts.']
+    ];
+    host.innerHTML = rows.map(function (r,i) {
+      return '<div class="install-step"><span class="install-step-num">' + (i+1) + '</span><div class="install-step-text"><b>' + r[0] + '</b><small>' + r[1] + '</small></div></div>';
+    }).join('');
+  }
+  window.closeInstallAppHelp = function () {
+    var m = modal(); if (m) m.classList.remove('on');
+  };
+  window.installMirchMasaalaApp = async function () {
+    if (isStandaloneApp()) {
+      if (typeof window.toast === 'function') window.toast('Mirch Masaala is already open as an app.');
+      return;
+    }
+    if (deferredInstallPrompt) {
+      try {
+        await deferredInstallPrompt.prompt();
+        var result = await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        if (result && result.outcome === 'accepted') {
+          if (typeof window.toast === 'function') window.toast('Installing Mirch Masaala…');
+          return;
+        }
+      } catch (e) {}
+    }
+    setSteps();
+    var m = modal(); if (m) m.classList.add('on');
+  };
+  window.addEventListener('beforeinstallprompt', function (event) {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+  });
+  window.addEventListener('appinstalled', function () {
+    deferredInstallPrompt = null;
+    if (typeof window.toast === 'function') window.toast('Mirch Masaala app installed.');
+  });
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+        .catch(function (err) { console.info('[Mirch Masaala PWA] Service worker registration unavailable:', err && err.message ? err.message : err); });
+    }, { once: true });
+  }
+})();
+</script>
+
 <script src="./supabase-live.js"></script>
 </body>
 </html>
