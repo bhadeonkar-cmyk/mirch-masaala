@@ -1536,7 +1536,7 @@ function drawSpecials() {
   el.innerHTML = picks.map(function(item) {
     return '<button type="button" class="special-chip" onclick="openSpecial(' + item.id + ')">' +
       '<div class="em">' + foodEmoji(item) + '</div>' +
-      '<div class="nm">' + item.name + '</div>' +
+      '<div class="nm">' + esc(window.mmDishName(item)) + '</div>' +
       '<div class="pr">₹' + item.price + '</div></button>';
   }).join('');
 }
@@ -1546,8 +1546,12 @@ function openSpecial(id) {
   if (!item) return;
   specialItemId = id;
   document.getElementById('sp-emoji').textContent = foodEmoji(item);
-  document.getElementById('sp-title').textContent = item.name;
-  document.getElementById('sp-desc').textContent = item.description || (item.is_veg ? 'Vegetarian chef pick' : 'Chef special recommendation');
+  document.getElementById('sp-title').textContent = window.mmDishName(item);
+  document.getElementById('sp-desc').textContent = window.mmDishDescription(item) || window.mmI18n('Vegetarian chef pick','शेफची शाकाहारी खास निवड');
+  var specialAdd = document.getElementById('sp-add');
+  if (specialAdd) specialAdd.textContent = window.mmI18n('Add to cart','कार्टमध्ये जोडा');
+  var specialNotNow = document.getElementById('sp-not-now');
+  if (specialNotNow) specialNotNow.textContent = window.mmI18n('Not now','आत्ता नको');
   document.getElementById('sp-price').textContent = '₹' + item.price;
   document.getElementById('sp-add').onclick = function() {
     add(id);
@@ -1758,15 +1762,19 @@ if (document.readyState === 'loading') {
  }
 
 function drawCats() {
-  var h = '<button type="button" class="cat' + (cat==='all'?' on':'') + '" onclick="setCat(\'all\')">All</button>';
+  var h = '<button type="button" class="cat' + (cat==='all'?' on':'') + '" onclick="setCat(\'all\')">' + window.mmI18n('All','सर्व') + '</button>';
   MENU.categories.filter(function(c){return c.is_visible;}).forEach(function(c) {
-    h += '<button type="button" class="cat' + (cat===c.slug?' on':'') + '" onclick="setCat(\'' + c.slug + '\')">' + c.name + '</button>';
+    h += '<button type="button" class="cat' + (cat===c.slug?' on':'') + '" onclick="setCat(\'' + c.slug + '\')">' + esc(window.mmCategoryName(c)) + '</button>';
   });
   document.getElementById('cats').innerHTML = h;
 }
 function renderDietButtons(hostId, selected, setterName) {
   var el = document.getElementById(hostId); if (!el) return;
-  var options = [{key:'all',label:'🍽️ All foods'},{key:'veg',label:'🟢 Veg only'},{key:'nonveg',label:'🔴 Non-veg only'}];
+  var options = [
+    {key:'all',label:'🍽️ ' + window.mmI18n('All foods','सर्व पदार्थ')},
+    {key:'veg',label:'🟢 ' + window.mmI18n('Veg only','फक्त शाकाहारी')},
+    {key:'nonveg',label:'🔴 ' + window.mmI18n('Non-veg only','फक्त मांसाहारी')}
+  ];
   el.innerHTML = options.map(function(o) {
     return '<button type="button" class="diet-filter' + (selected === o.key ? ' on' : '') + '" aria-pressed="' + (selected === o.key) + '" onclick="' + setterName + '(&quot;' + o.key + '&quot;)">' + o.label + '</button>';
   }).join('');
@@ -1785,25 +1793,27 @@ function drawMenu() {
   if (dietFilter === 'nonveg') items = items.filter(function(i){ return !i.is_veg; });
   if (q) items = items.filter(function(i){
     var name=String(i.name||'').toLocaleLowerCase();
+    var localizedName=String(window.mmDishName(i)||'').toLocaleLowerCase();
     var description=String(i.description||'').toLocaleLowerCase();
-    return name.indexOf(q)>=0 || description.indexOf(q)>=0;
+    var localizedDescription=String(window.mmDishDescription(i)||'').toLocaleLowerCase();
+    return name.indexOf(q)>=0 || localizedName.indexOf(q)>=0 || description.indexOf(q)>=0 || localizedDescription.indexOf(q)>=0;
   });
   document.getElementById('menu').innerHTML = items.map(function(item) {
     var inC = cart.find(function(c){ return c.id === item.id; });
     return '<div class="card"><div class="pic">' + (item.is_veg?'🥗':'🍖') + '</div><div style="flex:1;min-width:0">' +
-      '<div class="name"><span class="' + (item.is_veg?'veg':'nonveg') + '"></span>' + item.name + '</div>' +
-      (item.description ? '<div class="desc">' + item.description + '</div>' : '') +
+      '<div class="name"><span class="' + (item.is_veg?'veg':'nonveg') + '"></span>' + esc(window.mmDishName(item)) + '</div>' +
+      (item.description ? '<div class="desc">' + esc(window.mmDishDescription(item)) + '</div>' : '') +
       '<div class="row"><span class="price">₹' + item.price + '</span>' +
       (inC ? '<div class="qty"><button type="button" onclick="qty(' + item.id + ',-1)">−</button><b>' + inC.qty + '</b><button type="button" class="p" onclick="qty(' + item.id + ',1)">+</button></div>'
-           : '<button type="button" class="add" onclick="add(' + item.id + ')">ADD</button>') +
+           : '<button type="button" class="add" onclick="add(' + item.id + ')">' + window.mmI18n('ADD','जोडा') + '</button>') +
       '</div></div></div>';
-  }).join('') || '<p class="muted center" style="padding:30px">No items</p>';
+  }).join('') || '<p class="muted center" style="padding:30px">' + window.mmI18n('No items','पदार्थ उपलब्ध नाहीत') + '</p>';
 }
 function add(id) {
   var item = MENU.menu_items.find(function(i){ return i.id === id; }); if (!item) return;
   var ex = cart.find(function(c){ return c.id === id; });
   if (ex) ex.qty++; else cart.push({ id: id, name: item.name, price: item.price, qty: 1 });
-  save('mm_c_' + table, cart); drawMenu(); updCart(); toast('Added');
+  save('mm_c_' + table, cart); drawMenu(); updCart(); toast(window.mmI18n('Added','पदार्थ जोडला'));
 }
 function qty(id, d) {
   var c = cart.find(function(x){ return x.id === id; }); if (!c) return;
@@ -1816,7 +1826,7 @@ function updCart() {
   var tot = cart.reduce(function(s,c){ return s + c.price * c.qty; }, 0);
   document.getElementById('badge').textContent = n;
   var bar = document.getElementById('cart-bar');
-  if (n > 0) { bar.style.display = 'flex'; bar.textContent = '🛒 View cart · ' + n + ' items · ₹' + tot; }
+  if (n > 0) { bar.style.display = 'flex'; bar.textContent = '🛒 ' + window.mmI18n('View cart','कार्ट पहा') + ' · ' + n + ' ' + window.mmI18n('items','पदार्थ') + ' · ₹' + tot; }
   else bar.style.display = 'none';
 }
 function openCart() {
@@ -1829,9 +1839,9 @@ function closeCart() {
 }
 function drawCart() {
   var el = document.getElementById('cart-list');
-  if (!cart.length) { el.innerHTML = '<p class="muted center" style="padding:40px">Cart empty</p>'; document.getElementById('total').textContent = '₹0'; return; }
+  if (!cart.length) { el.innerHTML = '<p class="muted center" style="padding:40px">' + window.mmI18n('Cart empty','कार्ट रिकामी आहे') + '</p>'; document.getElementById('total').textContent = '₹0'; return; }
   el.innerHTML = cart.map(function(c) {
-    return '<div class="card"><div style="flex:1"><div class="name">' + c.name + '</div><div class="desc">₹' + c.price + '</div></div>' +
+    return '<div class="card"><div style="flex:1"><div class="name">' + esc(window.mmDishName(c.name)) + '</div><div class="desc">₹' + c.price + '</div></div>' +
       '<div class="qty"><button type="button" onclick="qty(' + c.id + ',-1)">−</button><b>' + c.qty + '</b><button type="button" class="p" onclick="qty(' + c.id + ',1)">+</button></div>' +
       '<div class="price" style="width:56px;text-align:right">₹' + (c.price*c.qty) + '</div></div>';
   }).join('');
@@ -2683,9 +2693,9 @@ function pickW(n, card) {
   drawWDietFilters(); wCats(); wMenu(); wDrawCart(); drawWaiterOrders();
 }
 function wCats() {
-  var h = '<button type="button" class="cat' + (wCat==='all'?' on':'') + '" onclick="setWC(\'all\')">All</button>';
+  var h = '<button type="button" class="cat' + (wCat==='all'?' on':'') + '" onclick="setWC(\'all\')">' + window.mmI18n('All','सर्व') + '</button>';
   MENU.categories.filter(function(c){return c.is_visible;}).forEach(function(c) {
-    h += '<button type="button" class="cat' + (wCat===c.slug?' on':'') + '" onclick="setWC(\'' + c.slug + '\')">' + c.name + '</button>';
+    h += '<button type="button" class="cat' + (wCat===c.slug?' on':'') + '" onclick="setWC(\'' + c.slug + '\')">' + esc(window.mmCategoryName(c)) + '</button>';
   });
   document.getElementById('w-cats').innerHTML = h;
 }
@@ -2696,13 +2706,16 @@ function wMenu() {
   if (wCat !== 'all') items = items.filter(function(i){ return i.category_slug === wCat; });
   if (wDietFilter === 'veg') items = items.filter(function(i){ return i.is_veg; });
   if (wDietFilter === 'nonveg') items = items.filter(function(i){ return !i.is_veg; });
-  if (q) items = items.filter(function(i){ return i.name.toLowerCase().indexOf(q) >= 0; });
+  if (q) items = items.filter(function(i){
+    return String(i.name||'').toLocaleLowerCase().indexOf(q) >= 0 ||
+      String(window.mmDishName(i)||'').toLocaleLowerCase().indexOf(q) >= 0;
+  });
   document.getElementById('w-menu').innerHTML = items.map(function(item) {
     var inC = wCart.find(function(c){ return c.id === item.id; });
-    return '<div class="card" style="padding:10px"><div class="pic" style="width:44px;height:44px;font-size:20px">' + (item.is_veg?'🥗':'🍖') + '</div><div style="flex:1"><div class="name" style="font-size:14px">' + item.name + '</div><div class="row"><span class="price">₹' + item.price + '</span>' +
+    return '<div class="card" style="padding:10px"><div class="pic" style="width:44px;height:44px;font-size:20px">' + (item.is_veg?'🥗':'🍖') + '</div><div style="flex:1"><div class="name" style="font-size:14px">' + esc(window.mmDishName(item)) + '</div><div class="row"><span class="price">₹' + item.price + '</span>' +
       (inC ? '<div class="qty"><button type="button" onclick="wQty(' + item.id + ',-1)">−</button><b>' + inC.qty + '</b><button type="button" class="p" onclick="wQty(' + item.id + ',1)">+</button></div>'
-           : '<button type="button" class="add" onclick="wAdd(' + item.id + ')">ADD</button>') + '</div></div></div>';
-  }).join('');
+           : '<button type="button" class="add" onclick="wAdd(' + item.id + ')">' + window.mmI18n('ADD','जोडा') + '</button>') + '</div></div></div>';
+  }).join('') || '<p class="muted center" style="padding:18px">' + window.mmI18n('No items','पदार्थ उपलब्ध नाहीत') + '</p>';
 }
 function wAdd(id) {
   var item = MENU.menu_items.find(function(i){ return i.id === id; });
@@ -2717,7 +2730,7 @@ function wQty(id, d) {
 }
 function wDrawCart() {
   document.getElementById('w-total').textContent = '₹' + wCart.reduce(function(s,c){ return s + c.price*c.qty; }, 0);
-  document.getElementById('w-cart').innerHTML = wCart.length ? wCart.map(function(c){ return c.qty + '× ' + esc(c.name); }).join('<br>') : 'Empty';
+  document.getElementById('w-cart').innerHTML = wCart.length ? wCart.map(function(c){ return c.qty + '× ' + esc(window.mmDishName(c.name)); }).join('<br>') : window.mmI18n('Empty','रिकामी');
   if (wTable) wDrafts[wTable] = (wCart || []).map(function (item) { return Object.assign({}, item); });
   updateWaiterTableIndicators();
 }
@@ -2736,11 +2749,11 @@ function openWaiterConfirm() {
   if (totalHost) totalHost.textContent = '₹' + total.toLocaleString('en-IN');
   if (itemsHost) itemsHost.innerHTML = wCart.map(function(item){
     var qty = Math.max(1,Number(item.qty)||1);
-    return '<div class="waiter-confirm-item"><span class="waiter-confirm-item-qty">' + qty + ' ×</span><span class="waiter-confirm-item-name">' + esc(item.name || 'Item') + '</span><span class="waiter-confirm-item-price">₹' + ((Number(item.price)||0)*qty).toLocaleString('en-IN') + '</span></div>';
+    return '<div class="waiter-confirm-item"><span class="waiter-confirm-item-qty">' + qty + ' ×</span><span class="waiter-confirm-item-name">' + esc(window.mmDishName(item.name || 'Item')) + '</span><span class="waiter-confirm-item-price">₹' + ((Number(item.price)||0)*qty).toLocaleString('en-IN') + '</span></div>';
   }).join('');
   if (noteHost) {
     noteHost.style.display = notes ? 'block' : 'none';
-    noteHost.innerHTML = notes ? '<b>Guest note</b><div>' + esc(notes) + '</div>' : '';
+    noteHost.innerHTML = notes ? '<b>' + window.mmI18n('Guest note','ग्राहकाची नोंद') + '</b><div>' + esc(notes) + '</div>' : '';
   }
   var modal = document.getElementById('waiter-confirm-modal');
   if (modal) modal.classList.add('on');
@@ -2790,19 +2803,19 @@ function drawWaiterOrders() {
       (Date.now() - new Date(o.createdAt || 0).getTime() < 12 * 60 * 60 * 1000);
   }).sort(function (a, b) { return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); }).slice(0, 5);
   var activeCount = relevant.filter(function(o){ return ['NEW','PREPARING','READY'].indexOf(String(o.status || '').toUpperCase()) >= 0; }).length;
-  var head = '<div class="waiter-queue-heading"><b>Table ' + esc(currentTable) + ' · recent tickets</b><span>' + (activeCount ? activeCount + ' active' : 'No active tickets') + '</span></div>';
+  var head = '<div class="waiter-queue-heading"><b>' + window.mmI18n('Table','टेबल') + ' ' + esc(currentTable) + ' · ' + window.mmI18n('recent tickets','अलीकडील ऑर्डर्स') + '</b><span>' + (activeCount ? activeCount + ' ' + window.mmI18n('active','सुरू') : window.mmI18n('No active tickets','सध्या ऑर्डर नाहीत')) + '</span></div>';
   if (!relevant.length) {
-    host.innerHTML = head + '<p class="muted" style="font-size:12px">No order yet for this table. Add the guest’s dishes below.</p>';
+    host.innerHTML = head + '<p class="muted" style="font-size:12px">' + window.mmI18n('No order yet for this table. Add the guest’s dishes below.','या टेबलसाठी अजून ऑर्डर नाही. खाली पदार्थ निवडा.') + '</p>';
     return;
   }
   host.innerHTML = head + '<div class="waiter-order-list">' + relevant.map(function (o) {
     var st = String(o.status || 'NEW').toUpperCase();
     var kind = st === 'READY' ? 'ready' : (st === 'PREPARING' ? 'preparing' : st === 'SERVED' ? 'served' : 'new');
     var cleanNote = String(o.notes || '').replace(/^\[Waiter\]\s*/, '').trim();
-    return '<article class="waiter-order-card ' + kind + '"><div class="waiter-order-head"><b>#' + esc(o.orderNumber || o.id || '') + '</b><span class="waiter-order-status">' + (st === 'PREPARING' ? 'COOKING' : st) + '</span></div>' +
-      '<div class="waiter-order-items">' + (o.items || []).map(function (item) { return '<div>' + (Number(item.qty) || 1) + '× ' + esc(item.name || '') + '</div>'; }).join('') +
+    return '<article class="waiter-order-card ' + kind + '"><div class="waiter-order-head"><b>#' + esc(o.orderNumber || o.id || '') + '</b><span class="waiter-order-status">' + window.mmI18n(st === 'PREPARING' ? 'COOKING' : st, ({NEW:'नवीन',PREPARING:'बनत आहे',COOKING:'बनत आहे',READY:'तयार',SERVED:'वाढले',CANCELLED:'रद्द',PAID:'पैसे भरले'})[st] || st) + '</span></div>' +
+      '<div class="waiter-order-items">' + (o.items || []).map(function (item) { return '<div>' + (Number(item.qty) || 1) + '× ' + esc(window.mmDishName(item.name || '')) + '</div>'; }).join('') +
       (cleanNote ? '<div class="waiter-order-note">Guest note: ' + esc(cleanNote) + '</div>' : '') + '</div>' +
-      (st === 'READY' ? '<button type="button" class="btn btn-ok waiter-serve-btn" onclick="setStatus(\'' + String(o.id || '').replace(/'/g, '') + '\',\'SERVED\')">Food served ✓</button>' : '') + '</article>';
+      (st === 'READY' ? '<button type="button" class="btn btn-ok waiter-serve-btn" onclick="setStatus(\'' + String(o.id || '').replace(/'/g, '') + '\',\'SERVED\')">' + window.mmI18n('Food served ✓','जेवण दिले ✓') + '</button>' : '') + '</article>';
   }).join('') + '</div>';
 }
 
