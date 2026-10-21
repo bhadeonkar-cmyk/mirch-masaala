@@ -749,26 +749,36 @@
       var rememberBox = document.getElementById('remember-staff-login');
       saveRememberedUsername(actualRole, username, !rememberBox || rememberBox.checked);
       if (err) err.style.display = 'none';
-      await loadMenu(true, true);
-      if (loginFlowVersion !== staffAuthFlowVersion) return;
-      await refreshStaffOrders();
-      if (loginFlowVersion !== staffAuthFlowVersion) return;
-      notifySuccess('Signed in as ' + actualRole + '. Shared orders are connected.');
+
+      // Do not hold the login screen open while menu and order data load.
+      // Both password and staff-role validation are complete; open the correct
+      // role workspace immediately and refresh shared data in the background.
+      notifySuccess('Signed in as ' + actualRole + '.');
       if (actualRole === 'waiter') {
         window.go('waiter');
-        window.enterWaiter();
+        if (typeof window.enterWaiter === 'function') window.enterWaiter();
       } else if (actualRole === 'kitchen') {
         window.go('kitchen');
-        window.enterKitchen();
+        if (typeof window.enterKitchen === 'function') window.enterKitchen();
       } else {
         window.go('admin');
-        window.enterAdmin();
+        if (typeof window.enterAdmin === 'function') window.enterAdmin();
         loadWhatsAppSettings().then(function () {
           if (typeof window.drawSettings === 'function' && document.getElementById('a-settings') && document.getElementById('a-settings').style.display !== 'none') window.drawSettings();
         }).catch(function (e) {
           console.info('[Mirch Masaala] WhatsApp settings use local defaults until CRM SQL is applied:', e.message || e);
         });
       }
+
+      Promise.resolve().then(function () {
+        if (loginFlowVersion !== staffAuthFlowVersion) return;
+        return loadMenu(true, true);
+      }).then(function () {
+        if (loginFlowVersion !== staffAuthFlowVersion) return;
+        return refreshStaffOrders();
+      }).catch(function (e) {
+        console.warn('[Mirch Masaala] Background staff data refresh:', e && e.message ? e.message : e);
+      });
     } catch (e) {
       if (loginFlowVersion !== staffAuthFlowVersion) return;
       if (err) { err.style.display = 'block'; err.textContent = e && e.message ? e.message : 'Sign-in failed. Check the username and password.'; }
@@ -890,12 +900,7 @@
         return;
       }
       window.role = actualRole;
-      await loadMenu(true, true);
-      if (restoreFlowVersion !== staffAuthFlowVersion) return;
-      await refreshStaffOrders();
-      if (restoreFlowVersion !== staffAuthFlowVersion || staffLoginHasUserInput()) return;
-      // Supabase Auth already persists the session securely on this device.
-      // Return staff to the correct screen after a refresh; logout clears the session.
+      // Restore the correct dashboard before waiting for menu/order network calls.
       if (actualRole === 'waiter') {
         window.go('waiter');
         if (typeof window.enterWaiter === 'function') window.enterWaiter();
@@ -909,6 +914,15 @@
           console.info('[Mirch Masaala] WhatsApp settings use local defaults until CRM SQL is applied:', e.message || e);
         });
       }
+      Promise.resolve().then(function () {
+        if (restoreFlowVersion !== staffAuthFlowVersion || staffLoginHasUserInput()) return;
+        return loadMenu(true, true);
+      }).then(function () {
+        if (restoreFlowVersion !== staffAuthFlowVersion || staffLoginHasUserInput()) return;
+        return refreshStaffOrders();
+      }).catch(function (e) {
+        console.warn('[Mirch Masaala] Background session refresh:', e && e.message ? e.message : e);
+      });
     } catch (e) {
       console.warn('[Mirch Masaala session restore]', e);
     }
