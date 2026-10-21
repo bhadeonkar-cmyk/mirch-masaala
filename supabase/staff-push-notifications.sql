@@ -39,6 +39,7 @@ DECLARE
   v_table text := lpad(trim(coalesce(p_table_number, '')), 2, '0');
   v_role text;
   v_existing bigint;
+  v_existing_sent timestamptz;
   v_id bigint;
   v_token text;
   v_ids bigint[] := ARRAY[]::bigint[];
@@ -99,7 +100,7 @@ COMMIT;
       ELSE ARRAY['waiter', 'admin']::text[]
     END
   LOOP
-    SELECT n.id INTO v_existing
+    SELECT n.id, n.push_sent_at INTO v_existing, v_existing_sent
     FROM public.mm_restaurant_notifications n
     WHERE n.restaurant_id = p_restaurant_id
       AND n.target_role = v_role
@@ -110,15 +111,21 @@ COMMIT;
     ORDER BY n.created_at DESC
     LIMIT 1;
 
-    v_token := gen_random_uuid()::text;
     IF v_existing IS NOT NULL THEN
-      UPDATE public.mm_restaurant_notifications
-      SET push_dispatch_token = v_token,
-          push_sent_at = NULL
-      WHERE id = v_existing
-      RETURNING id INTO v_id;
+      v_id := v_existing;
+      -- Do not re-send push for a call already pushed; duplicate guest taps stay quiet.
+      IF v_existing_sent IS NULL THEN
+        v_token := gen_random_uuid()::text;
+        UPDATE public.mm_restaurant_notifications
+        SET push_dispatch_token = v_token
+        WHERE id = v_existing;
+      ELSE
+        v_token := NULL;
+      END IF;
       v_existing := NULL;
+      v_existing_sent := NULL;
     ELSE
+      v_token := gen_random_uuid()::text;
       INSERT INTO public.mm_restaurant_notifications (
         restaurant_id, target_role, notification_type, table_number, message,
         push_dispatch_token
@@ -132,7 +139,11 @@ COMMIT;
     END IF;
 
     v_ids := array_append(v_ids, v_id);
-    v_tokens := v_tokens || jsonb_build_array(jsonb_build_object('id', v_id, 'token', v_token));
+    IF v_token IS NOT NULL THEN
+      v_tokens := v_tokens || jsonb_build_array(jsonb_build_object('id', v_id, 'token', v_token));
+    END IF;
+    v_id := NULL;
+    v_token := NULL;
   END LOOP;
 
   RETURN jsonb_build_object(
