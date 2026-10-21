@@ -3,6 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<script>
+(function () {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var staffRole = String(params.get('staff') || params.get('role') || '').toLowerCase();
+    var desktopRole = staffRole === 'admin' ? 'admin' : (staffRole === 'kitchen' ? 'kitchen' : '');
+    var isTopLevel = window.self === window.top;
+    var isDesktopPointer = !!(window.matchMedia &&
+      window.matchMedia('(min-width: 900px) and (hover: hover) and (pointer: fine)').matches);
+    var isDesktopPage = /(?:^|\/)desktop\.html$/.test(window.location.pathname);
+    if (isTopLevel && !isDesktopPage && isDesktopPointer && desktopRole) {
+      var target = new URL('./desktop.html', window.location.href);
+      target.searchParams.set('role', desktopRole);
+      window.location.replace(target.href);
+    }
+  } catch (e) {}
+})();
+</script>
 <meta name="format-detection" content="telephone=no">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
