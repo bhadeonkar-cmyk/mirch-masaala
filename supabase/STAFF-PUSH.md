@@ -11,7 +11,7 @@ Open the Supabase SQL Editor for this project and run these scripts in order, if
 1. `supabase/role-notifications.sql`
 2. `supabase/staff-push-notifications.sql`
 
-The second script creates a private table for each staff device's push subscription. RLS limits staff to their own subscription; only the Edge Function's service-role client can read the subscriptions to send a push.
+If you ran the earlier version of the second script already, **run the updated `staff-push-notifications.sql` again**. It is designed to be re-run; this update adds one-time dispatch tokens and replaces the guest notification RPC so a push must redeem its matching, fresh ID/token pair. The script also creates the private table for each staff device's subscription. RLS limits staff to their own subscription; only the Edge Function's service-role client can read subscriptions to send a push.
 
 ### 2. Add Edge Function secrets
 
@@ -25,7 +25,7 @@ Supabase normally provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to Edg
 
 ### 3. Deploy the Edge Function
 
-Create an Edge Function named `send-staff-push` in the Supabase Dashboard, paste the code from [`supabase/functions/send-staff-push/index.ts`](./functions/send-staff-push/index.ts), then deploy it. Keep JWT verification enabled; the app calls this using the Supabase client.
+Open the existing `send-staff-push` function in the Supabase Dashboard, replace its code with the latest [`supabase/functions/send-staff-push/index.ts`](./functions/send-staff-push/index.ts), then deploy it. In the function's settings, turn **Verify JWT with legacy secret OFF**. This app sends a modern `sb_publishable_...` key, which the legacy verifier cannot validate. The function performs custom checks on the approved web origin and redeems a one-time ID/token pair minted by the guest-notification SQL RPC; keep the VAPID private key and service-role key in Supabase Secrets only.
 
 ### 4. Enable it on each staff phone
 
