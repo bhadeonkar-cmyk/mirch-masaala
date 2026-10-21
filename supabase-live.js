@@ -870,25 +870,23 @@
       if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) return;
       if (restoreFlowVersion !== staffAuthFlowVersion || staffLoginHasUserInput()) return;
       if (requestedRole && requestedRole !== actualRole) {
-        // An explicit Kitchen/Owner shortcut must never silently open another role.
-        // Clear this browser's session only; do not invalidate the owner's other devices.
-        try {
-          var signOutResult = await client.auth.signOut({ scope: 'local' });
-          if (restoreFlowVersion !== staffAuthFlowVersion) return;
-          if (signOutResult && signOutResult.error) throw signOutResult.error;
-        } catch (signOutError) {
-          if (restoreFlowVersion !== staffAuthFlowVersion) return;
-          window.role = null;
-          try { sessionStorage.removeItem('mm_role'); } catch (e) {}
-          if (typeof window.openLogin === 'function') window.openLogin(requestedRole);
-          notifyError('This browser is still signed in as ' + actualRole + '. Sign out before using ' + requestedRole + '.');
-          console.warn('[Mirch Masaala role switch] Could not clear local session:', signOutError);
-          return;
-        }
+        // Never silently switch roles, and never auto-sign-out a user during page restore.
+        // Keep this page unprivileged; the correct account must authenticate for this role.
         window.role = null;
         try { sessionStorage.removeItem('mm_role'); } catch (e) {}
-        if (typeof window.openLogin === 'function') window.openLogin(requestedRole);
-        notifyError('Signed out from the ' + actualRole + ' session. Sign in using the ' + requestedRole + ' account.');
+        var roleMismatchMessage = 'This saved session belongs to ' + actualRole +
+          ', not ' + requestedRole + '. No staff access was granted. Sign in with the correct account.';
+        var loginError = document.getElementById('login-err');
+        if (loginError && document.getElementById('login') && document.getElementById('login').classList.contains('on')) {
+          loginError.style.display = 'block';
+          loginError.textContent = roleMismatchMessage;
+        } else {
+          notifyError(roleMismatchMessage);
+        }
+        console.warn('[Mirch Masaala role restore] Refused cross-role restore:', {
+          requestedRole: requestedRole,
+          actualRole: actualRole
+        });
         return;
       }
       window.role = actualRole;
