@@ -1442,16 +1442,6 @@ function bindStaffSecrets() {
     cook.addEventListener('mouseup', function() { if (pressTimer) clearTimeout(pressTimer); });
     cook.addEventListener('mouseleave', function() { if (pressTimer) clearTimeout(pressTimer); });
   }
-  // Staff shortcuts support canonical ?staff=kitchen links and legacy ?staff=1&role=kitchen links.
-  try {
-    var staffParams = new URLSearchParams(location.search);
-    var staffShortcut = String(staffParams.get('staff') || '').toLowerCase();
-    var roleShortcut = String(staffParams.get('role') || '').toLowerCase();
-    var allowedShortcuts = ['admin', 'kitchen', 'waiter'];
-    var requestedRole = allowedShortcuts.indexOf(staffShortcut) >= 0 ? staffShortcut : roleShortcut;
-    if (allowedShortcuts.indexOf(requestedRole) >= 0) openLogin(requestedRole);
-    else if (staffShortcut === '1') showStaffPanel();
-  } catch(e) {}
 }
 bindStaffSecrets();
 
@@ -3623,16 +3613,6 @@ function bindStaffSecrets() {
     cook.addEventListener('mouseup', function() { if (pressTimer) clearTimeout(pressTimer); });
     cook.addEventListener('mouseleave', function() { if (pressTimer) clearTimeout(pressTimer); });
   }
-  // Staff shortcuts support canonical ?staff=kitchen links and legacy ?staff=1&role=kitchen links.
-  try {
-    var staffParams = new URLSearchParams(location.search);
-    var staffShortcut = String(staffParams.get('staff') || '').toLowerCase();
-    var roleShortcut = String(staffParams.get('role') || '').toLowerCase();
-    var allowedShortcuts = ['admin', 'kitchen', 'waiter'];
-    var requestedRole = allowedShortcuts.indexOf(staffShortcut) >= 0 ? staffShortcut : roleShortcut;
-    if (allowedShortcuts.indexOf(requestedRole) >= 0) openLogin(requestedRole);
-    else if (staffShortcut === '1') showStaffPanel();
-  } catch(e) {}
 }
 bindStaffSecrets();
 
@@ -3886,16 +3866,6 @@ function bindStaffSecrets() {
     cook.addEventListener('mouseup', function() { if (pressTimer) clearTimeout(pressTimer); });
     cook.addEventListener('mouseleave', function() { if (pressTimer) clearTimeout(pressTimer); });
   }
-  // Staff shortcuts support canonical ?staff=kitchen links and legacy ?staff=1&role=kitchen links.
-  try {
-    var staffParams = new URLSearchParams(location.search);
-    var staffShortcut = String(staffParams.get('staff') || '').toLowerCase();
-    var roleShortcut = String(staffParams.get('role') || '').toLowerCase();
-    var allowedShortcuts = ['admin', 'kitchen', 'waiter'];
-    var requestedRole = allowedShortcuts.indexOf(staffShortcut) >= 0 ? staffShortcut : roleShortcut;
-    if (allowedShortcuts.indexOf(requestedRole) >= 0) openLogin(requestedRole);
-    else if (staffShortcut === '1') showStaffPanel();
-  } catch(e) {}
 }
 bindStaffSecrets();
 
