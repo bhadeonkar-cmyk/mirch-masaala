@@ -3,24 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<script>
-(function () {
-  try {
-    var params = new URLSearchParams(window.location.search);
-    var staffRole = String(params.get('staff') || params.get('role') || '').toLowerCase();
-    var desktopRole = staffRole === 'admin' ? 'admin' : (staffRole === 'kitchen' ? 'kitchen' : '');
-    var isTopLevel = window.self === window.top;
-    var isDesktopPointer = !!(window.matchMedia &&
-      window.matchMedia('(min-width: 900px) and (hover: hover) and (pointer: fine)').matches);
-    var isDesktopPage = /(?:^|\/)desktop\.html$/.test(window.location.pathname);
-    if (isTopLevel && !isDesktopPage && isDesktopPointer && desktopRole) {
-      var target = new URL('./desktop.html', window.location.href);
-      target.searchParams.set('role', desktopRole);
-      window.location.replace(target.href);
-    }
-  } catch (e) {}
-})();
-</script>
+
 <meta name="format-detection" content="telephone=no">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -675,9 +658,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 
 /* Role-first waiter flow and high-priority notification cues. */
 .staff-top-actions{display:flex;align-items:center;gap:7px}
-.view-switch-btn{min-height:36px;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);font-size:12px;font-weight:750;white-space:nowrap;cursor:pointer}
-.view-switch-btn:hover{border-color:var(--gold);color:var(--gold2)}
-@media(max-width:400px){.view-switch-btn{min-width:36px;padding:7px}.view-switch-label{display:none}}
+
 .staff-bell{width:36px;height:36px;min-width:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--text);font-size:16px;cursor:pointer}
 .role-alert-host{display:none;padding:0 10px}
 .role-alert-card{margin:8px auto;padding:12px;border-radius:13px;background:#24242a;border:1px solid rgba(255,255,255,.14);color:#f5f5f7;max-width:900px;box-shadow:none}
@@ -1062,7 +1043,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div class="topbar">
     <button type="button" class="back" onclick="logout()">← Exit</button>
     <strong class="gold">Kitchen</strong>
-    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><button type="button" class="view-switch-btn" onclick="switchToDesktopView()" title="Switch to desktop version">💻 <span class="view-switch-label">Desktop</span></button><span class="muted" id="k-time" style="font-size:12px"></span></div>
+    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><span class="muted" id="k-time" style="font-size:12px"></span></div>
   </div>
   <div id="k-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
   <p class="k-queue-title">LIVE ORDER QUEUE · tap when each step is done</p>
@@ -1083,7 +1064,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div class="topbar">
     <button type="button" class="back" onclick="logout()">← Exit</button>
     <strong class="gold">Owner</strong>
-    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><button type="button" class="view-switch-btn" onclick="switchToDesktopView()" title="Switch to desktop version">💻 <span class="view-switch-label">Desktop</span></button><button type="button" class="back" id="open-btn" onclick="toggleOpen()">OPEN</button></div>
+    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><button type="button" class="back" id="open-btn" onclick="toggleOpen()">OPEN</button></div>
   </div>
   <div id="a-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
   <div class="tabs">
@@ -4218,15 +4199,5 @@ window.setWDietFilter = setWDietFilter;
 </script>
 
 <script src="./supabase-live.js"></script>
-<script>
-function switchToDesktopView() {
-  var activeRole = (role === 'admin' || role === 'kitchen') ? role : null;
-  if (!activeRole) {
-    toast('Sign in as Owner or Kitchen first');
-    return;
-  }
-  window.location.href = './desktop.html?role=' + encodeURIComponent(activeRole);
-}
-</script>
 </body>
 </html>
