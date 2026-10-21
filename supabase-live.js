@@ -838,6 +838,13 @@
     }
   }
 
+  function staffLoginHasUserInput() {
+    var loginScreen = document.getElementById('login');
+    var passwordInput = document.getElementById('pass');
+    return !!(loginScreen && loginScreen.classList.contains('on') &&
+      passwordInput && String(passwordInput.value || '').length > 0);
+  }
+
   async function restoreStaffSession() {
     var restoreFlowVersion = staffAuthFlowVersion;
     var requestedRole = requestedStaffShortcutRole();
@@ -845,15 +852,16 @@
       var sessionResult = await client.auth.getSession();
       if (restoreFlowVersion !== staffAuthFlowVersion) return;
       if (sessionResult.error || !sessionResult.data || !sessionResult.data.session) {
-        // A role shortcut opens the matching login only when there is no valid session.
-        if (requestedRole && typeof window.openLogin === 'function') window.openLogin(requestedRole);
+        // The role-specific login was opened from the URL during app boot.
+        // Do not reopen it here: doing so can clear a password while the user types.
         return;
       }
       var roleResult = await client.rpc('get_my_staff_role');
-      if (restoreFlowVersion !== staffAuthFlowVersion) return;
+      if (restoreFlowVersion !== staffAuthFlowVersion || staffLoginHasUserInput()) return;
       if (roleResult.error) return;
       var actualRole = rpcPayload(roleResult.data);
       if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) return;
+      if (restoreFlowVersion !== staffAuthFlowVersion || staffLoginHasUserInput()) return;
       if (requestedRole && requestedRole !== actualRole) {
         // An explicit Kitchen/Owner shortcut must never silently open another role.
         // Clear this browser's session only; do not invalidate the owner's other devices.
@@ -880,7 +888,7 @@
       await loadMenu(true, true);
       if (restoreFlowVersion !== staffAuthFlowVersion) return;
       await refreshStaffOrders();
-      if (restoreFlowVersion !== staffAuthFlowVersion) return;
+      if (restoreFlowVersion !== staffAuthFlowVersion || staffLoginHasUserInput()) return;
       // Supabase Auth already persists the session securely on this device.
       // Return staff to the correct screen after a refresh; logout clears the session.
       if (actualRole === 'waiter') {
