@@ -753,14 +753,31 @@
     }
   }
 
+  function requestedStaffShortcutRole() {
+    try {
+      var role = String(new URLSearchParams(window.location.search).get('staff') || '').toLowerCase();
+      return ['waiter', 'kitchen', 'admin'].indexOf(role) >= 0 ? role : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   async function restoreStaffSession() {
+    var requestedRole = requestedStaffShortcutRole();
     try {
       var sessionResult = await client.auth.getSession();
-      if (sessionResult.error || !sessionResult.data || !sessionResult.data.session) return;
+      if (sessionResult.error || !sessionResult.data || !sessionResult.data.session) {
+        // A role shortcut opens the matching login only when there is no valid session.
+        if (requestedRole && typeof window.openLogin === 'function') window.openLogin(requestedRole);
+        return;
+      }
       var roleResult = await client.rpc('get_my_staff_role');
       if (roleResult.error) return;
       var actualRole = rpcPayload(roleResult.data);
       if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) return;
+      if (requestedRole && requestedRole !== actualRole) {
+        notifyError('This device is signed in as ' + actualRole + '. The ' + requestedRole + ' shortcut requires that role’s account.');
+      }
       window.role = actualRole;
       await loadMenu(true, true);
       await refreshStaffOrders();
