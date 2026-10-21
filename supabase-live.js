@@ -80,6 +80,9 @@
     if (!row || isMobileBrowser() || !('Notification' in window) || Notification.permission !== 'granted') return;
     try { if (localStorage.getItem('mm_push_enabled_' + String(window.role || '')) === '1') return; } catch (e) {}
     var type = String(row.notification_type || '').toUpperCase();
+    // Owner has the shared Alerts panel for ORDER_READY; avoid an additional
+    // desktop browser notification that can duplicate or cover the dashboard.
+    if (type === 'ORDER_READY' && String(window.role || '') === 'admin') return;
     var table = String(row.table_number || '').padStart(2, '0');
     var title = 'Mirch Masaala';
     var body = row.message || '';
