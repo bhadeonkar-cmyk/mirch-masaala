@@ -73,30 +73,60 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); } catch { return json(400, { error: "Invalid request JSON." }); }
   const rawIds = Array.isArray(body.notification_ids) ? body.notification_ids : [];
   const ids = [...new Set(rawIds.map((x) => Number(x)).filter((x) => Number.isSafeInteger(x) && x > 0))].slice(0, 10);
-  if (!ids.length) return json(400, { error: "One or more notification IDs are required." });
+  const dispatchTokens = Array.isArray(body.dispatch_tokens) ? body.dispatch_tokens : [];
+  if (!ids.length || !dispatchTokens.length) {
+    return json(400, { error: "A fresh notification ID and dispatch token are required." });
+  }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 
-  // Atomically claim only recent, unresolved notifications from this restaurant.
-  // This avoids a caller replaying an old notification ID to repeatedly ring every staff device.
+  // Limit public dispatch to fresh guest requests with a matching one-time token.
   const recentCutoff = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-  const claim = await admin.from("mm_restaurant_notifications")
-    .update({ push_sent_at: new Date().toISOString() })
+  const candidates = await admin.from("mm_restaurant_notifications")
+    .select("id, target_role, notification_type, table_number, ticket_id, item_name, message, push_dispatch_token")
     .eq("restaurant_id", RESTAURANT_ID)
     .in("id", ids)
+    .in("notification_type", ["WAITER_CALL", "BILL_REQUEST"])
     .is("push_sent_at", null)
     .is("resolved_at", null)
-    .gt("created_at", recentCutoff)
-    .select("id, target_role, notification_type, table_number, ticket_id, item_name, message");
+    .gt("created_at", recentCutoff);
 
-  if (claim.error) {
-    console.error("[send-staff-push] Could not claim notifications:", claim.error.message);
+  if (candidates.error) {
+    console.error("[send-staff-push] Could not read eligible notification:", candidates.error.message);
     return json(500, { error: "Could not load recent staff notifications." });
   }
-  const rows = claim.data || [];
-  if (!rows.length) return json(200, { sent: 0, message: "No new eligible notification." });
+
+  const rows: Record<string, unknown>[] = [];
+  for (const row of (candidates.data || []) as Record<string, unknown>[]) {
+    const supplied = dispatchTokens.find((pair: Record<string, unknown>) =>
+      Number(pair.id) === Number(row.id) &&
+      String(pair.token || "") === String(row.push_dispatch_token || "")
+    );
+    if (!supplied) continue;
+
+    const claimed = await admin.from("mm_restaurant_notifications")
+      .update({ push_sent_at: new Date().toISOString(), push_dispatch_token: null })
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("id", Number(row.id))
+      .eq("push_dispatch_token", String(supplied.token))
+      .is("push_sent_at", null)
+      .is("resolved_at", null)
+      .gt("created_at", recentCutoff)
+      .select("id, target_role, notification_type, table_number, ticket_id, item_name, message")
+      .maybeSingle();
+
+    if (claimed.error) {
+      console.error("[send-staff-push] Could not redeem dispatch token:", claimed.error.message);
+      return json(500, { error: "Could not redeem the push request." });
+    }
+    if (claimed.data) rows.push(claimed.data as Record<string, unknown>);
+  }
+
+  if (!rows.length) {
+    return json(200, { sent: 0, message: "No new eligible notification. The token may be expired or already used." });
+  }
 
   const roles = [...new Set(rows.map((r: Record<string, unknown>) => String(r.target_role || "")))];
   const subsResult = await admin.from("mm_staff_push_subscriptions")
