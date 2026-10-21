@@ -657,6 +657,9 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 
 /* Role-first waiter flow and high-priority notification cues. */
 .staff-top-actions{display:flex;align-items:center;gap:7px}
+.view-switch-btn{min-height:36px;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);font-size:12px;font-weight:750;white-space:nowrap;cursor:pointer}
+.view-switch-btn:hover{border-color:var(--gold);color:var(--gold2)}
+@media(max-width:400px){.view-switch-btn{min-width:36px;padding:7px}.view-switch-label{display:none}}
 .staff-bell{width:36px;height:36px;min-width:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--text);font-size:16px;cursor:pointer}
 .role-alert-host{display:none;padding:0 10px}
 .role-alert-card{margin:8px auto;padding:12px;border-radius:13px;background:#24242a;border:1px solid rgba(255,255,255,.14);color:#f5f5f7;max-width:900px;box-shadow:none}
@@ -1041,7 +1044,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div class="topbar">
     <button type="button" class="back" onclick="logout()">← Exit</button>
     <strong class="gold">Kitchen</strong>
-    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><span class="muted" id="k-time" style="font-size:12px"></span></div>
+    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><button type="button" class="view-switch-btn" onclick="switchToDesktopView()" title="Switch to desktop version">💻 <span class="view-switch-label">Desktop</span></button><span class="muted" id="k-time" style="font-size:12px"></span></div>
   </div>
   <div id="k-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
   <p class="k-queue-title">LIVE ORDER QUEUE · tap when each step is done</p>
@@ -1062,7 +1065,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div class="topbar">
     <button type="button" class="back" onclick="logout()">← Exit</button>
     <strong class="gold">Owner</strong>
-    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><button type="button" class="back" id="open-btn" onclick="toggleOpen()">OPEN</button></div>
+    <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><button type="button" class="view-switch-btn" onclick="switchToDesktopView()" title="Switch to desktop version">💻 <span class="view-switch-label">Desktop</span></button><button type="button" class="back" id="open-btn" onclick="toggleOpen()">OPEN</button></div>
   </div>
   <div id="a-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
   <div class="tabs">
@@ -1440,9 +1443,14 @@ function bindStaffSecrets() {
     cook.addEventListener('mouseup', function() { if (pressTimer) clearTimeout(pressTimer); });
     cook.addEventListener('mouseleave', function() { if (pressTimer) clearTimeout(pressTimer); });
   }
-  // URL ?staff=1 for bookmarks on staff devices
+  // URL ?staff=1 for staff bookmarks; an explicit role opens that role's login screen.
   try {
-    if (new URLSearchParams(location.search).get('staff') === '1') showStaffPanel();
+    var staffParams = new URLSearchParams(location.search);
+    if (staffParams.get('staff') === '1') {
+      var requestedRole = staffParams.get('role');
+      if (requestedRole === 'admin' || requestedRole === 'kitchen') openLogin(requestedRole);
+      else showStaffPanel();
+    }
   } catch(e) {}
 }
 bindStaffSecrets();
@@ -3601,9 +3609,14 @@ function bindStaffSecrets() {
     cook.addEventListener('mouseup', function() { if (pressTimer) clearTimeout(pressTimer); });
     cook.addEventListener('mouseleave', function() { if (pressTimer) clearTimeout(pressTimer); });
   }
-  // URL ?staff=1 for bookmarks on staff devices
+  // URL ?staff=1 for staff bookmarks; an explicit role opens that role's login screen.
   try {
-    if (new URLSearchParams(location.search).get('staff') === '1') showStaffPanel();
+    var staffParams = new URLSearchParams(location.search);
+    if (staffParams.get('staff') === '1') {
+      var requestedRole = staffParams.get('role');
+      if (requestedRole === 'admin' || requestedRole === 'kitchen') openLogin(requestedRole);
+      else showStaffPanel();
+    }
   } catch(e) {}
 }
 bindStaffSecrets();
@@ -3858,9 +3871,14 @@ function bindStaffSecrets() {
     cook.addEventListener('mouseup', function() { if (pressTimer) clearTimeout(pressTimer); });
     cook.addEventListener('mouseleave', function() { if (pressTimer) clearTimeout(pressTimer); });
   }
-  // URL ?staff=1 for bookmarks on staff devices
+  // URL ?staff=1 for staff bookmarks; an explicit role opens that role's login screen.
   try {
-    if (new URLSearchParams(location.search).get('staff') === '1') showStaffPanel();
+    var staffParams = new URLSearchParams(location.search);
+    if (staffParams.get('staff') === '1') {
+      var requestedRole = staffParams.get('role');
+      if (requestedRole === 'admin' || requestedRole === 'kitchen') openLogin(requestedRole);
+      else showStaffPanel();
+    }
   } catch(e) {}
 }
 bindStaffSecrets();
@@ -4165,5 +4183,15 @@ window.setWDietFilter = setWDietFilter;
 </script>
 
 <script src="./supabase-live.js"></script>
+<script>
+function switchToDesktopView() {
+  var activeRole = (role === 'admin' || role === 'kitchen') ? role : null;
+  if (!activeRole) {
+    toast('Sign in as Owner or Kitchen first');
+    return;
+  }
+  window.location.href = './desktop.html?role=' + encodeURIComponent(activeRole);
+}
+</script>
 </body>
 </html>
