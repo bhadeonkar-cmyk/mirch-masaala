@@ -34,11 +34,11 @@ function openRole(role){
   document.getElementById('ownerBtn').classList.toggle('on',activeRole==='admin');
   document.getElementById('kitchenBtn').classList.toggle('on',activeRole==='kitchen');
   // The main app's login validates the selected role as usual.
-  frame.src='./?staff=1&role='+encodeURIComponent(activeRole);
+  frame.src='./?staff='+encodeURIComponent(activeRole);
 }
 function openPhoneView(){
   // Return to the phone layout and reopen the same role's login screen.
-  window.location.href='./?staff=1&role='+encodeURIComponent(activeRole);
+  window.location.href='./?staff='+encodeURIComponent(activeRole);
 }
 openRole(activeRole);
 </script>
