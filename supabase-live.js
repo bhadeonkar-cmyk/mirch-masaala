@@ -721,11 +721,11 @@
       if (roleResult.error) throw roleResult.error;
       var actualRole = rpcPayload(roleResult.data);
       if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) {
-        await client.auth.signOut();
+        await client.auth.signOut({ scope: 'local' });
         throw new Error('This account has no staff role yet. Ask the owner to finish staff setup.');
       }
       if (actualRole !== requestedRole) {
-        await client.auth.signOut();
+        await client.auth.signOut({ scope: 'local' });
         throw new Error('This account is assigned as ' + actualRole + ', not ' + requestedRole + '. Choose the matching role.');
       }
       window.role = actualRole;
@@ -758,7 +758,7 @@
   }
 
   async function secureLogout() {
-    try { if (client) await client.auth.signOut(); } catch (e) {}
+    try { if (client) await client.auth.signOut({ scope: 'local' }); } catch (e) {}
     window.role = null;
     try { sessionStorage.removeItem('mm_role'); } catch (e) {}
     window.go('home');
@@ -812,8 +812,13 @@
 
   function requestedStaffShortcutRole() {
     try {
-      var role = String(new URLSearchParams(window.location.search).get('staff') || '').toLowerCase();
-      return ['waiter', 'kitchen', 'admin'].indexOf(role) >= 0 ? role : null;
+      var params = new URLSearchParams(window.location.search);
+      var staffValue = String(params.get('staff') || '').toLowerCase();
+      var roleValue = String(params.get('role') || '').toLowerCase();
+      var allowed = ['waiter', 'kitchen', 'admin'];
+      if (allowed.indexOf(staffValue) >= 0) return staffValue;
+      if (allowed.indexOf(roleValue) >= 0) return roleValue;
+      return null;
     } catch (e) {
       return null;
     }
@@ -833,7 +838,24 @@
       var actualRole = rpcPayload(roleResult.data);
       if (['admin', 'waiter', 'kitchen'].indexOf(actualRole) < 0) return;
       if (requestedRole && requestedRole !== actualRole) {
-        notifyError('This device is signed in as ' + actualRole + '. The ' + requestedRole + ' shortcut requires that role’s account.');
+        // An explicit Kitchen/Owner shortcut must never silently open another role.
+        // Clear this browser's session only; do not invalidate the owner's other devices.
+        try {
+          var signOutResult = await client.auth.signOut({ scope: 'local' });
+          if (signOutResult && signOutResult.error) throw signOutResult.error;
+        } catch (signOutError) {
+          window.role = null;
+          try { sessionStorage.removeItem('mm_role'); } catch (e) {}
+          if (typeof window.openLogin === 'function') window.openLogin(requestedRole);
+          notifyError('This browser is still signed in as ' + actualRole + '. Sign out before using ' + requestedRole + '.');
+          console.warn('[Mirch Masaala role switch] Could not clear local session:', signOutError);
+          return;
+        }
+        window.role = null;
+        try { sessionStorage.removeItem('mm_role'); } catch (e) {}
+        if (typeof window.openLogin === 'function') window.openLogin(requestedRole);
+        notifyError('Signed out from the ' + actualRole + ' session. Sign in using the ' + requestedRole + ' account.');
+        return;
       }
       window.role = actualRole;
       await loadMenu(true, true);
