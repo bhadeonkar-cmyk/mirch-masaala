@@ -1184,8 +1184,25 @@
       notifyError('Secure online library failed to load. Refresh or try another network.');
       return;
     }
+    var authStorageRole = 'public';
+    try {
+      var authParams = new URLSearchParams(window.location.search);
+      var staffParam = String(authParams.get('staff') || '').toLowerCase();
+      var roleParam = String(authParams.get('role') || '').toLowerCase();
+      var authAllowedRoles = ['admin', 'kitchen', 'waiter'];
+      if (authAllowedRoles.indexOf(staffParam) >= 0) authStorageRole = staffParam;
+      else if (authAllowedRoles.indexOf(roleParam) >= 0) authStorageRole = roleParam;
+    } catch (e) {}
+    // Separate local auth persistence per role. Never let Owner and Kitchen tabs
+    // share the same Supabase storage key on this browser origin.
+    var authStorageKey = 'mm-mirch-masaala-auth-v1-' + authStorageRole;
     client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      auth: {
+        storageKey: authStorageKey,
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
     });
     window.MM_SUPABASE_CLIENT = client;
     window.MM_SUPABASE_ENABLED = true;
@@ -1212,6 +1229,21 @@
 
     ensureUsernameField();
     window.openLogin = function (requestedRole) {
+      var allowedLoginRoles = ['admin', 'kitchen', 'waiter'];
+      if (allowedLoginRoles.indexOf(requestedRole) < 0) {
+        notifyError('Choose a valid staff role.');
+        return;
+      }
+      try {
+        var loginParams = new URLSearchParams(window.location.search);
+        if (String(loginParams.get('staff') || '').toLowerCase() !== requestedRole) {
+          loginParams.delete('table');
+          loginParams.delete('role');
+          loginParams.set('staff', requestedRole);
+          window.location.replace(window.location.pathname + '?' + loginParams.toString() + window.location.hash);
+          return;
+        }
+      } catch (e) {}
       window.pendingRole = requestedRole;
       ensureUsernameField();
       var oldUsername = document.getElementById('staff-username');
