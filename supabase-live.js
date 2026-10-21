@@ -45,7 +45,7 @@
     if (result.error) throw result.error;
     var data = result.data || {};
     var ids = data && Array.isArray(data.notification_ids) ? data.notification_ids : [];
-    if (ids.length && client.functions && typeof client.functions.invoke === 'function') {
+    if (ids.length && Array.isArray(data.dispatch_tokens) && data.dispatch_tokens.length && client.functions && typeof client.functions.invoke === 'function') {
       client.functions.invoke('send-staff-push', { body: { notification_ids: ids, dispatch_tokens: (Array.isArray(data.dispatch_tokens) ? data.dispatch_tokens : []) } })
         .then(function (sent) {
           if (sent && sent.error) console.info('[Mirch Masaala push] In-app alert saved; background push sender is not deployed or ready yet.');
