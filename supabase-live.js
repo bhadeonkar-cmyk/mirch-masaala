@@ -43,7 +43,18 @@
       p_table_number: String(tableNumber || '').padStart(2, '0')
     });
     if (result.error) throw result.error;
-    return result.data || {};
+    var data = result.data || {};
+    var ids = data && Array.isArray(data.notification_ids) ? data.notification_ids : [];
+    if (ids.length && client.functions && typeof client.functions.invoke === 'function') {
+      client.functions.invoke('send-staff-push', { body: { notification_ids: ids } })
+        .then(function (sent) {
+          if (sent && sent.error) console.info('[Mirch Masaala push] In-app alert saved; background push sender is not deployed or ready yet.');
+        })
+        .catch(function (err) {
+          console.info('[Mirch Masaala push] In-app alert saved; background push setup may still be needed.', err && err.message ? err.message : err);
+        });
+    }
+    return data;
   }
 
   async function loadStaffNotifications() {
@@ -64,6 +75,7 @@
 
   function nativeStaffNotification(row) {
     if (!row || isMobileBrowser() || !('Notification' in window) || Notification.permission !== 'granted') return;
+    try { if (localStorage.getItem('mm_push_enabled_' + String(window.role || '')) === '1') return; } catch (e) {}
     var type = String(row.notification_type || '').toUpperCase();
     var table = String(row.table_number || '').padStart(2, '0');
     var title = 'Mirch Masaala';
@@ -135,37 +147,82 @@
       (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
   }
 
-  function enableBrowserNotifications() {
-    // This app currently has live in-page alerts, but no push subscription + server push setup.
-    // On iOS, web push additionally requires a Home Screen web app (Apple/WebKit requirements).
-    if (isIOSDevice()) {
-      notifyError(isStandaloneWebApp()
-        ? 'Live alerts work here, but lock-screen push is not set up for this app yet.'
-        : 'iPhone browser tabs cannot show these system alerts. Live updates work while this page is open; background push is not set up yet.');
-      return Promise.resolve(false);
+  // Public Web Push key; the matching private key exists only in Supabase Edge Function secrets.
+  var WEB_PUSH_VAPID_PUBLIC_KEY = 'BFfNaha9B9Qr2km9sJF7nOJ6zc8BGUMp85rVplwULF3BpCF0ut0TFNcEL8vzvG4ya5DFR1ZMRJA5_cB2UGk6kA0';
+
+  function vapidKeyBytes(base64Url) {
+    var padding = '='.repeat((4 - base64Url.length % 4) % 4);
+    var base64 = (base64Url + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(base64);
+    var bytes = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    return bytes;
+  }
+
+  async function enableBrowserNotifications() {
+    if (['admin', 'waiter', 'kitchen'].indexOf(String(window.role || '')) < 0) {
+      notifyError('Sign in to your staff account before enabling staff alerts.');
+      return false;
     }
-    // Notification() constructor is unreliable on mobile browsers; persistent alerts require a service worker.
-    if (isMobileBrowser()) {
-      notifyError('Mobile system alerts are not configured yet. Keep this page open for live in-app alerts.');
-      return Promise.resolve(false);
+    if (isIOSDevice() && !isStandaloneWebApp()) {
+      notifyError('On iPhone, first add Mirch Masaala to your Home Screen, then open its icon and tap Alert options.');
+      return false;
     }
-    if (!('Notification' in window)) {
-      notifyError('System alerts are not supported in this browser. Live in-app alerts still work while this page is open.');
-      return Promise.resolve(false);
-    }
-    if (Notification.permission === 'granted') {
-      notifySuccess('Browser alerts are already enabled.');
-      return Promise.resolve(true);
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      notifyError('This browser cannot receive web push. Keep the staff screen open for in-app alerts.');
+      return false;
     }
     if (Notification.permission === 'denied') {
-      notifyError('Browser alerts are blocked. Enable notifications for this site in browser settings.');
-      return Promise.resolve(false);
+      notifyError('Notifications are blocked for this app. Enable them in phone Settings, then try again.');
+      return false;
     }
-    return Notification.requestPermission().then(function (permission) {
-      if (permission === 'granted') notifySuccess('Browser alerts enabled while the browser is available.');
-      else notifyError('Permission was not granted. Live in-app alerts still work while this screen is open.');
-      return permission === 'granted';
-    });
+    try {
+      // This function is invoked directly from the staff member's tap.
+      var permission = Notification.permission;
+      if (permission !== 'granted') permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        notifyError('Allow notifications for Mirch Masaala to alert this phone when guests call.');
+        return false;
+      }
+      if (!client || !window.MM_SUPABASE_ENABLED) {
+        notifyError('Staff connection is not ready. Reopen the staff app and try again.');
+        return false;
+      }
+      var registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+      await navigator.serviceWorker.ready;
+      var subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: vapidKeyBytes(WEB_PUSH_VAPID_PUBLIC_KEY)
+        });
+      }
+      var userResult = await client.auth.getUser();
+      if (userResult.error || !userResult.data || !userResult.data.user) {
+        notifyError('Your staff session expired. Sign in again, then enable alerts.');
+        return false;
+      }
+      var saved = await client.from('mm_staff_push_subscriptions').upsert({
+        staff_user_id: userResult.data.user.id,
+        target_role: String(window.role),
+        endpoint: subscription.endpoint,
+        subscription: subscription.toJSON(),
+        user_agent: String(navigator.userAgent || '').slice(0, 400),
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'endpoint' });
+      if (saved.error) throw saved.error;
+      try { localStorage.setItem('mm_push_enabled_' + String(window.role), '1'); } catch (e) {}
+      notifySuccess('Push alerts enabled. This phone can alert the waiter when a guest calls, even if the app is in the background.');
+      if (typeof window.MM_REFRESH_ROLE_NOTIFICATIONS === 'function') window.MM_REFRESH_ROLE_NOTIFICATIONS(true);
+      return true;
+    } catch (e) {
+      console.error('[Mirch Masaala push setup]', e);
+      var detail = e && e.message ? String(e.message) : '';
+      notifyError(detail.indexOf('mm_staff_push_subscriptions') >= 0
+        ? 'The one-time staff push SQL setup has not been applied yet.'
+        : 'Could not enable push alerts. Ask the owner to finish the one-time Supabase push setup.');
+      return false;
+    }
   }
 
   function notifyCustomerOrderStatus(updated, previous) {
