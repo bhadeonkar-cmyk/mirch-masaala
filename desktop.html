@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#120c0a">
+<title>Mirch Masaala — Desktop</title>
+<style>
+:root{--bg:#120c0a;--card:#1e1512;--surface:#261c18;--gold:#d4a84b;--gold2:#f0d78c;--text:#faf6f0;--muted:#a89888;--line:rgba(212,168,75,.25);--green:#3ecf8e;--blue:#6eb6ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -10%,#3a2618 0,#120c0a 45%);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px}.shell{width:min(1050px,100%)}
+.header{text-align:center;margin-bottom:30px}.brand{font-size:32px;font-weight:800;letter-spacing:1px;color:var(--gold2)}.sub{color:var(--muted);margin-top:7px}
+.switch{display:flex;justify-content:center;margin:26px auto 34px;background:#0d0907;border:1px solid var(--line);padding:5px;border-radius:16px;width:min(520px,100%)}
+.switch button{flex:1;border:0;background:transparent;color:var(--muted);padding:13px 18px;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer}.switch button.on{background:linear-gradient(135deg,#c4922e,#f0d78c);color:#1a1208}
+.views{display:grid;grid-template-columns:1fr 1fr;gap:22px}.card{background:rgba(30,21,18,.96);border:1px solid var(--line);border-radius:22px;padding:28px;box-shadow:0 20px 55px rgba(0,0,0,.28)}
+.icon{font-size:48px;margin-bottom:15px}.card h2{margin:0 0 8px;color:var(--gold2)}.card p{color:var(--muted);min-height:44px;line-height:1.5}.btn{display:block;text-decoration:none;text-align:center;margin-top:20px;padding:14px 18px;border-radius:13px;background:linear-gradient(135deg,#c4922e,#f0d78c);color:#1a1208;font-weight:800}.btn.k{background:linear-gradient(135deg,#1d4d68,#6eb6ff);color:#07121a}
+.note{margin-top:24px;padding:15px 18px;border:1px solid rgba(62,207,142,.25);background:rgba(62,207,142,.07);border-radius:14px;color:#cfeede;font-size:13px;line-height:1.5}.foot{text-align:center;margin-top:24px}.foot a{color:var(--gold2);text-decoration:none;font-size:13px}
+@media(max-width:720px){.page{padding:24px 16px}.views{grid-template-columns:1fr}.brand{font-size:27px}}
+</style>
+</head>
+<body>
+<div class="page"><main class="shell">
+  <header class="header"><div class="brand">🌶️ MIRCH-MASAALA</div><div class="sub">Restaurant Desktop Control</div></header>
+  <div class="switch" role="tablist" aria-label="Desktop role">
+    <button id="ownerTab" class="on" onclick="setView('owner')">👨‍💼 Owner</button>
+    <button id="kitchenTab" onclick="setView('kitchen')">👨‍🍳 Kitchen</button>
+  </div>
+  <section class="views">
+    <article id="ownerView" class="card"><div class="icon">📊</div><h2>Owner Dashboard</h2><p>Manage the restaurant, menu, tables, orders, payments and service from the existing Owner/Admin dashboard.</p><a class="btn" href="./?staff=admin">Open Owner Login</a></article>
+    <article id="kitchenView" class="card" style="display:none"><div class="icon">🍳</div><h2>Kitchen Display</h2><p>View the live kitchen queue and move orders through New → Cooking → Ready → Served.</p><a class="btn k" href="./?staff=kitchen">Open Kitchen Login</a></article>
+  </section>
+  <div class="note"><b>Existing app preserved.</b> Customer QR/table ordering and staff waiter notifications continue to use the main Mirch-Masaala app. This desktop page is only the quick Owner/Kitchen entry switch.</div>
+  <div class="foot"><a href="./">← Back to main restaurant app</a></div>
+</main></div>
+<script>
+function setView(view){
+  var owner=view==='owner';
+  document.getElementById('ownerTab').classList.toggle('on',owner);
+  document.getElementById('kitchenTab').classList.toggle('on',!owner);
+  document.getElementById('ownerView').style.display=owner?'block':'none';
+  document.getElementById('kitchenView').style.display=owner?'none':'block';
+}
+</script>
+</body>
+</html>
