@@ -1584,7 +1584,7 @@ function startTable(n) {
   cart = load('mm_c_' + table, []);
   cat = 'all'; dietFilter = 'all';
   document.getElementById('search').value = '';
-  document.getElementById('tbl-label').textContent = 'Table ' + table;
+  document.getElementById('tbl-label').textContent = window.mmI18n('Table','टेबल') + ' ' + table;
   drawDietFilters(); drawCats(); drawMenu(); drawSpecials(); updCart();
   restoreTips();
   go('customer');
@@ -1850,11 +1850,11 @@ function drawCart() {
 
 function orderProgressState(o) {
   var s = String((o && o.status) || 'NEW').toUpperCase();
-  if (s === 'CANCELLED') return {percent:0,title:'Order cancelled',caption:'The kitchen has stopped this ticket. Ask your waiter if you need help.',emoji:'🙈'};
-  if (s === 'PREPARING' || s === 'COOKING') return {percent:55,title:'Chef is cooking!',caption:'The kitchen is working on your order. Good things take a little sizzle. 🔥',emoji:'👨‍🍳'};
-  if (s === 'READY') return {percent:85,title:'Fresh and ready!',caption:'Your food is ready. Your waiter can bring it over now. 🍽️',emoji:'🍲'};
-  if (s === 'SERVED' || s === 'PAID') return {percent:100,title:s === 'SERVED' ? 'Served — enjoy!' : 'All settled — enjoy!',caption:'Mission delicious: complete. Enjoy your meal! 🎉',emoji:'😋'};
-  return {percent:18,title:'Order received!',caption:'The kitchen has your ticket. We are warming up the spice squad. 🌶️',emoji:'📨'};
+  if (s === 'CANCELLED') return {percent:0,title:window.mmI18n('Order cancelled','ऑर्डर रद्द झाली'),caption:window.mmI18n('The kitchen has stopped this ticket. Ask your waiter if you need help.','किचनने ही ऑर्डर थांबवली आहे. मदतीसाठी वेटरला सांगा.'),emoji:'🙈'};
+  if (s === 'PREPARING' || s === 'COOKING') return {percent:55,title:window.mmI18n('Chef is cooking!','शेफ स्वयंपाक करत आहेत!'),caption:window.mmI18n('The kitchen is working on your order. Good things take a little sizzle. 🔥','किचनमध्ये तुमची ऑर्डर तयार होत आहे. थोडी वाट पाहा. 🔥'),emoji:'👨‍🍳'};
+  if (s === 'READY') return {percent:85,title:window.mmI18n('Fresh and ready!','गरमागरम ऑर्डर तयार!'),caption:window.mmI18n('Your food is ready. Your waiter can bring it over now. 🍽️','तुमचे जेवण तयार आहे. वेटर ते तुमच्यापर्यंत आणेल. 🍽️'),emoji:'🍲'};
+  if (s === 'SERVED' || s === 'PAID') return {percent:100,title:s === 'SERVED' ? window.mmI18n('Served — enjoy!','जेवणाचा आनंद घ्या!') : window.mmI18n('All settled — enjoy!','सर्व झाले — जेवणाचा आनंद घ्या!'),caption:window.mmI18n('Mission delicious: complete. Enjoy your meal! 🎉','तुमची चविष्ट मेजवानी पूर्ण! जेवणाचा आनंद घ्या! 🎉'),emoji:'😋'};
+  return {percent:18,title:window.mmI18n('Order received!','ऑर्डर मिळाली!'),caption:window.mmI18n('The kitchen has your ticket. We are warming up the spice squad. 🌶️','किचनला तुमची ऑर्डर मिळाली आहे. पदार्थ बनवायला सुरुवात होत आहे. 🌶️'),emoji:'📨'};
 }
 function progressMarkup(o) {
   var p = orderProgressState(o);
@@ -1862,7 +1862,7 @@ function progressMarkup(o) {
   return '<div class="order-progress" data-progress-order="' + safeId + '">' +
     '<div class="progress-heading"><span class="progress-chef" data-progress-emoji>' + p.emoji + '</span><strong class="progress-title" data-progress-title>' + p.title + '</strong><span class="progress-percent" data-progress-percent>' + p.percent + '%</span></div>' +
     '<div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + p.percent + '"><div class="progress-fill" data-progress-fill style="width:' + p.percent + '%"></div></div>' +
-    '<div class="progress-steps"><span>Received</span><span>Cooking</span><span>Ready</span><span>Served</span></div><p class="progress-caption" data-progress-caption>' + p.caption + '</p></div>';
+    '<div class="progress-steps"><span>' + window.mmI18n('Received','मिळाली') + '</span><span>' + window.mmI18n('Cooking','बनत आहे') + '</span><span>' + window.mmI18n('Ready','तयार') + '</span><span>' + window.mmI18n('Served','वाढले') + '</span></div><p class="progress-caption" data-progress-caption>' + p.caption + '</p></div>';
 }
 function refreshProgressViews() {
   var stored = load('mm_o', orders);
@@ -2617,7 +2617,7 @@ function enterWaiter() {
   var area = document.getElementById('w-area'); if (area) area.style.display = 'none';
   var picker = document.getElementById('w-tables'); if (picker) picker.style.display = 'grid';
   var hint = document.getElementById('w-table-picker-hint'); if (hint) hint.style.display = 'block';
-  var label = document.getElementById('w-tbl'); if (label) label.textContent = 'Choose table';
+  var label = document.getElementById('w-tbl'); if (label) label.textContent = window.mmI18n('Choose table','टेबल निवडा');
   drawWaiterOrders();
   if (typeof window.MM_REFRESH_ROLE_NOTIFICATIONS === 'function') window.MM_REFRESH_ROLE_NOTIFICATIONS();
 }
@@ -2683,7 +2683,7 @@ function pickW(n, card) {
     b.classList.toggle('on', b.getAttribute('data-table-number') === wTable);
     if (b.getAttribute('data-table-number') === wTable && card) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
-  document.getElementById('w-tbl').textContent = 'Table ' + wTable;
+  document.getElementById('w-tbl').textContent = window.mmI18n('Table','टेबल') + ' ' + wTable;
   var sel = document.getElementById('w-selected-number'); if (sel) sel.textContent = wTable;
   var area = document.getElementById('w-area'); if (area) area.style.display = 'block';
   var picker = document.getElementById('w-tables'); if (picker) picker.style.display = 'none';
@@ -3124,17 +3124,17 @@ function renderRoleNotifications(rows) {
       var type = String(n.notification_type || '').toUpperCase();
       var tableNo = String(n.table_number || '').padStart(2,'0');
       var isCall = type === 'WAITER_CALL';
-      var title = isCall ? 'WAITER CALLED' : type === 'BILL_REQUEST' ? 'BILL REQUEST' :
-        type === 'NEW_ORDER' ? 'NEW ORDER' : type === 'ORDER_READY' ? 'ORDER READY' : type === 'ITEM_SOLD_OUT' ? 'SOLD OUT' : 'ALERT';
-      var line = isCall ? 'Please go to the guest now.' :
-        type === 'BILL_REQUEST' ? 'A guest needs help with the bill.' :
-        type === 'NEW_ORDER' ? 'A new ticket is waiting in the kitchen queue.' :
-        type === 'ORDER_READY' ? 'Please check the ready ticket.' : (n.item_name || n.message || 'A menu item is unavailable.');
-      var bigTable = isCall ? '<div class="urgent-table-number">' + esc(tableNo) + '</div><div class="urgent-table-caption">TABLE · GO NOW</div>' :
-        (tableNo && ['NEW_ORDER','ORDER_READY','BILL_REQUEST'].indexOf(type)>=0 ? '<div class="role-alert-table-small">TABLE ' + esc(tableNo) + '</div>' : '');
+      var title = isCall ? window.mmI18n('WAITER CALLED','वेटरला बोलावले') : type === 'BILL_REQUEST' ? window.mmI18n('BILL REQUEST','बिलाची विनंती') :
+        type === 'NEW_ORDER' ? window.mmI18n('NEW ORDER','नवीन ऑर्डर') : type === 'ORDER_READY' ? window.mmI18n('ORDER READY','ऑर्डर तयार') : type === 'ITEM_SOLD_OUT' ? window.mmI18n('SOLD OUT','संपला') : window.mmI18n('ALERT','सूचना');
+      var line = isCall ? window.mmI18n('Please go to the guest now.','कृपया लगेच ग्राहकाकडे जा.') :
+        type === 'BILL_REQUEST' ? window.mmI18n('A guest needs help with the bill.','ग्राहकाला बिलासाठी मदत हवी आहे.') :
+        type === 'NEW_ORDER' ? window.mmI18n('A new ticket is waiting in the kitchen queue.','किचनमध्ये नवीन ऑर्डर आली आहे.') :
+        type === 'ORDER_READY' ? window.mmI18n('Please check the ready ticket.','तयार ऑर्डर तपासा.') : (n.item_name || n.message || window.mmI18n('A menu item is unavailable.','हा पदार्थ सध्या उपलब्ध नाही.'));
+      var bigTable = isCall ? '<div class="urgent-table-number">' + esc(tableNo) + '</div><div class="urgent-table-caption">' + window.mmI18n('TABLE · GO NOW','टेबल · लगेच जा') + '</div>' :
+        (tableNo && ['NEW_ORDER','ORDER_READY','BILL_REQUEST'].indexOf(type)>=0 ? '<div class="role-alert-table-small">' + window.mmI18n('TABLE','टेबल') + ' ' + esc(tableNo) + '</div>' : '');
       var details = type === 'ITEM_SOLD_OUT' ? '' : (n.ticket_id ? 'Ticket #' + esc(n.ticket_id) : '');
       return '<article class="role-alert-card ' + (isCall ? 'role-alert-call' : 'role-alert-' + type.toLowerCase()) + '">' +
-        '<div class="role-alert-title"><span>' + (isCall ? '🔔' : type==='BILL_REQUEST' ? '💳' : type==='NEW_ORDER' ? '🍳' : type==='ORDER_READY' ? '✅' : '⚠️') + ' ' + title + '</span><button type="button" class="role-alert-dismiss" aria-label="Mark alert handled" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button></div>' +
+        '<div class="role-alert-title"><span>' + (isCall ? '🔔' : type==='BILL_REQUEST' ? '💳' : type==='NEW_ORDER' ? '🍳' : type==='ORDER_READY' ? '✅' : '⚠️') + ' ' + title + '</span><button type="button" class="role-alert-dismiss" aria-label="' + window.mmI18n('Mark alert handled','सूचना पूर्ण करा') + '" onclick="handleStaffNotification(' + Number(n.id) + ')">' + window.mmI18n('Done','झाले') + '</button></div>' +
         bigTable + '<p class="role-alert-message">' + line + '</p>' +
         (details ? '<p class="role-alert-details">' + details + '</p>' : '') +
         (isCall ? '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">I AM GOING · MARK HANDLED</button>' : '') +
@@ -4216,6 +4216,7 @@ window.setWDietFilter = setWDietFilter;
       'menu-tip-title': 'How to order:',
       'menu-tip-message': 'Choose dishes, tap ADD, then open your cart to place the order.',
       'customer-help-button': 'Help & orders',
+      'customer-change-table': '← Change table',
       'cart-back-button': '← Back to menu',
       'cart-title': 'Your order',
       'cart-note-label': 'Any special request?',
@@ -4265,6 +4266,7 @@ window.setWDietFilter = setWDietFilter;
       'menu-tip-title': 'ऑर्डर कशी द्यावी:',
       'menu-tip-message': 'पदार्थ निवडा, जोडा बटण दाबा आणि ऑर्डर देण्यासाठी कार्ट उघडा.',
       'customer-help-button': 'मदत व ऑर्डर्स',
+      'customer-change-table': '← टेबल बदला',
       'cart-back-button': '← मेनूकडे परत',
       'cart-title': 'तुमची ऑर्डर',
       'cart-note-label': 'काही खास सूचना?',
