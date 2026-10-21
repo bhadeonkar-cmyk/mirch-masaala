@@ -802,7 +802,11 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 
 <!-- HOME -->
 <div id="home" class="screen on">
-  <div class="wrap center" style="padding-top:28px;padding-bottom:40px">
+  <div class="wrap center" style="padding-top:18px;padding-bottom:40px">
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:12px">
+      <span id="home-language-caption" class="muted" style="font-size:12px">Language / भाषा</span>
+      <button type="button" id="home-language-toggle" onclick="toggleHomeLanguage()" aria-label="भाषा मराठीत बदला" title="भाषा मराठीत बदला" style="min-height:36px;padding:7px 13px;border:1px solid var(--gold);border-radius:10px;background:var(--surface);color:var(--gold2);font-size:13px;font-weight:800;cursor:pointer">मराठी</button>
+    </div>
     <div class="logo-row">
       <div class="cook-stage" id="home-cook" style="width:130px;height:120px" onclick="cookTap(this, event)">
         <span class="ambient-spark amb-a" aria-hidden="true">✨</span><span class="ambient-spark amb-b" aria-hidden="true">✦</span><span class="ambient-spark amb-c" aria-hidden="true">🌟</span><span class="ambient-spark amb-d" aria-hidden="true">✧</span>
@@ -817,58 +821,58 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
         <div class="brand-sub" id="brand-tag">INDIAN RESTAURANT</div>
       </div>
     </div>
-    <p class="muted" style="font-size:13px;margin:6px 0 8px">Good food, easy ordering.</p>
+    <p class="muted" id="home-tagline" style="font-size:13px;margin:6px 0 8px">Good food, easy ordering.</p>
     <div id="status-pill" class="pill open">● Open now</div>
     <div class="tip-banner" id="home-tip">
       <span class="ic">👋</span>
-      <div class="tx"><b>Welcome!</b> Scan the QR sticker on your table with your phone camera, or swipe below to choose your table.</div>
+      <div class="tx"><b id="home-welcome">Welcome!</b> <span id="home-welcome-text">Scan the QR sticker on your table with your phone camera, or swipe below to choose your table.</span></div>
       <button type="button" class="x" onclick="this.parentElement.style.display='none'">×</button>
     </div>
-    <p class="muted" style="margin-bottom:4px"><b style="color:var(--text)">Choose your table</b></p>
-    <div class="table-swipe-guide" id="table-swipe-guide" aria-live="polite"><span class="swipe-side">↔</span><span>Swipe sideways to find your table</span><span class="swipe-hand">👆</span></div>
+    <p class="muted" style="margin-bottom:4px"><b id="home-choose-table" style="color:var(--text)">Choose your table</b></p>
+    <div class="table-swipe-guide" id="table-swipe-guide" aria-live="polite"><span class="swipe-side">↔</span><span id="home-swipe-label">Swipe sideways to find your table</span><span class="swipe-hand">👆</span></div>
     <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
     <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
-    <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 Scan table QR</button>
-    <p class="muted" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
+    <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 <span id="home-scan-label">Scan table QR</span></button>
+    <p class="muted" id="home-no-install" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
     <div class="home-shortcuts" aria-label="Helpful links">
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" aria-label="How to use this app" title="How to use this app" onclick="openGuide()"><span aria-hidden="true">📖</span></button>
-        <span class="home-shortcut-label">How to use</span>
+        <span class="home-shortcut-label" id="home-how-to-use">How to use</span>
       </div>
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" id="home-explore-link" aria-label="Places to visit" title="Places to visit" onclick="go('explore')"><span aria-hidden="true">🗺️</span></button>
-        <span class="home-shortcut-label">Places to visit</span>
+        <span class="home-shortcut-label" id="home-places-to-visit">Places to visit</span>
       </div>
       <div class="home-shortcut" id="home-visit-shortcut" style="display:none">
         <button type="button" class="home-icon-btn" id="home-visit-link" aria-label="Visit us and directions" title="Visit us and directions" onclick="scrollToVisit()"><span aria-hidden="true">📍</span></button>
-        <span class="home-shortcut-label">Visit us</span>
+        <span class="home-shortcut-label" id="home-visit-us">Visit us</span>
       </div>
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" id="home-reviews-link" aria-label="Reviews and feedback" title="Reviews and feedback" onclick="go('reviews-page')"><span aria-hidden="true">☆</span></button>
-        <span class="home-shortcut-label">Reviews</span>
+        <span class="home-shortcut-label" id="home-reviews">Reviews</span>
       </div>
     </div>
 
     <!-- Staff entry hidden from customers — long-press logo or tap footer 5× -->
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line)">
-      <button type="button" class="btn btn-soft" id="staff-open-btn" style="font-size:13px;opacity:.85" onclick="showStaffPanel()">🔐 Staff access</button>
+      <button type="button" class="btn btn-soft" id="staff-open-btn" style="font-size:13px;opacity:.85" onclick="showStaffPanel()">🔐 <span id="home-staff-access">Staff access</span></button>
       <div id="staff-panel" style="display:none;margin-top:12px">
-        <p class="muted" style="font-size:12px;margin-bottom:8px">Authorised team only. Ask the owner for your login details.</p>
-        <button type="button" class="btn btn-main install-staff-btn" onclick="installMirchMasaalaApp()">⬇ Install staff app</button>
-        <p class="muted install-staff-caption">Add one icon to your home screen for quick, full-screen access.</p>
+        <p class="muted" id="home-staff-auth-note" style="font-size:12px;margin-bottom:8px">Authorised team only. Ask the owner for your login details.</p>
+        <button type="button" class="btn btn-main install-staff-btn" onclick="installMirchMasaalaApp()">⬇ <span id="home-install-staff">Install staff app</span></button>
+        <p class="muted install-staff-caption" id="home-install-caption">Add one icon to your home screen for quick, full-screen access.</p>
         <button type="button" class="big-link" onclick="openLogin('waiter')">
           <span class="ic">🛎️</span>
-          <span>Waiter Pad<small>Staff login required</small></span>
+          <span><span id="home-waiter-pad">Waiter Pad</span><small id="home-waiter-required">Staff login required</small></span>
         </button>
         <button type="button" class="big-link" onclick="openLogin('kitchen')">
           <span class="ic">👨‍🍳</span>
-          <span>Kitchen<small>Staff login required</small></span>
+          <span><span id="home-kitchen">Kitchen</span><small id="home-kitchen-required">Staff login required</small></span>
         </button>
         <button type="button" class="big-link" onclick="openLogin('admin')">
           <span class="ic">🎛️</span>
-          <span>Owner / Admin<small>Authorised staff only</small></span>
+          <span><span id="home-owner-admin">Owner / Admin</span><small id="home-owner-required">Authorised staff only</small></span>
         </button>
-        <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="hideStaffPanel()">Hide</button>
+        <button type="button" class="btn btn-soft" id="home-hide-staff" style="margin-top:8px" onclick="hideStaffPanel()">Hide</button>
       </div>
     </div>
 
@@ -1351,8 +1355,9 @@ function go(id) {
 }
 function setOpenPill() {
   var p = document.getElementById('status-pill');
-  if (isOpen) { p.className = 'pill open'; p.textContent = '● Open now'; }
-  else { p.className = 'pill closed'; p.textContent = '● Closed'; }
+  var homeLang = window.MM_HOME_LANGUAGE || 'en';
+  if (isOpen) { p.className = 'pill open'; p.textContent = homeLang === 'mr' ? '● सुरू आहे' : '● Open now'; }
+  else { p.className = 'pill closed'; p.textContent = homeLang === 'mr' ? '● बंद आहे' : '● Closed'; }
 }
 
 
@@ -3125,7 +3130,7 @@ function renderRoleNotifications(rows) {
   }
   renderRows('w-urgent-alert', currentRole === 'waiter' ? rows.filter(function(n){return ['WAITER_CALL','BILL_REQUEST','ORDER_READY'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'waiter');
   renderRows('k-urgent-alert', currentRole === 'kitchen' ? rows.filter(function(n){return String(n.notification_type).toUpperCase()==='NEW_ORDER';}) : [], 'kitchen');
-  renderRows('a-urgent-alert', currentRole === 'admin' ? rows.filter(function(n){return ['ITEM_SOLD_OUT','BILL_REQUEST','ORDER_READY'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'admin');
+  renderRows('a-urgent-alert', currentRole === 'admin' ? rows.filter(function(n){return ['ITEM_SOLD_OUT','BILL_REQUEST'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'admin');
   var alertTab = document.getElementById('a-alerts');
   if (alertTab && currentRole === 'admin' && alertTab.style.display !== 'none' && typeof drawAlerts === 'function') drawAlerts();
 }
@@ -4168,6 +4173,97 @@ window.setWDietFilter = setWDietFilter;
 })();
 </script>
 
+<script>
+(function () {
+  var translations = {
+    en: {
+      'home-tagline': 'Good food, easy ordering.',
+      'home-welcome': 'Welcome!',
+      'home-welcome-text': 'Scan the QR sticker on your table with your phone camera, or swipe below to choose your table.',
+      'home-choose-table': 'Choose your table',
+      'home-swipe-label': 'Swipe sideways to find your table',
+      'table-continue': 'Continue to table →',
+      'home-scan-label': 'Scan table QR',
+      'home-no-install': 'No app install needed · Works on any phone',
+      'home-how-to-use': 'How to use',
+      'home-places-to-visit': 'Places to visit',
+      'home-visit-us': 'Visit us',
+      'home-reviews': 'Reviews',
+      'home-staff-access': 'Staff access',
+      'home-staff-auth-note': 'Authorised team only. Ask the owner for your login details.',
+      'home-install-staff': 'Install staff app',
+      'home-install-caption': 'Add one icon to your home screen for quick, full-screen access.',
+      'home-waiter-pad': 'Waiter Pad',
+      'home-waiter-required': 'Staff login required',
+      'home-kitchen': 'Kitchen',
+      'home-kitchen-required': 'Staff login required',
+      'home-owner-admin': 'Owner / Admin',
+      'home-owner-required': 'Authorised staff only',
+      'home-hide-staff': 'Hide'
+    },
+    mr: {
+      'home-tagline': 'चविष्ट जेवण, सोपी ऑर्डर.',
+      'home-welcome': 'स्वागत आहे!',
+      'home-welcome-text': 'टेबलवरील QR कोड मोबाईल कॅमेऱ्याने स्कॅन करा किंवा खाली स्वाइप करून आपले टेबल निवडा.',
+      'home-choose-table': 'आपले टेबल निवडा',
+      'home-swipe-label': 'टेबल शोधण्यासाठी बाजूला स्वाइप करा',
+      'table-continue': 'टेबलकडे पुढे जा →',
+      'home-scan-label': 'टेबलचा QR स्कॅन करा',
+      'home-no-install': 'अ‍ॅप इन्स्टॉल करण्याची गरज नाही · कोणत्याही फोनवर चालते',
+      'home-how-to-use': 'वापरण्याची माहिती',
+      'home-places-to-visit': 'भेट देण्याची ठिकाणे',
+      'home-visit-us': 'आम्हाला भेट द्या',
+      'home-reviews': 'अभिप्राय',
+      'home-staff-access': 'कर्मचारी प्रवेश',
+      'home-staff-auth-note': 'फक्त अधिकृत कर्मचारी. लॉगिन तपशीलांसाठी मालकांना विचारा.',
+      'home-install-staff': 'कर्मचारी अ‍ॅप इन्स्टॉल करा',
+      'home-install-caption': 'जलद, पूर्ण-स्क्रीन वापरासाठी होम स्क्रीनवर आयकॉन जोडा.',
+      'home-waiter-pad': 'वेटर पॅड',
+      'home-waiter-required': 'कर्मचारी लॉगिन आवश्यक',
+      'home-kitchen': 'किचन',
+      'home-kitchen-required': 'कर्मचारी लॉगिन आवश्यक',
+      'home-owner-admin': 'मालक / प्रशासक',
+      'home-owner-required': 'फक्त अधिकृत कर्मचारी',
+      'home-hide-staff': 'लपवा'
+    }
+  };
+  function savedLanguage() {
+    try { return localStorage.getItem('mm_home_language') === 'mr' ? 'mr' : 'en'; }
+    catch (e) { return 'en'; }
+  }
+  window.MM_HOME_LANGUAGE = savedLanguage();
+  window.applyHomeLanguage = function (language) {
+    window.MM_HOME_LANGUAGE = language === 'mr' ? 'mr' : 'en';
+    try { localStorage.setItem('mm_home_language', window.MM_HOME_LANGUAGE); } catch (e) {}
+    var dict = translations[window.MM_HOME_LANGUAGE];
+    Object.keys(dict).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = dict[id];
+    });
+    var toggle = document.getElementById('home-language-toggle');
+    var home = document.getElementById('home');
+    if (toggle) {
+      toggle.textContent = window.MM_HOME_LANGUAGE === 'mr' ? 'English' : 'मराठी';
+      toggle.title = window.MM_HOME_LANGUAGE === 'mr' ? 'Switch language to English' : 'भाषा मराठीत बदला';
+      toggle.setAttribute('aria-label', toggle.title);
+    }
+    if (home) {
+      home.lang = window.MM_HOME_LANGUAGE;
+      var tableGrid = document.getElementById('tables');
+      if (tableGrid) tableGrid.setAttribute('aria-label', window.MM_HOME_LANGUAGE === 'mr' ? 'टेबल निवडण्यासाठी बाजूला स्वाइप करा' : 'Swipe sideways to choose your table');
+      var continueButton = document.getElementById('table-continue');
+      if (continueButton) continueButton.textContent = dict['table-continue'];
+      var scanButton = document.getElementById('scan-table-btn');
+      if (scanButton) scanButton.setAttribute('aria-label', window.MM_HOME_LANGUAGE === 'mr' ? 'टेबलचा QR स्कॅन करा' : 'Scan table QR');
+    }
+    if (typeof window.setOpenPill === 'function') window.setOpenPill();
+  };
+  window.toggleHomeLanguage = function () {
+    window.applyHomeLanguage(window.MM_HOME_LANGUAGE === 'mr' ? 'en' : 'mr');
+  };
+  window.applyHomeLanguage(window.MM_HOME_LANGUAGE);
+})();
+</script>
 <script src="./supabase-live.js"></script>
 </body>
 </html>
