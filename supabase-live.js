@@ -1332,6 +1332,25 @@
     window.persistMenuEdits = function () {};
     window.toggleItem = toggleSharedItem;
 
+    // Resolve staff URL shortcuts once after secure login handlers are ready.
+    // The old shortcut logic lived inside bindStaffSecrets(), which is called
+    // again during settings/menu refresh and accidentally reopened the login
+    // screen seconds after a successful sign-in.
+    try {
+      var startupParams = new URLSearchParams(window.location.search);
+      var startupRole = requestedStaffShortcutRole();
+      if (startupRole && !window.MM_STAFF_SHORTCUT_HANDLED) {
+        window.MM_STAFF_SHORTCUT_HANDLED = true;
+        window.openLogin(startupRole);
+      } else if (String(startupParams.get('staff') || '') === '1' &&
+                 !window.MM_STAFF_SHORTCUT_HANDLED) {
+        window.MM_STAFF_SHORTCUT_HANDLED = true;
+        if (typeof window.showStaffPanel === 'function') window.showStaffPanel();
+      }
+    } catch (startupRouteError) {
+      console.warn('[Mirch Masaala] Staff shortcut setup:', startupRouteError);
+    }
+
     var loginForm = document.getElementById('pass');
     if (loginForm) loginForm.setAttribute('autocomplete', 'current-password');
 
