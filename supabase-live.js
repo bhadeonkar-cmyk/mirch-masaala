@@ -494,7 +494,6 @@
       for (var i = Math.max(0, tokens.length - 10); i < tokens.length; i++) {
         var saved = tokens[i];
         if (!saved || !saved.id || !saved.token) continue;
-        var current = (savedOrders || []).find(function (o) { return o && o.id === saved.id; });
         var result = await client.rpc('mm_get_public_order', {
           p_ticket_id: saved.id,
           p_public_token: saved.token
@@ -502,16 +501,26 @@
         if (result.error) throw result.error;
         var remote = rpcPayload(result.data);
         if (!remote) continue;
+        // Reload after the network request so an older response cannot overwrite a completed cancellation.
+        try {
+          var latestOrders = JSON.parse(localStorage.getItem('mm_o') || '[]');
+          if (Array.isArray(latestOrders)) savedOrders = latestOrders;
+        } catch (e) {}
+        var current = (savedOrders || []).find(function (o) { return o && String(o.id) === String(saved.id); });
+        var remoteStatus = String(remote.status || 'NEW').toUpperCase();
+        var customerCancelConfirmed = !!(current && current.customerCancelConfirmed);
+        if (customerCancelConfirmed && remoteStatus !== 'CANCELLED') remoteStatus = 'CANCELLED';
         var updated = {
           id: remote.id,
           table: String(remote.table || (current && current.table) || '01').padStart(2, '0'),
           items: remote.items || (current && current.items) || [],
           total: Number(remote.total) || 0,
-          status: String(remote.status || 'NEW').toUpperCase(),
+          status: remoteStatus,
           notes: remote.notes || '',
           createdAt: remote.createdAt || (current && current.createdAt) || new Date().toISOString(),
           cancelUntil: current && current.cancelUntil,
-          publicToken: saved.token
+          publicToken: saved.token,
+          customerCancelConfirmed: customerCancelConfirmed
         };
         if (current && String(current.status || '').toUpperCase() !== updated.status &&
             typeof window.notifyCustomerOrderStatus === 'function') {
@@ -532,6 +541,54 @@
     } finally {
       customerRefreshBusy = false;
     }
+  }
+
+
+  async function cancelCustomerOrder(ticketId) {
+    var id = String(ticketId || '');
+    if (!client || !window.MM_SUPABASE_ENABLED) {
+      throw new Error('The live database is not connected. Please refresh and try again.');
+    }
+    var tokens = [];
+    try { tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || []; } catch (e) {}
+    if (!Array.isArray(tokens)) tokens = [];
+    var ticket = tokens.find(function (entry) {
+      return entry && String(entry.id) === id && entry.token;
+    });
+    if (!ticket) {
+      throw new Error('This device cannot verify the order. Please use the device where you placed it or ask your waiter.');
+    }
+    var result = await client.rpc('mm_cancel_public_order', {
+      p_ticket_id: id,
+      p_public_token: ticket.token
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not cancel the order. Please ask your waiter.');
+    var confirmation = rpcPayload(result.data);
+    if (!confirmation || String(confirmation.status || '').toUpperCase() !== 'CANCELLED') {
+      throw new Error('The server did not confirm cancellation. Please refresh and check the order status.');
+    }
+    var storedOrders = [];
+    try { storedOrders = JSON.parse(localStorage.getItem('mm_o') || '[]') || []; } catch (e) {}
+    if (!Array.isArray(storedOrders)) storedOrders = [];
+    var working = Array.isArray(window.orders) ? window.orders.slice() : storedOrders.slice();
+    var index = working.findIndex(function (o) { return o && String(o.id) === id; });
+    var previous = index >= 0 ? working[index] : (storedOrders.find(function (o) { return o && String(o.id) === id; }) || {});
+    var cancelled = Object.assign({}, previous, {
+      id: id,
+      status: 'CANCELLED',
+      customerCancelConfirmed: true,
+      cancelledAt: confirmation.cancelledAt || new Date().toISOString()
+    });
+    if (confirmation.table) cancelled.table = String(confirmation.table).padStart(2, '0');
+    if (index >= 0) working[index] = cancelled;
+    else working.unshift(cancelled);
+    window.orders = working;
+    try { localStorage.setItem('mm_o', JSON.stringify(working)); } catch (e) {}
+    if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    if (typeof window.renderCustomerHomeOrders === 'function') window.renderCustomerHomeOrders();
+    refreshPublicOrderBoard();
+    refreshCustomerOrders();
+    return cancelled;
   }
 
   function findMenuItemForCartItem(cartItem, items) {
@@ -1487,6 +1544,7 @@
     window.doLogin = secureStaffLogin;
     window.logout = secureLogout;
     window.placeOrder = placeCustomerOrder;
+    window.MM_CANCEL_CUSTOMER_ORDER = cancelCustomerOrder;
     window.wSend = sendWaiterOrder;
     window.setStatus = setSharedOrderStatus;
     window.saveItemPrice = saveSharedPrice;
