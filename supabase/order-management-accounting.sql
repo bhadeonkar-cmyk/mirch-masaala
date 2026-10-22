@@ -117,6 +117,12 @@ BEGIN
   END IF;
 
   IF v_role = 'admin' THEN
+    IF v_new = 'CANCELLED'
+       AND v_old <> 'CANCELLED'
+       AND coalesce(current_setting('app.mm_owner_table_cleanup', true), '') <> 'on'
+       AND EXISTS (SELECT 1 FROM public.order_payments p WHERE p.order_id = OLD.id) THEN
+      RAISE EXCEPTION 'This ticket already has recorded payments. Resolve the payment or refund first.';
+    END IF;
     IF v_old IN ('PAID','CANCELLED') AND v_new <> v_old THEN
       RAISE EXCEPTION 'Paid or cancelled orders cannot be reopened; create a new ticket or record a refund adjustment separately';
     END IF;
@@ -331,6 +337,8 @@ BEGIN
   END IF;
 
   v_count := 0;
+  -- Only this confirmed owner cleanup operation may archive/cancel test tickets with old receipts.
+  PERFORM pg_catalog.set_config('app.mm_owner_table_cleanup', 'on', true);
   FOR v_order IN
     SELECT o.* FROM public.orders o
     WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
