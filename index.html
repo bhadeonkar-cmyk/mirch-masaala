@@ -2630,16 +2630,31 @@ function reqBill() {
   var notifyPromise = typeof window.MM_CREATE_GUEST_NOTIFICATION === 'function'
     ? window.MM_CREATE_GUEST_NOTIFICATION('BILL_REQUEST', tableNumber)
     : Promise.reject(new Error('Live alerts are not configured.'));
-  var open = orders.filter(function(o) {
-    return String(o.table).padStart(2, '0') === tableNumber && o.status !== 'CANCELLED' && o.status !== 'PAID';
-  });
-  var total = open.reduce(function(s, o) { return s + (o.total || 0); }, 0);
-  showPayQR(total > 0 ? total : null, open[0] && open[0].id);
   notifyPromise.then(function () {
     toast('Bill request sent · Table ' + tableNumber);
   }).catch(function (err) {
     console.error('[Mirch Masaala bill request]', err);
-    toast('Payment opened, but staff alert failed. Please call the waiter.');
+    toast('Bill requested, but the staff alert failed. Please call the waiter.');
+  });
+
+  // Never calculate a table bill from a customer's local copy of orders: other
+  // guests and partial payments may live on different devices. Get the balance
+  // from the shared database so a paid or complimentary ticket is not charged twice.
+  if (typeof window.MM_GET_PUBLIC_TABLE_BILL !== 'function') {
+    toast('Shared bill calculation is not ready. Please ask the waiter for your balance.');
+    return;
+  }
+  window.MM_GET_PUBLIC_TABLE_BILL(tableNumber).then(function (bill) {
+    var total = Number(bill && bill.amount) || 0;
+    if (!(total > 0)) {
+      toast('No unpaid balance is recorded for Table ' + tableNumber + '. Please ask staff if you need help.');
+      return;
+    }
+    showPayQR(total, null);
+    payContext.table = tableNumber;
+  }).catch(function (err) {
+    console.error('[Mirch Masaala shared table bill]', err);
+    toast('Could not calculate the shared bill. Please ask the waiter to confirm the balance.');
   });
 }
 function canCancel(o) { return o.status === 'NEW' && o.cancelUntil && Date.now() < o.cancelUntil; }
