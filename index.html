@@ -2014,7 +2014,7 @@ function drawMenu() {
 function add(id) {
   var item = MENU.menu_items.find(function(i){ return i.id === id; }); if (!item) return;
   var ex = cart.find(function(c){ return c.id === id; });
-  if (ex) ex.qty++; else cart.push({ id: id, name: item.name, price: item.price, qty: 1 });
+  if (ex) ex.qty++; else cart.push({ id: id, db_id: item.db_id || null, name: item.name, price: item.price, qty: 1 });
   save('mm_c_' + table, cart); drawMenu(); updCart(); toast(window.mmI18n('Added','पदार्थ जोडला'));
 }
 function qty(id, d) {
@@ -2923,8 +2923,9 @@ function wMenu() {
 }
 function wAdd(id) {
   var item = MENU.menu_items.find(function(i){ return i.id === id; });
+  if (!item) return;
   var ex = wCart.find(function(c){ return c.id === id; });
-  if (ex) ex.qty++; else wCart.push({ id: id, name: item.name, price: item.price, qty: 1 });
+  if (ex) ex.qty++; else wCart.push({ id: id, db_id: item.db_id || null, name: item.name, price: item.price, qty: 1 });
   wMenu(); wDrawCart();
 }
 function wQty(id, d) {
