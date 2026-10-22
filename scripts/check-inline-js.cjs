@@ -37,6 +37,7 @@ try {
 
 [
   ['MM_CANCEL_CUSTOMER_ORDER', 'Customer cancellation uses the shared RPC'],
+  ['customerCancelConfirmed', 'Customer refresh protects confirmed cancellation'],
   ['MM_PREVIEW_TABLE_CLEANUP', 'Owner cleanup requires a server preview'],
   ['MM_CLEAR_TABLE_ORDERS', 'Owner cleanup uses shared database'],
   ['MM_SET_ORDER_COMPLIMENTARY', 'Complimentary meals use shared database'],
@@ -47,7 +48,6 @@ try {
 
 [
   ['function cancelOrder(id)', 'Customer cancellation UI exists'],
-  ['customerCancelConfirmed', 'Customer refresh protects confirmed cancellation'],
   ['previewAndCleanTable()', 'Owner can preview/clean test tickets'],
   ['toggleSelectedOrderComplimentary()', 'Owner can classify free meals'],
   ['refreshAdminAccountsSummary()', 'Account stats refresh without resetting controls'],
