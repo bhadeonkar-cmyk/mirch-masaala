@@ -42,6 +42,7 @@ try {
   ['MM_CLEAR_TABLE_ORDERS', 'Owner cleanup uses shared database'],
   ['MM_SET_ORDER_COMPLIMENTARY', 'Complimentary meals use shared database'],
   ['MM_RECORD_TABLE_PAYMENT', 'Payments are confirmed through the server'],
+  ['MM_GET_PUBLIC_TABLE_BILL', 'Customer bill uses the shared balance API'],
   ['MM_LOAD_ADMIN_ACCOUNTS_SUMMARY', 'Stats use authoritative shared accounts'],
   ['MM_LOAD_ADMIN_PAYMENTS', 'Payment log reads shared receipts']
 ].forEach(([needle, label]) => requireText(live, needle, label));
@@ -60,6 +61,7 @@ try {
   ['CREATE OR REPLACE FUNCTION public.mm_admin_preview_table_cleanup', 'Owner preview function exists'],
   ['CREATE OR REPLACE FUNCTION public.mm_admin_clear_table_orders', 'Owner cleanup RPC exists'],
   ['CREATE OR REPLACE FUNCTION public.mm_admin_set_complimentary', 'Complimentary accounting RPC exists'],
+  ['CREATE OR REPLACE FUNCTION public.mm_get_public_table_bill', 'Public bill amount comes from shared outstanding balances'],
   ['CREATE OR REPLACE FUNCTION public.mm_staff_record_table_payment', 'Server-side payment ledger exists'],
   ["set_config('app.mm_payment_status', 'on', true)", 'Final payment closes a fully paid ticket'],
   ['ORDER_FULLY_PAID', 'Fully-paid tickets create an audit event'],
