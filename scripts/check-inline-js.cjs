@@ -61,6 +61,8 @@ try {
   ['CREATE OR REPLACE FUNCTION public.mm_admin_clear_table_orders', 'Owner cleanup RPC exists'],
   ['CREATE OR REPLACE FUNCTION public.mm_admin_set_complimentary', 'Complimentary accounting RPC exists'],
   ['CREATE OR REPLACE FUNCTION public.mm_staff_record_table_payment', 'Server-side payment ledger exists'],
+  ["set_config('app.mm_payment_status', 'on', true)", 'Final payment closes a fully paid ticket'],
+  ['ORDER_FULLY_PAID', 'Fully-paid tickets create an audit event'],
   ['CREATE OR REPLACE FUNCTION public.mm_admin_accounts_summary', 'Database-wide account summary exists'],
   ['CREATE TABLE IF NOT EXISTS public.order_management_audit', 'Accounting audit table exists'],
   ['CREATE TABLE IF NOT EXISTS public.order_payments', 'Shared payment table exists'],
