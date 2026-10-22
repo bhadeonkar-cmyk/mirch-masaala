@@ -38,6 +38,8 @@
 
   window.MM_SUPABASE_ENABLED = false;
   window.MM_SUPABASE_STATUS = 'connecting';
+  window.MM_MENU_READY = false;
+  window.MM_MENU_LOAD_ERROR = false;
 
   function notifyError(message) {
     message = String(message || 'Unknown connection error');
@@ -375,6 +377,8 @@
       if (!items.length) throw new Error('No menu items were returned for this restaurant. The previous menu was kept.');
       if (cats.length) window.MENU.categories = cats;
       window.MENU.menu_items = items;
+      window.MM_MENU_READY = true;
+      window.MM_MENU_LOAD_ERROR = false;
       reconcileStoredCarts(items);
       try { localStorage.setItem('mm_live_menu_loaded', '1'); } catch (e) {}
 
@@ -392,6 +396,7 @@
       if (!quiet) console.info('[Mirch Masaala] Loaded ' + items.length + ' menu items from Supabase');
       return true;
     } catch (e) {
+      if (!window.MM_MENU_READY) window.MM_MENU_LOAD_ERROR = true;
       if (!quiet) notifyError('Could not load shared menu. Check Supabase setup and try refreshing.');
       console.error('[Mirch Masaala menu sync]', e);
       return false;
@@ -675,6 +680,12 @@
   async function placeCustomerOrder() {
     if (window.MM_ORDER_SENDING) return;
     if (!window.cart || !window.cart.length) return;
+    if (!window.MM_MENU_READY) {
+      notifyError(window.MM_MENU_LOAD_ERROR
+        ? (window.mmI18n ? window.mmI18n('The restaurant menu could not load. Check your connection and refresh.', 'रेस्टॉरंटचा मेनू लोड झाला नाही. इंटरनेट तपासून पेज पुन्हा उघडा.') : 'The restaurant menu could not load. Refresh and try again.')
+        : (window.mmI18n ? window.mmI18n('Loading the latest restaurant menu. Please wait a moment and try again.', 'अद्ययावत मेनू लोड होत आहे. कृपया थोडा वेळ थांबून पुन्हा प्रयत्न करा.') : 'Loading the latest restaurant menu. Please wait and try again.'));
+      return;
+    }
     window.MM_ORDER_SENDING = true;
     var originalCart = window.cart.slice();
     var notesEl = document.getElementById('notes');
@@ -710,6 +721,12 @@
 
   async function sendWaiterOrder() {
     if (window.MM_ORDER_SENDING) return;
+    if (!window.MM_MENU_READY) {
+      notifyError(window.mmI18n
+        ? window.mmI18n('The latest menu is still loading. Please wait and try again.', 'अद्ययावत मेनू अजून लोड होत आहे. कृपया थांबून पुन्हा प्रयत्न करा.')
+        : 'The latest menu is still loading. Please wait and try again.');
+      return;
+    }
     if (window.role !== 'waiter') {
       notifyError('Waiter account required to send this order.');
       return;
@@ -1355,6 +1372,7 @@
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
       window.MM_SUPABASE_STATUS = 'library-missing';
       window.MM_SUPABASE_ENABLED = false;
+      window.MM_MENU_LOAD_ERROR = true;
       window.placeOrder = function () { notifyError('Online ordering is unavailable. Refresh the page and try again.'); };
       window.wSend = function () { notifyError('Online ordering is unavailable. Refresh the page and try again.'); };
       window.doLogin = function () { notifyError('Secure staff login is unavailable. Refresh the page and try again.'); };
