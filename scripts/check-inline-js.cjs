@@ -70,6 +70,8 @@ try {
   ['CREATE TABLE IF NOT EXISTS public.order_payments', 'Shared payment table exists'],
   ['coalesce(public.get_my_staff_role(), \'\') NOT IN (\'admin\', \'waiter\')', 'Payment RPC rejects non-staff identities'],
   ['Paid or cancelled orders cannot be reopened', 'Cancelled/paid tickets cannot silently reappear'],
+  ['This ticket already has recorded payments.', 'Normal cancellation is blocked after money is recorded'],
+  ["set_config('app.mm_owner_table_cleanup', 'on', true)", 'Owner test cleanup is the only payment-cancellation exception'],
   ['Staff must use the staff workflow', 'Staff cannot use the customer cancellation endpoint']
 ].forEach(([needle, label]) => requireText(migration, needle, label));
 
