@@ -25,6 +25,8 @@ AS $$
   JOIN public.restaurant_tables AS t ON t.id = o.table_id
   WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
     AND upper(o.status) IN ('NEW', 'PREPARING', 'READY')
+    AND coalesce(o.is_test_order, false) = false
+    AND o.archived_at IS NULL
     AND o.created_at >= now() - interval '4 hours'
   ORDER BY
     CASE upper(o.status)
