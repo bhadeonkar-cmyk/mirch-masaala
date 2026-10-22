@@ -190,7 +190,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 BEGIN
   -- Customers may only perform the NEW -> CANCELLED transition through the token-verified RPC.
   IF coalesce(public.get_my_staff_role(), '') NOT IN ('admin', 'waiter', 'kitchen')
@@ -210,8 +210,7 @@ BEGIN
   NEW.updated_at := now();
   RETURN NEW;
 END
-$;
-
+$$;
 DROP TRIGGER IF EXISTS mm_order_update_guard ON public.orders;
 CREATE TRIGGER mm_order_update_guard
   BEFORE UPDATE ON public.orders
@@ -402,7 +401,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = 'pg_catalog, public, pg_temp'
-AS $
+AS $$
 DECLARE
   v_order public.orders%ROWTYPE;
   v_table_number text;
@@ -457,8 +456,7 @@ BEGIN
     'cancelledAt', v_order.updated_at
   );
 END
-$;
-
+$$;
 REVOKE ALL ON FUNCTION public.mm_cancel_public_order(text, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mm_cancel_public_order(text, uuid) TO anon, authenticated;
 
@@ -568,6 +566,15 @@ BEGIN
   END IF;
 
   IF v_new = v_old THEN
+    NEW.updated_at := now();
+    RETURN NEW;
+  END IF;
+
+  -- Only the authenticated payment RPC may transition an open ticket to PAID.
+  IF v_role IN ('admin', 'waiter')
+     AND coalesce(current_setting('app.mm_payment_status', true), '') = 'on'
+     AND v_new = 'PAID'
+     AND v_old NOT IN ('PAID', 'CANCELLED') THEN
     NEW.updated_at := now();
     RETURN NEW;
   END IF;
@@ -1002,6 +1009,29 @@ BEGIN
        upper(v_order.status), upper(v_order.status), v_apply,
        v_method || CASE WHEN v_note <> '' THEN ' · ' || v_note ELSE '' END,
        auth.uid(), now());
+
+    -- A fully settled ticket closes atomically with its final confirmed payment.
+    SELECT coalesce(sum(p.amount),0) INTO v_paid
+    FROM public.order_payments p WHERE p.order_id = v_order.id;
+    IF v_paid >= coalesce(v_order.total,0) - 0.01
+       AND upper(coalesce(v_order.status,'')) NOT IN ('PAID','CANCELLED') THEN
+      PERFORM pg_catalog.set_config('app.mm_payment_status', 'on', true);
+      UPDATE public.orders o
+      SET status = 'PAID'
+      WHERE o.id = v_order.id
+        AND upper(o.status) NOT IN ('PAID','CANCELLED');
+      IF FOUND THEN
+        INSERT INTO public.order_management_audit
+          (restaurant_id, order_id, ticket_id, table_number, action, from_status, to_status,
+           amount, reason, actor_user_id, created_at)
+        VALUES
+          (v_order.restaurant_id, v_order.id, v_order.ticket_id, v_table_number, 'ORDER_FULLY_PAID',
+           upper(v_order.status), 'PAID', v_paid,
+           'All ticket value has been received', auth.uid(), now());
+        v_paid_count := v_paid_count + 1;
+      END IF;
+    END IF;
+
     v_remaining := round(v_remaining - v_apply, 2);
     v_order_count := v_order_count + 1;
     v_allocations := v_allocations || jsonb_build_array(jsonb_build_object(
@@ -1018,6 +1048,7 @@ BEGIN
     'amount', round(p_amount,2),
     'method', v_method,
     'allocated_tickets', v_order_count,
+    'fully_paid_tickets', v_paid_count,
     'allocations', v_allocations,
     'status', 'RECORDED'
   );
