@@ -829,6 +829,36 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 @media(max-width:360px){.guide-step-cartoon{gap:6px}.guide-demo{flex-basis:76px;width:76px;padding:7px 4px}.guide-copy .muted{font-size:10px!important}}
 @media(prefers-reduced-motion:reduce){.guide-demo-finger,.guide-demo-arrow,.guide-demo-target{animation:none!important}}
 
+
+/* Table picker hierarchy: all numbers keep one type size; side cards recede. */
+#tables .table-carousel-card{
+  scroll-snap-align:center!important;
+  transform:scale(.88)!important;
+  opacity:.52!important;
+  border-color:rgba(212,168,75,.12)!important;
+  background:linear-gradient(145deg,rgba(212,168,75,.045),rgba(38,28,24,.58) 76%)!important;
+  box-shadow:0 2px 7px rgba(0,0,0,.10)!important;
+  transition:transform .22s ease,opacity .22s ease,background .22s ease,border-color .22s ease!important;
+}
+#tables .table-carousel-card strong{
+  font-size:15px!important;
+  line-height:1!important;
+  color:rgba(250,246,240,.68)!important;
+  font-weight:800!important;
+}
+#tables .table-carousel-card .table-mini-cartoon{opacity:.45!important;filter:none!important}
+#tables .table-carousel-card.selected{
+  transform:scale(1)!important;
+  opacity:1!important;
+  border-color:rgba(240,215,140,.82)!important;
+  background:linear-gradient(145deg,rgba(240,215,140,.20),rgba(38,28,24,.97) 82%)!important;
+  box-shadow:0 0 0 1px rgba(240,215,140,.12),0 5px 12px rgba(0,0,0,.18)!important;
+}
+#tables .table-carousel-card.selected strong{font-size:15px!important;color:var(--gold2)!important}
+#tables .table-carousel-card.selected .table-mini-cartoon{opacity:.82!important}
+#tables .table-carousel-card.table-pop{animation:tableSelectBounce .26s ease-out!important;animation-delay:0ms!important}
+@media(prefers-reduced-motion:reduce){#tables .table-carousel-card{transition:none!important}}
+
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -3766,14 +3796,31 @@ function rebuildTables() {
   MENU.tables = tables;
   return tables;
 }
+var homeScrollFrame=0;
+var homeProgrammaticScrollUntil=0;
+var homeProgrammaticScrollTimer=null;
+
+function suppressHomeScrollSelection(duration) {
+  var ms = Number(duration) || 700;
+  homeProgrammaticScrollUntil = Date.now() + ms;
+  if (homeProgrammaticScrollTimer) clearTimeout(homeProgrammaticScrollTimer);
+  homeProgrammaticScrollTimer = setTimeout(function () {
+    homeProgrammaticScrollUntil = 0;
+    homeProgrammaticScrollTimer = null;
+  }, ms + 40);
+}
 function selectHomeTable(num, card, fromScroll) {
+  // The clicked card's table number is authoritative. Smooth centring fires
+  // scroll events too; do not let those events replace the chosen table with
+  // whichever card passes through the centre during the animation.
   var next=String(num).padStart(2,'0'),changed=selectedHomeTable!==next;
   selectedHomeTable=next;
   document.querySelectorAll('#tables .table-carousel-card').forEach(function(b){b.classList.toggle('selected',b.getAttribute('data-table-number')===next);});
   if(card){
     card.classList.add('selected');
     if(!fromScroll){
-      try{card.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}catch(e){}
+      suppressHomeScrollSelection(750);
+      try{card.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}catch(e){homeProgrammaticScrollUntil=0;}
       card.classList.remove('table-pop');void card.offsetWidth;card.classList.add('table-pop');
       if(changed&&navigator.vibrate){try{navigator.vibrate(8);}catch(e){}}
       setTimeout(function(){card.classList.remove('table-pop');},500);
@@ -3784,8 +3831,10 @@ function selectHomeTable(num, card, fromScroll) {
   var hint=document.getElementById('table-swipe-guide');
   if(hint){hint.innerHTML='<span class="swipe-side">✨</span><span>Table '+selectedHomeTable+' selected</span><span class="swipe-hand">👆</span>';hint.style.color='var(--ok)';}
 }
-var homeScrollFrame=0;
 function syncCenteredHomeTable() {
+  // Ignore browser-generated scrolling caused by a direct card tap. Manual
+  // horizontal swipes still update selection using the card nearest the centre.
+  if (Date.now() < homeProgrammaticScrollUntil) return;
   var g=document.getElementById('tables');if(!g||!g.children.length)return;
   var rect=g.getBoundingClientRect(),center=rect.left+rect.width/2,best=null,bestDistance=Infinity;
   Array.prototype.forEach.call(g.children,function(card){
@@ -3807,9 +3856,14 @@ function renderHomeTables() {
     b.onclick=(function(num,card){return function(){selectHomeTable(num,card,false);};})(t.number,b);g.appendChild(b);
   });
   g.onscroll=function(){
-    if(!homeScrollFrame)homeScrollFrame=requestAnimationFrame(function(){homeScrollFrame=0;syncCenteredHomeTable();});
-    g.classList.add('is-dragging');clearTimeout(g._dragEndTimer);
-    g._dragEndTimer=setTimeout(function(){g.classList.remove('is-dragging');syncCenteredHomeTable();},180);
+    var programmatic = Date.now() < homeProgrammaticScrollUntil;
+    if(!programmatic && !homeScrollFrame)homeScrollFrame=requestAnimationFrame(function(){homeScrollFrame=0;syncCenteredHomeTable();});
+    if(!programmatic)g.classList.add('is-dragging');
+    clearTimeout(g._dragEndTimer);
+    g._dragEndTimer=setTimeout(function(){
+      g.classList.remove('is-dragging');
+      if(Date.now() >= homeProgrammaticScrollUntil) syncCenteredHomeTable();
+    },180);
   };
   g.onpointerdown=function(){g.classList.add('is-dragging');};
   g.onpointerup=function(){setTimeout(function(){g.classList.remove('is-dragging');syncCenteredHomeTable();},100);};
