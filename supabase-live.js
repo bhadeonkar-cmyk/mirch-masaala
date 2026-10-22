@@ -8,6 +8,24 @@
   var SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_jAm4636kkOg-EysRgIa_Jw_bt967sZ9';
   var RESTAURANT_ID = 'a3702d10-6673-4c06-9783-1d61c945ecd5';
   var client = null;
+
+  // Keep stable UI IDs for bundled dishes by matching their canonical names.
+  // Database UUIDs remain the only identifiers submitted when an order is placed.
+  function menuNameKey(value) {
+    var name = String(value || '');
+    try { if (name.normalize) name = name.normalize('NFKC'); } catch (e) {}
+    return name.trim().replace(/\\s+/g, ' ').toLocaleLowerCase();
+  }
+  var bundledMenuIdsByName = Object.create(null);
+  var bundledMenuItems = (window.MENU && Array.isArray(window.MENU.menu_items))
+    ? window.MENU.menu_items.map(function (item) { return Object.assign({}, item); }) : [];
+  bundledMenuItems.forEach(function (item) {
+    var key = menuNameKey(item.name);
+    if (!key) return;
+    if (!bundledMenuIdsByName[key]) bundledMenuIdsByName[key] = [];
+    bundledMenuIdsByName[key].push(Number(item.id));
+  });
+
   // Changes whenever a user explicitly opens a role/login or starts a login/logout.
   // Async restore work must not repaint a screen after a newer user action.
   var staffAuthFlowVersion = 0;
@@ -318,11 +336,28 @@
         return category;
       });
 
+      var oldItems = (window.MENU && Array.isArray(window.MENU.menu_items)) ? window.MENU.menu_items.slice() : [];
+      var oldItemsByDbId = Object.create(null);
+      oldItems.forEach(function (item) {
+        if (item && item.db_id) oldItemsByDbId[String(item.db_id)] = item;
+      });
+      var usedUiIds = Object.create(null);
+      var nextCustomUiId = 10000;
       var items = (menuResult.data || []).map(function (row, index) {
         var category = categoryById[row.category_id] || { name: 'Other', slug: 'other' };
+        var previous = oldItemsByDbId[String(row.id)];
+        var canonicalIds = bundledMenuIdsByName[menuNameKey(row.name)] || [];
+        var preferredId = previous && Number(previous.id) > 0 ? Number(previous.id) :
+          (canonicalIds.length === 1 ? canonicalIds[0] : 0);
+        var uiId = preferredId && !usedUiIds[String(preferredId)] ? preferredId : 0;
+        while (!uiId || usedUiIds[String(uiId)]) {
+          if (!usedUiIds[String(nextCustomUiId)]) uiId = nextCustomUiId;
+          nextCustomUiId++;
+        }
+        usedUiIds[String(uiId)] = true;
         return {
-          id: Number(row.sort_order) || index + 1,
-          db_id: row.id,
+          id: uiId,
+          db_id: String(row.id),
           name: row.name,
           category: category.name,
           category_slug: category.slug,
@@ -337,8 +372,10 @@
         };
       });
 
+      if (!items.length) throw new Error('No menu items were returned for this restaurant. The previous menu was kept.');
       if (cats.length) window.MENU.categories = cats;
       window.MENU.menu_items = items;
+      reconcileStoredCarts(items);
       try { localStorage.setItem('mm_live_menu_loaded', '1'); } catch (e) {}
 
       if (typeof window.drawCats === 'function') window.drawCats();
@@ -492,12 +529,115 @@
     }
   }
 
+  function findMenuItemForCartItem(cartItem, items) {
+    cartItem = cartItem || {};
+    items = items || (window.MENU && window.MENU.menu_items) || [];
+    if (cartItem.db_id) {
+      var byDbId = items.find(function (item) {
+        return item && item.db_id && String(item.db_id) === String(cartItem.db_id);
+      });
+      if (byDbId) return byDbId;
+    }
+
+    var key = menuNameKey(cartItem.name);
+    if (!key) return null;
+    var sameName = items.filter(function (item) {
+      return item && menuNameKey(item.name) === key && item.db_id;
+    });
+    if (sameName.length === 1) return sameName[0];
+    if (sameName.length > 1) {
+      var sameNameAndUiId = sameName.filter(function (item) {
+        return String(item.id) === String(cartItem.id);
+      });
+      if (sameNameAndUiId.length === 1) return sameNameAndUiId[0];
+    }
+    // Never match by numeric UI ID alone: it can refer to a different dish
+    // after a live-menu refresh or when older cart data is restored.
+    return null;
+  }
+
+  function rebindCartItems(cartItems, items) {
+    if (!Array.isArray(cartItems)) return [];
+    return cartItems.map(function (cartItem) {
+      var match = findMenuItemForCartItem(cartItem, items);
+      if (!match) return Object.assign({}, cartItem);
+      return Object.assign({}, cartItem, {
+        id: match.id,
+        db_id: String(match.db_id),
+        name: match.name,
+        price: Number(match.price) || 0
+      });
+    });
+  }
+
+  function reconcileStoredCarts(items) {
+    var maxTable = 20;
+    ((window.MENU && window.MENU.tables) || []).forEach(function (row) {
+      var n = parseInt(row.number || row.table_number || row.id, 10);
+      if (Number.isFinite(n) && n > maxTable && n <= 200) maxTable = n;
+    });
+    var changed = false;
+    try {
+      for (var n = 1; n <= maxTable; n++) {
+        var tableKey = String(n).padStart(2, '0');
+        var storageKey = 'mm_c_' + tableKey;
+        var raw = localStorage.getItem(storageKey);
+        if (!raw) continue;
+        var saved;
+        try { saved = JSON.parse(raw); } catch (parseError) { continue; }
+        if (!Array.isArray(saved) || !saved.length) continue;
+        var remapped = rebindCartItems(saved, items);
+        if (JSON.stringify(saved) !== JSON.stringify(remapped)) {
+          localStorage.setItem(storageKey, JSON.stringify(remapped));
+          changed = true;
+        }
+      }
+    } catch (e) {
+      console.info('[Mirch Masaala] Saved cart reconciliation skipped:', e && e.message ? e.message : e);
+    }
+
+    if (Array.isArray(window.cart)) {
+      var activeCart = rebindCartItems(window.cart, items);
+      if (JSON.stringify(window.cart) !== JSON.stringify(activeCart)) {
+        window.cart = activeCart;
+        try { localStorage.setItem('mm_c_' + String(window.table || '01').padStart(2, '0'), JSON.stringify(activeCart)); } catch (e) {}
+        changed = true;
+      }
+    }
+    if (Array.isArray(window.wCart)) {
+      var waiterCart = rebindCartItems(window.wCart, items);
+      if (JSON.stringify(window.wCart) !== JSON.stringify(waiterCart)) {
+        window.wCart = waiterCart;
+        if (window.wTable && window.wDrafts) {
+          window.wDrafts[String(window.wTable)] = waiterCart.map(function (item) { return Object.assign({}, item); });
+        }
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    try {
+      if (typeof window.drawMenu === 'function') window.drawMenu();
+      if (typeof window.updCart === 'function') window.updCart();
+      var cartDrawer = document.getElementById('cart');
+      if (cartDrawer && cartDrawer.classList.contains('on') && typeof window.drawCart === 'function') window.drawCart();
+      if (typeof window.wMenu === 'function') window.wMenu();
+      if (typeof window.wDrawCart === 'function') window.wDrawCart();
+    } catch (e) {
+      console.info('[Mirch Masaala] Cart refresh after menu update skipped:', e && e.message ? e.message : e);
+    }
+  }
+
   function buildOrderItems(cartItems) {
     return (cartItems || []).map(function (cartItem) {
-      var item = (window.MENU.menu_items || []).find(function (candidate) {
-        return String(candidate.id) === String(cartItem.id);
-      });
-      if (!item || !item.db_id) throw new Error('Menu is still connecting. Please wait a moment and try again.');
+      var item = findMenuItemForCartItem(cartItem);
+      if (!item || !item.db_id) {
+        throw new Error(window.mmI18n
+          ? window.mmI18n(
+              'A dish in your cart no longer matches the current menu. Please go back to the menu and add it again.',
+              'तुमच्या कार्टमधील एक पदार्थ सध्याच्या मेनूमध्ये जुळत नाही. कृपया मेनूमध्ये परत जाऊन तो पदार्थ पुन्हा जोडा.'
+            )
+          : 'A dish in your cart no longer matches the current menu. Please re-add it from the menu.');
+      }
       return { menu_item_id: item.db_id, quantity: Number(cartItem.qty) || 1 };
     });
   }
