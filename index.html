@@ -2619,11 +2619,28 @@ function fmt(ms) {
   var s = Math.ceil(ms/1000);
   return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
 }
+var cancelPendingById = Object.create(null);
 function cancelOrder(id) {
-  var o = orders.find(function(x){ return x.id === id; });
+  var ticketId = String(id || '');
+  var o = orders.find(function(x){ return x && String(x.id) === ticketId; });
   if (!o || !canCancel(o)) { toast('Cannot cancel now'); return; }
+  if (cancelPendingById[ticketId]) return;
+  if (typeof window.MM_CANCEL_CUSTOMER_ORDER !== 'function') {
+    toast('Cancellation service is not ready. Please refresh and try again.');
+    return;
+  }
   if (!confirm('Cancel this order?')) return;
-  o.status = 'CANCELLED'; save('mm_o', orders); toast('Cancelled'); myOrders();
+  cancelPendingById[ticketId] = true;
+  myOrders();
+  window.MM_CANCEL_CUSTOMER_ORDER(ticketId).then(function () {
+    toast('Order cancelled successfully');
+  }).catch(function (err) {
+    console.error('[Mirch Masaala customer cancellation]', err);
+    toast(err && err.message ? err.message : 'Could not cancel. Please try again or ask your waiter.');
+  }).then(function () {
+    delete cancelPendingById[ticketId];
+    myOrders();
+  });
 }
 function myOrders() {
   var tokens = [];
@@ -2638,6 +2655,7 @@ function myOrders() {
     var rem = o.cancelUntil ? o.cancelUntil - Date.now() : 0;
     var cbtn = '';
     if (o.status === 'CANCELLED') cbtn = '<p style="color:var(--bad);font-size:13px;margin-top:8px">Cancelled</p>';
+    else if (cancelPendingById[String(o.id)]) cbtn = '<p class="muted" style="font-size:13px;margin-top:8px">Cancelling…</p>';
     else if (canCancel(o)) cbtn = '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span class="gold">⏱ ' + fmt(rem) + '</span><button type="button" class="btn-bad" onclick="cancelOrder(\'' + o.id + '\')">Cancel order</button></div>';
     return '<div class="card" style="flex-direction:column"><div style="display:flex;justify-content:space-between"><b>' + o.id + '</b><span class="gold">' + o.status + '</span></div>' +
       progressMarkup(o) +
