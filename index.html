@@ -1267,13 +1267,14 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     </div>
     <div id="pay-cash-area" style="display:none;margin-top:14px;text-align:left">
       <p class="muted" style="font-size:13px">Please pay cash at the counter. Staff will confirm when received.</p>
-      <button type="button" class="btn btn-ok" style="margin-top:8px" onclick="markPaidMethod('cash')">Staff: cash received</button>
+      <button type="button" class="btn btn-ok" id="pay-cash-confirm-btn" style="margin-top:8px;display:none" onclick="markPaidMethod('cash')">Confirm cash received</button>
     </div>
     <div id="pay-card-area" style="display:none;margin-top:14px;text-align:left">
       <p class="muted" style="font-size:13px">Card machine at counter. Staff confirms after swipe/tap.</p>
-      <button type="button" class="btn btn-ok" style="margin-top:8px" onclick="markPaidMethod('card')">Staff: card received</button>
+      <button type="button" class="btn btn-ok" id="pay-card-confirm-btn" style="margin-top:8px;display:none" onclick="markPaidMethod('card')">Confirm card received</button>
     </div>
-    <button type="button" class="btn btn-ok" style="margin-top:12px" onclick="afterPaidFlow()">I have paid / Continue</button>
+    <p id="pay-staff-confirm-hint" class="muted" style="font-size:11px;margin-top:10px">UPI payments are not verified automatically. Please ask staff to confirm receipt so the accounts stay accurate.</p>
+    <button type="button" class="btn btn-ok" style="margin-top:12px" onclick="afterPaidFlow()">Continue / receipt options</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closePayQR()">Close</button>
   </div>
 </div>
@@ -2202,6 +2203,7 @@ function saveCustomers() { save('mm_customers', customers); }
 function savePayments() { save('mm_payments', payments); }
 
 function showPayQR(amount, orderId) {
+  updateStaffPaymentControls();
   payContext.amount = amount;
   payContext.orderId = orderId;
   payContext.table = table;
@@ -2243,6 +2245,7 @@ function paymentAppLink(method,pa,amount,orderId){
   return 'upi://pay?'+query;
 }
 function selectPayMethod(method) {
+  updateStaffPaymentControls();
   var qrRequestId = (window.MM_PAY_QR_REQUEST_ID || 0) + 1;
   window.MM_PAY_QR_REQUEST_ID = qrRequestId;
   payContext.method=method;
@@ -2277,39 +2280,44 @@ function selectPayMethod(method) {
   }else if(method==='card'){
     document.getElementById('pay-card-area').style.display='block';toast('Card at counter');
   }
-}function markPaidMethod(method) {
-  payContext.method = method || payContext.method;
-  markPaidFromPay();
+}function updateStaffPaymentControls() {
+  var staffCanConfirm = role === 'admin' || role === 'waiter';
+  ['pay-cash-confirm-btn','pay-card-confirm-btn'].forEach(function(id) {
+    var button = document.getElementById(id);
+    if (button) button.style.display = staffCanConfirm ? 'block' : 'none';
+  });
+  var hint = document.getElementById('pay-staff-confirm-hint');
+  if (hint) hint.style.display = staffCanConfirm ? 'none' : 'block';
+}
+async function markPaidMethod(method) {
+  if (['admin','waiter'].indexOf(role) < 0) {
+    toast('Only signed-in owner/waiter staff can confirm receipt of payment.');
+    return;
+  }
+  var amount = Number(payContext.amount || 0);
+  if (!(amount > 0)) {
+    toast('Open the bill with the exact amount, then record the payment.');
+    return;
+  }
+  if (typeof window.MM_RECORD_TABLE_PAYMENT !== 'function') {
+    toast('Shared payment setup is not ready. Please refresh and try again.');
+    return;
+  }
+  payContext.method = method || payContext.method || 'other';
+  try {
+    var result = await window.MM_RECORD_TABLE_PAYMENT(
+      payContext.table || table, amount, payContext.method, 'Confirmed from bill payment panel'
+    );
+    toast('Payment saved to shared accounts · ' + result.amount + ' · Table ' + result.table);
+    closePayQR();
+    afterPaidFlow();
+  } catch (e) {
+    console.error('[Mirch Masaala payment receipt]',e);
+    toast(e && e.message ? e.message : 'Could not record payment. Please check the bill.');
+  }
 }
 function markPaidFromPay() {
-  var method = payContext.method || 'gpay';
-  var mine = orders.filter(function(o) {
-    return o.table === (payContext.table || table) && o.status !== 'CANCELLED' && o.status !== 'PAID';
-  });
-  var amount = payContext.amount || 0;
-  if (mine.length) {
-    mine.forEach(function(o) {
-      o.status = 'PAID';
-      o.paidAt = new Date().toISOString();
-      o.payMethod = method;
-      amount = amount || o.total;
-    });
-    save('mm_o', orders);
-  }
-  payments.unshift({
-    id: Date.now(),
-    amount: amount,
-    method: method,
-    table: payContext.table || table,
-    orderId: payContext.orderId || (mine[0] && mine[0].id) || '',
-    customerPhone: currentCustomer && currentCustomer.phone,
-    customerName: currentCustomer && currentCustomer.name,
-    at: new Date().toISOString()
-  });
-  savePayments();
-  toast('Payment recorded · ' + method);
-  closePayQR();
-  afterPaidFlow();
+  markPaidMethod(payContext.method || 'other');
 }
 function afterPaidFlow() {
   var reviewLink = document.getElementById('post-payment-review');
@@ -2423,26 +2431,30 @@ function sendWhatsAppReceipt(yes) {
   toast('WhatsApp opened — review & send');
 }
 
-function savePaymentLog() {
+async function savePaymentLog() {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
   var amount = parseFloat(document.getElementById('plog-amt').value);
-  if (!amount) { toast('Enter amount'); return; }
-  payments.unshift({
-    id: Date.now(),
-    amount: amount,
-    method: document.getElementById('plog-method').value,
-    table: document.getElementById('plog-table').value.trim(),
-    note: document.getElementById('plog-note').value.trim(),
-    at: new Date().toISOString(),
-    by: 'admin'
-  });
-  savePayments();
-  document.getElementById('admin-pay-log-modal').classList.remove('on');
-  toast('Payment saved');
-  if (typeof drawAdminPayments === 'function') drawAdminPayments();
+  var tableNumber = String(document.getElementById('plog-table').value || '').trim();
+  var method = document.getElementById('plog-method').value;
+  var note = document.getElementById('plog-note').value.trim();
+  if (!(amount > 0)) { toast('Enter the amount actually received'); return; }
+  if (!/^\\d{1,2}$/.test(tableNumber)) { toast('Enter the table number (for example 02)'); return; }
+  if (typeof window.MM_RECORD_TABLE_PAYMENT !== 'function') { toast('Shared payment setup is not ready.'); return; }
+  try {
+    var result = await window.MM_RECORD_TABLE_PAYMENT(tableNumber, amount, method, note || 'Recorded by owner');
+    document.getElementById('admin-pay-log-modal').classList.remove('on');
+    toast('Payment saved to shared accounts · ₹' + Number(result.amount).toFixed(2));
+    if (typeof drawAdminPayments === 'function') drawAdminPayments();
+    if (typeof drawStats === 'function') drawStats();
+  } catch (e) {
+    console.error('[Mirch Masaala owner payment log]', e);
+    toast(e && e.message ? e.message : 'Payment was not recorded.');
+  }
 }
 function openAdminPayLog() {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
   document.getElementById('plog-amt').value = '';
-  document.getElementById('plog-table').value = '';
+  document.getElementById('plog-table').value = String(table || '01').padStart(2, '0');
   document.getElementById('plog-note').value = '';
   document.getElementById('admin-pay-log-modal').classList.add('on');
 }
@@ -2551,27 +2563,43 @@ async function sendWhatsAppBroadcast() {
   }
 }
 
-function drawAdminPayments() {
+var adminPaymentLoadVersion = 0;
+async function drawAdminPayments() {
   var el = document.getElementById('a-payments');
   if (!el) return;
-  var html = '<button type="button" class="btn btn-main" style="margin-bottom:12px" onclick="openAdminPayLog()">+ Record payment received</button>';
-  if (!payments.length) html += '<p class="muted center">No payments logged yet</p>';
-  else html += payments.slice(0, 40).map(function(p) {
-    return '<div class="card" style="flex-direction:column"><b class="gold">₹' + p.amount + '</b> · ' + p.method +
-      '<div class="muted" style="font-size:12px">Table ' + (p.table || '-') + ' · ' + new Date(p.at).toLocaleString() +
-      (p.customerName ? ' · ' + p.customerName : '') + (p.customerPhone ? ' · ' + p.customerPhone : '') + '</div></div>';
+  if (role !== 'admin') {
+    el.innerHTML = '<p class="muted">Owner/Admin access required to view official payments.</p>';
+    return;
+  }
+  var renderVersion = ++adminPaymentLoadVersion;
+  el.innerHTML = '<button type="button" class="btn btn-main" style="margin-bottom:12px" onclick="openAdminPayLog()">+ Record payment received</button><p class="muted">Loading payments from shared accounts…</p>';
+  var remotePayments = [];
+  var paymentError = '';
+  try {
+    if (typeof window.MM_LOAD_ADMIN_PAYMENTS !== 'function') throw new Error('Payment database setup is required.');
+    remotePayments = await window.MM_LOAD_ADMIN_PAYMENTS();
+  } catch (e) {
+    paymentError = e && e.message ? e.message : 'Could not load the shared payment log.';
+  }
+  if (renderVersion !== adminPaymentLoadVersion || !document.getElementById('a-payments')) return;
+  var html = '<button type="button" class="btn btn-main" style="margin-bottom:12px" onclick="openAdminPayLog()">+ Record payment received</button>' +
+    '<p class="muted" style="font-size:11px;margin:0 0 12px">Official receipts are stored against table orders in Supabase. A UPI QR opening alone never marks a bill as received.</p>';
+  if (paymentError) html += '<div class="setup"><b>Shared payment log unavailable</b><p>' + esc(paymentError) + '</p></div>';
+  else if (!remotePayments.length) html += '<p class="muted center">No confirmed shared payments yet.</p>';
+  else html += remotePayments.map(function(p) {
+    return '<div class="card" style="flex-direction:column"><b class="gold">₹' + Number(p.amount || 0).toFixed(2) + '</b> · ' + esc(String(p.method || '').toUpperCase()) +
+      '<div class="muted" style="font-size:12px">Table ' + esc(p.table_number || '-') + ' · Ticket ' + esc(p.ticket_id || '-') + ' · ' + new Date(p.created_at).toLocaleString() +
+      (p.note ? ' · ' + esc(p.note) : '') + '</div></div>';
   }).join('');
-  // customers summary
+  html += '<h3 class="gold" style="margin:16px 0 8px;font-size:14px">Customers (' + Object.keys(customers).length + ')</h3>';
   var keys = Object.keys(customers);
-  html += '<h3 class="gold" style="margin:16px 0 8px;font-size:14px">Customers (' + keys.length + ')</h3>';
-  if (!keys.length) html += '<p class="muted">No saved customers yet</p>';
+  if (!keys.length) html += '<p class="muted">No saved customers on this device yet</p>';
   else html += keys.slice(0, 30).map(function(ph) {
     var c = customers[ph];
-    return '<div class="card" style="flex-direction:column"><b>' + (c.name || 'Guest') + '</b><span class="muted">' + ph + ' · ' + (c.visits || 1) + ' visits</span></div>';
+    return '<div class="card" style="flex-direction:column"><b>' + esc(c.name || 'Guest') + '</b><span class="muted">' + esc(ph) + ' · ' + (c.visits || 1) + ' visits</span></div>';
   }).join('');
   el.innerHTML = html;
 }
-
 
 
 function openCustomerActions() {
@@ -3082,6 +3110,7 @@ function drawWaiterOrders() {
   var relevant = (orders || []).filter(function (o) {
     var status = String(o.status || '').toUpperCase();
     return String(o.table || '').padStart(2, '0') === currentTable &&
+      !o.is_test_order && !o.archived_at &&
       ['CANCELLED','PAID'].indexOf(status) < 0 &&
       (Date.now() - new Date(o.createdAt || 0).getTime() < 12 * 60 * 60 * 1000);
   }).sort(function (a, b) { return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); }).slice(0, 5);
@@ -3121,15 +3150,18 @@ function drawK() {
   if (time) time.textContent = new Date().toLocaleTimeString();
   var qTitle = document.querySelector('.k-queue-title');
   if (qTitle) {
-    var live = orders.filter(function(o){ return o.status==='NEW'||o.status==='PREPARING'||o.status==='READY'; }).length;
+    var live = operationalOrders.filter(function(o){ return o.status==='NEW'||o.status==='PREPARING'||o.status==='READY'; }).length;
     qTitle.textContent = 'LIVE ORDER QUEUE · ' + live + ' active · auto-updates';
   }
-  var N = orders.filter(function(o){ return o.status === 'NEW'; });
-  var P = orders.filter(function(o){ return o.status === 'PREPARING'; });
-  var R = orders.filter(function(o){ return o.status === 'READY'; });
+  var operationalOrders = (Array.isArray(orders) ? orders : []).filter(function(o) {
+    return o && !o.is_test_order && !o.archived_at;
+  });
+  var N = operationalOrders.filter(function(o){ return o.status === 'NEW'; });
+  var P = operationalOrders.filter(function(o){ return o.status === 'PREPARING'; });
+  var R = operationalOrders.filter(function(o){ return o.status === 'READY'; });
   var stats = document.getElementById('k-stats');
   if (stats) stats.innerHTML =
-    '<div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + orders.filter(function(o){return o.status==='SERVED';}).length + '</b>Done</div>';
+    '<div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + operationalOrders.filter(function(o){return o.status==='SERVED';}).length + '</b>Done</div>';
   function card(o, next, label, col) {
     var orderNote = String(o.notes || '').replace(/^\[Waiter\]\s*/, '').trim();
     var itemNotes = (o.items || []).filter(function(i){ return String(i.notes || '').trim(); });
@@ -3364,10 +3396,13 @@ function tab(btn, name) {
   if (name === 'whatsapp') drawWhatsApp();
 }
 function drawAdminOrders() {
-  var N = orders.filter(function(o){ return o.status === 'NEW'; });
-  var P = orders.filter(function(o){ return o.status === 'PREPARING'; });
-  var R = orders.filter(function(o){ return o.status === 'READY'; });
-  var html = '<div class="stats"><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + orders.filter(function(o){return o.status==='SERVED';}).length + '</b>Served</div></div>';
+  var operationalOrders = (Array.isArray(orders) ? orders : []).filter(function(o) {
+    return o && !o.is_test_order && !o.archived_at;
+  });
+  var N = operationalOrders.filter(function(o){ return o.status === 'NEW'; });
+  var P = operationalOrders.filter(function(o){ return o.status === 'PREPARING'; });
+  var R = operationalOrders.filter(function(o){ return o.status === 'READY'; });
+  var html = '<div class="stats"><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + operationalOrders.filter(function(o){return o.status==='SERVED';}).length + '</b>Served</div></div>';
   function sec(title, list) {
     if (!list.length) return '';
     return '<h3 class="gold" style="font-size:12px;padding:8px 12px">' + title + '</h3>' + list.map(function(o) {
@@ -3377,7 +3412,7 @@ function drawAdminOrders() {
     }).join('');
   }
   html += sec('New', N) + sec('Cooking', P) + sec('Ready', R);
-  if (!orders.length) html += '<p class="muted center" style="padding:30px">No orders yet — they appear automatically</p>';
+  if (!operationalOrders.length) html += '<p class="muted center" style="padding:30px">No active orders — they appear automatically</p>';
   document.getElementById('a-orders').innerHTML = html;
 }
 function enableRoleNotifications() {
@@ -3567,12 +3602,150 @@ function downloadAllQRCodes() {
     toast('Could not generate QR sheet');
   });
 }
-function drawStats() {
-  var today = new Date().toISOString().slice(0,10);
-  var tod = orders.filter(function(o){ return o.createdAt.slice(0,10) === today && o.status !== 'CANCELLED'; });
-  var sales = tod.reduce(function(s,o){ return s + o.total; }, 0);
-  document.getElementById('a-stats').innerHTML = '<div class="stats" style="padding:0"><div class="stat"><b>' + tod.length + '</b>Orders</div><div class="stat"><b>₹' + sales + '</b>Sales</div><div class="stat"><b>' + bookings.length + '</b>Parties</div><div class="stat"><b>' + reviews.length + '</b>Reviews</div></div>';
+var adminStatsRenderVersion = 0;
+function localDateKey(value) {
+  var d = value instanceof Date ? value : new Date(value || Date.now());
+  if (isNaN(d.getTime())) return '';
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
+function money(value) { return '₹' + Number(value || 0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function accountMetric(label,value) {
+  return '<div class="stat"><b>' + esc(String(value)) + '</b>' + esc(label) + '</div>';
+}
+function renderAdminAccountsSummary(summary, version) {
+  var host = document.getElementById('accounts-live-summary');
+  if (!host || version !== adminStatsRenderVersion) return;
+  if (!summary || typeof summary !== 'object') {
+    host.innerHTML = '<div class="setup"><b>Official accounts not available</b><p>Run supabase/order-management-accounting.sql in Supabase SQL Editor, then refresh.</p></div>';
+    return;
+  }
+  host.innerHTML = '<p class="muted" style="font-size:11px;margin-bottom:8px">Official shared accounts · ' + esc(summary.day || '') + ' · all database orders, not just this device</p>' +
+    '<div class="stats" style="grid-template-columns:repeat(2,minmax(0,1fr));padding:0">' +
+      accountMetric('Non-test orders', summary.order_count || 0) +
+      accountMetric('Money received', money(summary.paid_sales)) +
+      accountMetric('Fully paid tickets', summary.paid_count || 0) +
+      accountMetric('Balance due', money(summary.pending_value)) +
+      accountMetric('Pending tickets', summary.pending_count || 0) +
+      accountMetric('Cancelled tickets', (summary.cancelled_count || 0) + ' · ' + money(summary.cancelled_value)) +
+      accountMetric('Customer cancellations', summary.customer_cancel_count || 0) +
+      accountMetric('Complimentary meals', (summary.complimentary_count || 0) + ' · ' + money(summary.complimentary_value)) +
+      accountMetric('Test orders excluded', (summary.test_count || 0) + ' · ' + money(summary.test_value)) +
+    '</div>';
+  var audit = Array.isArray(summary.recent_audit) ? summary.recent_audit : [];
+  var auditHost = document.getElementById('accounts-audit');
+  if (auditHost) {
+    auditHost.innerHTML = '<h3 class="gold" style="font-size:13px;margin:16px 0 8px">Recent accounting activity</h3>' +
+      (audit.length ? audit.map(function(a) {
+        return '<div class="card" style="flex-direction:column;gap:4px"><b>' + esc(String(a.action || '').replace(/_/g,' ')) +
+          ' · Table ' + esc(a.table_number || '-') + '</b><span class="muted" style="font-size:11px">' +
+          esc(a.ticket_id || 'Table action') + ' · ' + new Date(a.created_at).toLocaleString() + '</span>' +
+          '<span>' + money(a.amount) + ' · ' + esc(a.reason || '') + '</span></div>';
+      }).join('') : '<p class="muted">No accounting actions recorded yet.</p>');
+  }
+}
+async function refreshAdminAccountsSummary() {
+  if (role !== 'admin' || typeof window.MM_LOAD_ADMIN_ACCOUNTS_SUMMARY !== 'function') return;
+  var version = adminStatsRenderVersion;
+  var day = localDateKey(new Date());
+  try {
+    var summary = await window.MM_LOAD_ADMIN_ACCOUNTS_SUMMARY(day);
+    renderAdminAccountsSummary(summary, version);
+  } catch (e) {
+    console.error('[Mirch Masaala accounts summary]',e);
+    renderAdminAccountsSummary(null,version);
+  }
+}
+function drawStats() {
+  if (role !== 'admin') {
+    document.getElementById('a-stats').innerHTML = '<div class="setup"><b>Owner access required</b><p>Sign in as Owner/Admin to view accounts and clean table test data.</p></div>';
+    return;
+  }
+  var version = ++adminStatsRenderVersion;
+  var candidates = (Array.isArray(orders) ? orders : []).filter(function(o) {
+    return o && !o.is_test_order && !o.archived_at && String(o.status || '').toUpperCase() !== 'CANCELLED';
+  }).sort(function(a,b) { return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); }).slice(0,40);
+  var ticketOptions = candidates.map(function(o) {
+    var label = 'Table ' + String(o.table || '--').padStart(2,'0') + ' · ' + (o.id || '') + ' · ' + String(o.status || '') + ' · ' + money(o.total) +
+      (o.is_complimentary ? ' · FREE MEAL' : '');
+    return '<option value="' + esc(o.id) + '">' + esc(label) + '</option>';
+  }).join('');
+  var tableOptions = Array.from({length:20},function(_,n) {
+    var tableNo=String(n+1).padStart(2,'0');
+    return '<option value="' + tableNo + '"' + (tableNo === '02' ? ' selected' : '') + '>Table ' + tableNo + '</option>';
+  }).join('');
+  document.getElementById('a-stats').innerHTML =
+    '<div id="accounts-live-summary"><div class="setup"><b>Loading official accounts…</b><p>Connecting to the shared order/payment ledger.</p></div></div>' +
+    '<div class="setup" style="margin-top:14px"><h3>Complimentary / free food</h3><p>Choose an order that was given free. Its value is tracked separately and removed from money received. Add a short reason for the audit record.</p>' +
+    (ticketOptions ? '<label for="accounts-ticket-select" class="muted">Order</label><select id="accounts-ticket-select" style="width:100%;padding:12px;border-radius:10px;margin:6px 0;background:#211815;color:#fff;border:1px solid var(--line)">' + ticketOptions + '</select>' +
+    '<button type="button" class="btn btn-main" onclick="toggleSelectedOrderComplimentary()">Mark / remove complimentary</button>' :
+    '<p class="muted">No recent eligible orders loaded. Refresh the page after orders sync.</p>') + '</div>' +
+    '<div class="setup" style="margin-top:14px"><h3>Clean test orders for a table</h3><p>This preserves the records and line items. Active tickets are cancelled, all unarchived tickets for the chosen table are marked TEST and excluded from revenue reports. Use only for a table containing test orders, not a real service table.</p>' +
+    '<label for="accounts-clean-table" class="muted">Table</label><select id="accounts-clean-table" style="width:100%;padding:12px;border-radius:10px;margin:6px 0;background:#211815;color:#fff;border:1px solid var(--line)">' + tableOptions + '</select>' +
+    '<button type="button" class="btn btn-bad" onclick="previewAndCleanTable()">Preview & clean test orders</button></div>' +
+    '<div id="accounts-audit"></div>';
+  refreshAdminAccountsSummary();
+}
+async function toggleSelectedOrderComplimentary() {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
+  var select = document.getElementById('accounts-ticket-select');
+  var order = select && orders.find(function(o) { return o && String(o.id) === String(select.value); });
+  if (!order) { toast('Choose a valid order'); return; }
+  var enable = !order.is_complimentary;
+  var reason = '';
+  if (enable) {
+    reason = window.prompt('Why is this meal free? This reason is saved in the audit log.', 'Complimentary meal');
+    if (reason === null) return;
+    reason = reason.trim();
+    if (reason.length < 3) { toast('Enter a short reason for the free meal'); return; }
+  } else if (!window.confirm('Remove the complimentary classification from ' + order.id + '?')) {
+    return;
+  }
+  try {
+    if (typeof window.MM_SET_ORDER_COMPLIMENTARY !== 'function') throw new Error('Run the accounts SQL migration first.');
+    await window.MM_SET_ORDER_COMPLIMENTARY(order.id, enable, reason);
+    toast(enable ? 'Free meal recorded in accounts' : 'Complimentary classification removed');
+    drawStats();
+    drawAdminOrders();
+  } catch (e) {
+    console.error('[Mirch Masaala complimentary order]', e);
+    toast(e && e.message ? e.message : 'Could not update the accounts record.');
+  }
+}
+async function previewAndCleanTable() {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
+  var select = document.getElementById('accounts-clean-table');
+  var tableNo = select ? select.value : '';
+  if (typeof window.MM_PREVIEW_TABLE_CLEANUP !== 'function' || typeof window.MM_CLEAR_TABLE_ORDERS !== 'function') {
+    toast('Run the accounts SQL migration in Supabase, then refresh.');
+    return;
+  }
+  try {
+    var preview = await window.MM_PREVIEW_TABLE_CLEANUP(tableNo);
+    var count = Number(preview && preview.candidate_count || 0);
+    var active = Number(preview && preview.active_count || 0);
+    var paid = Number(preview && preview.recorded_payment_value || 0);
+    if (!count) { toast('Table ' + tableNo + ' has no unarchived orders to clean.'); return; }
+    var warning = 'Table ' + tableNo + ' cleanup preview\n\n' + count + ' order(s) will be marked as TEST and excluded from sales stats.\n' +
+      active + ' active order(s) will be cancelled.\nTicket value excluded: ' + money(preview.candidate_value) +
+      '\nPayments already recorded against these tickets: ' + money(paid) +
+      '\n\nRecords will remain in history. Continue only if these are test orders.';
+    if (!window.confirm(warning)) return;
+    if (paid > 0 && !window.confirm('This table has recorded payments. Their orders will be classed as test and those amounts excluded from official sales stats. Are you absolutely sure this table contains only test data?')) return;
+    var reason = window.prompt('Reason for cleanup (saved to audit log):', 'Test orders cleanup');
+    if (reason === null) return;
+    reason = reason.trim();
+    if (reason.length < 3 || reason.length > 240) { toast('Enter a reason between 3 and 240 characters'); return; }
+    var result = await window.MM_CLEAR_TABLE_ORDERS(tableNo, reason, count);
+    toast('Table ' + tableNo + ' cleaned · ' + result.archived_count + ' tickets retained as test records');
+    drawStats();
+    drawAdminOrders();
+    if (typeof drawAdminPayments === 'function' && document.getElementById('a-payments').style.display !== 'none') drawAdminPayments();
+  } catch (e) {
+    console.error('[Mirch Masaala table cleanup]',e);
+    toast(e && e.message ? e.message : 'Cleanup failed. Refresh the preview and try again.');
+  }
+}
+
 function drawParty() {
   document.getElementById('a-party').innerHTML = bookings.length ? bookings.map(function(b) {
     return '<div class="card" style="flex-direction:column"><b class="gold">' + b.type + '</b><div>' + b.name + ' · ' + b.phone + '</div><div class="muted">' + b.date + ' · ' + b.guests + ' guests</div>' +
@@ -4053,7 +4226,7 @@ function renderPublicOrderBoard(rows) {
     if (Array.isArray(savedOrders)) ownTickets = ownTickets.concat(savedOrders);
     if (Array.isArray(window.orders)) ownTickets = ownTickets.concat(window.orders);
     ownTickets.forEach(function(o) {
-      if (!o || !allowed[String(o.id)]) return;
+      if (!o || !allowed[String(o.id)] || o.is_test_order || o.archived_at) return;
       var status = String(o.status || '').toUpperCase();
       if (['NEW','PREPARING','READY'].indexOf(status) < 0) return;
       var created = new Date(o.createdAt || 0).getTime();
