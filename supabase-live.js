@@ -873,6 +873,17 @@
     return data;
   }
 
+  async function getPublicTableBill(tableNumber) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    var result = await client.rpc('mm_get_public_table_bill', {
+      p_table_number: String(tableNumber || '')
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not calculate the current table balance.');
+    return rpcPayload(result.data);
+  }
+
+
+
   async function recordTablePayment(tableNumber, amount, method, note) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
     if (['admin', 'waiter'].indexOf(window.role) < 0) {
@@ -1636,6 +1647,7 @@
     window.MM_CLEAR_TABLE_ORDERS = clearTableOrders;
     window.MM_SET_ORDER_COMPLIMENTARY = setOrderComplimentary;
     window.MM_RECORD_TABLE_PAYMENT = recordTablePayment;
+    window.MM_GET_PUBLIC_TABLE_BILL = getPublicTableBill;
     window.MM_LOAD_ADMIN_ACCOUNTS_SUMMARY = loadAdminAccountsSummary;
     window.MM_LOAD_ADMIN_PAYMENTS = loadAdminPayments;
     window.MM_REFRESH_STAFF_ORDERS = refreshStaffOrders;
