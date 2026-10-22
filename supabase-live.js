@@ -411,7 +411,7 @@
     staffRefreshBusy = true;
     try {
       var result = await client.from('orders')
-        .select('id,ticket_id,table_id,status,notes,total,created_at,public_token,order_number')
+        .select('id,ticket_id,table_id,status,notes,total,created_at,public_token,order_number,is_test_order,is_complimentary,complimentary_reason,cancel_reason,archived_at')
         .eq('restaurant_id', RESTAURANT_ID)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -456,7 +456,12 @@
           status: String(row.status || 'NEW').toUpperCase(),
           notes: row.notes || '',
           createdAt: row.created_at,
-          orderNumber: row.order_number
+          orderNumber: row.order_number,
+          is_test_order: !!row.is_test_order,
+          is_complimentary: !!row.is_complimentary,
+          complimentary_reason: row.complimentary_reason || '',
+          cancel_reason: row.cancel_reason || '',
+          archived_at: row.archived_at || null
         };
       });
       try { localStorage.setItem('mm_o', JSON.stringify(window.orders)); } catch (e) {}
@@ -464,6 +469,12 @@
       if (document.getElementById('kitchen') && document.getElementById('kitchen').classList.contains('on') && (window.role === 'kitchen' || window.role === 'admin') && typeof window.drawK === 'function') window.drawK();
       if (document.getElementById('waiter') && document.getElementById('waiter').classList.contains('on') && typeof window.drawWaiterOrders === 'function') window.drawWaiterOrders();
       if (document.getElementById('success') && document.getElementById('success').classList.contains('on') && typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+      var accountsHost = document.getElementById('a-stats');
+      if (window.role === 'admin' && document.getElementById('admin') &&
+          document.getElementById('admin').classList.contains('on') && accountsHost &&
+          accountsHost.style.display !== 'none' && typeof window.refreshAdminAccountsSummary === 'function') {
+        window.refreshAdminAccountsSummary();
+      }
     } catch (e) {
       notifyError('Order sync failed. Check staff account permissions in Supabase.');
       console.error('[Mirch Masaala order sync]', e);
@@ -822,6 +833,82 @@
     }
   }
 
+
+  function assertOwner() {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    if (window.role !== 'admin') throw new Error('Owner/Admin access required.');
+  }
+
+  async function ownerRpc(name, args) {
+    assertOwner();
+    var result = await client.rpc(name, args || {});
+    if (result.error) throw new Error(result.error.message || 'The requested owner action failed.');
+    return rpcPayload(result.data);
+  }
+
+  async function previewTableCleanup(tableNumber) {
+    return ownerRpc('mm_admin_preview_table_cleanup', { p_table_number: String(tableNumber || '') });
+  }
+
+  async function clearTableOrders(tableNumber, reason, expectedCount) {
+    var data = await ownerRpc('mm_admin_clear_table_orders', {
+      p_table_number: String(tableNumber || ''),
+      p_reason: String(reason || '').slice(0, 240),
+      p_expected_count: Number(expectedCount)
+    });
+    await refreshStaffOrders();
+    await refreshPublicOrderBoard();
+    if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    return data;
+  }
+
+  async function setOrderComplimentary(ticketId, isComplimentary, reason) {
+    var data = await ownerRpc('mm_admin_set_complimentary', {
+      p_ticket_id: String(ticketId || ''),
+      p_is_complimentary: !!isComplimentary,
+      p_reason: String(reason || '').slice(0, 240)
+    });
+    await refreshStaffOrders();
+    if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    return data;
+  }
+
+  async function recordTablePayment(tableNumber, amount, method, note) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    if (['admin', 'waiter'].indexOf(window.role) < 0) {
+      throw new Error('Only signed-in owner or waiter staff can confirm that payment was received.');
+    }
+    var result = await client.rpc('mm_staff_record_table_payment', {
+      p_table_number: String(tableNumber || ''),
+      p_amount: Number(amount),
+      p_method: String(method || 'other'),
+      p_note: String(note || '').slice(0, 500)
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not record the payment.');
+    var data = rpcPayload(result.data);
+    await refreshStaffOrders();
+    if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    return data;
+  }
+
+  async function loadAdminAccountsSummary(day) {
+    assertOwner();
+    var result = await client.rpc('mm_admin_accounts_summary', { p_day: day || null });
+    if (result.error) throw new Error(result.error.message || 'Could not load the shared accounts summary.');
+    return rpcPayload(result.data);
+  }
+
+  async function loadAdminPayments() {
+    assertOwner();
+    var result = await client.from('order_payments')
+      .select('id,ticket_id,table_number,amount,method,note,created_at')
+      .eq('restaurant_id', RESTAURANT_ID)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (result.error) throw new Error(result.error.message || 'Could not load the shared payment log.');
+    return result.data || [];
+  }
+
   async function setSharedOrderStatus(ticketId, status) {
     var actor = String(window.role || '');
     var nextStatus = String(status || '').toUpperCase();
@@ -830,7 +917,7 @@
       return;
     }
     var permitted = actor === 'admin'
-      ? ['NEW', 'PREPARING', 'READY', 'SERVED', 'PAID', 'CANCELLED'].indexOf(nextStatus) >= 0
+      ? ['NEW', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'].indexOf(nextStatus) >= 0
       : actor === 'kitchen'
         ? ['PREPARING', 'READY'].indexOf(nextStatus) >= 0
         : nextStatus === 'SERVED';
@@ -1545,6 +1632,13 @@
     window.logout = secureLogout;
     window.placeOrder = placeCustomerOrder;
     window.MM_CANCEL_CUSTOMER_ORDER = cancelCustomerOrder;
+    window.MM_PREVIEW_TABLE_CLEANUP = previewTableCleanup;
+    window.MM_CLEAR_TABLE_ORDERS = clearTableOrders;
+    window.MM_SET_ORDER_COMPLIMENTARY = setOrderComplimentary;
+    window.MM_RECORD_TABLE_PAYMENT = recordTablePayment;
+    window.MM_LOAD_ADMIN_ACCOUNTS_SUMMARY = loadAdminAccountsSummary;
+    window.MM_LOAD_ADMIN_PAYMENTS = loadAdminPayments;
+    window.MM_REFRESH_STAFF_ORDERS = refreshStaffOrders;
     window.wSend = sendWaiterOrder;
     window.setStatus = setSharedOrderStatus;
     window.saveItemPrice = saveSharedPrice;
