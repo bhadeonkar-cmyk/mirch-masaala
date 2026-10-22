@@ -817,6 +817,12 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .guide-copy{flex:1;min-width:0}
 .guide-copy>b{display:block;margin-bottom:3px;color:var(--gold2);font-size:13px;line-height:1.3}
 .guide-copy .muted{font-size:11px!important;line-height:1.45}
+.guide-demo-options{width:112px;flex-basis:112px;height:130px}
+.guide-demo-options .guide-demo-screen{padding:5px 4px}
+.guide-option-choice{position:relative;display:flex;align-items:center;gap:3px;min-height:27px;margin-top:4px;padding:4px 21px 4px 4px;border:1px solid rgba(240,215,140,.55);border-radius:6px;background:rgba(212,168,75,.12);color:var(--text);font-size:8px;line-height:1.15;font-weight:800}
+.guide-option-kicker{display:block;color:var(--gold2);font-size:6px;line-height:1.1;font-weight:900}
+.guide-option-or{text-align:center;color:var(--gold2);font-weight:900;font-size:8px;line-height:1.3;margin-top:2px}
+.guide-option-hand{position:absolute;right:1px;bottom:0;font-size:15px;line-height:1;filter:drop-shadow(0 1px 2px #000);animation:guideFingerTap 1.25s ease-in-out infinite;pointer-events:none}
 @keyframes guideFingerTap{0%,100%{transform:translate(0,0) scale(1)}38%{transform:translate(-3px,-7px) scale(1.04)}55%{transform:translate(-3px,-2px) scale(.9)}72%{transform:translate(0,0) scale(1)}}
 @keyframes guideArrowNudge{0%,100%{opacity:.55;transform:translate(2px,2px)}45%{opacity:1;transform:translate(-3px,-4px)}70%{opacity:.9;transform:translate(0,0)}}
 @keyframes guideTargetGlow{0%,100%{box-shadow:0 0 0 2px rgba(240,215,140,.08)}50%{box-shadow:0 0 0 4px rgba(240,215,140,.2),0 0 10px rgba(240,215,140,.2)}}
@@ -1581,6 +1587,12 @@ function updateGuideHeader() {
 }
 function guideVisual(kind, language) {
   var mr = language === 'mr';
+  if (kind === 'table-options') {
+    var choices = mr
+      ? '<div class="guide-option-choice"><span><span class="guide-option-kicker">पर्याय १</span>▦ QR स्कॅन</span><span class="guide-option-hand">👆</span></div><div class="guide-option-or">किंवा</div><div class="guide-option-choice"><span><span class="guide-option-kicker">पर्याय २</span>टेबल निवडा</span><span class="guide-option-hand" style="animation-delay:.62s">👆</span></div>'
+      : '<div class="guide-option-choice"><span><span class="guide-option-kicker">OPTION 1</span>▦ Scan QR</span><span class="guide-option-hand">👆</span></div><div class="guide-option-or">OR</div><div class="guide-option-choice"><span><span class="guide-option-kicker">OPTION 2</span>Choose table</span><span class="guide-option-hand" style="animation-delay:.62s">👆</span></div>';
+    return '<div class="guide-demo guide-demo-options" aria-hidden="true"><div class="guide-demo-screen"><div class="guide-demo-top"></div><div class="guide-demo-label">' + (mr ? 'टेबल निवडा' : 'Choose table') + '</div>' + choices + '</div></div>';
+  }
   var v = {
     scan: mr
       ? '<div class="guide-demo-top"></div><div class="guide-demo-label">टेबलचा QR</div><div class="guide-demo-qr guide-demo-target">▦</div><span class="guide-demo-sub">स्कॅन करा</span>'
@@ -1632,15 +1644,13 @@ function showRoleGuide(roleName) {
   var mr = guideLanguage === 'mr';
   var guideData = {
     customer: mr ? [
-      {kind:'scan',title:'टेबलचा QR कोड स्कॅन करा',text:'टेबलवरील QR कोड मोबाईल कॅमेऱ्याने स्कॅन करा. QR स्कॅन करण्याऐवजी तुम्ही खालील “टेबल निवडा” पर्यायातून टेबल क्रमांकावर थेट टॅप करूनही पुढे जाऊ शकता.'},
-      {kind:'table',title:'आपले टेबल निवडा',text:'टेबलचा क्रमांक तपासून त्यावर टॅप करा आणि पुढे जा.'},
+      {kind:'table-options',title:'टेबल निवडण्याचे २ पर्याय — यापैकी एक निवडा',text:'पर्याय १: टेबलवरील QR कोड स्कॅन करा. किंवा पर्याय २: “टेबल निवडा” मधून टेबल क्रमांकावर थेट टॅप करा. दोन्ही पर्याय एकाच मेनूकडे नेतात; यापैकी फक्त एकच वापरा.'},
       {kind:'menu',title:'आवडते पदार्थ निवडा',text:'मेनूमधील पदार्थ पाहा. शाकाहारी किंवा मांसाहारी पदार्थ निवडण्यासाठी वरचे पर्याय वापरा. पदार्थ जोडण्यासाठी “जोडा” दाबा.'},
       {kind:'cart',title:'ऑर्डर तपासून घ्या',text:'कार्ट उघडा. पदार्थ, संख्या आणि एकूण रक्कम तपासा. काही सांगायचे असल्यास सूचना लिहा.'},
       {kind:'submit',title:'ऑर्डर द्या',text:'सगळे बरोबर असल्यावर “ऑर्डर द्या” दाबा. ऑर्डर किचनला पाठवली जाईल.'},
       {kind:'track',title:'ऑर्डरची स्थिती पाहा',text:'ऑर्डर नवीन आहे, बनत आहे की तयार आहे ते पाहा. मदत हवी असल्यास वेटरला बोलवा.'}
     ] : [
-      {kind:'scan',title:'Scan the table QR code',text:'Scan the QR code on your table with your phone camera, or skip scanning and tap a table number under “Choose Table” below.'},
-      {kind:'table',title:'Choose your table',text:'Check the table number, tap it, and continue.'},
+      {kind:'table-options',title:'Two ways to choose your table — use either one',text:'Option 1: Scan the QR code on your table. OR Option 2: Tap a table number under “Choose Table”. Both options open the same menu, so use just one.'},
       {kind:'menu',title:'Choose your food',text:'Browse the menu. Use the Veg or Non-veg filters if needed, then tap ADD for a dish.'},
       {kind:'cart',title:'Review your order',text:'Open the cart and check the dishes, quantities and total. Add a note if needed.'},
       {kind:'submit',title:'Place the order',text:'When everything looks correct, tap Place order to send it to the kitchen.'},
