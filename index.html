@@ -778,6 +778,51 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .install-app-small{font-size:10px!important;line-height:1.4;margin:8px 0 12px}
 .install-modal-box>.btn{min-height:44px;font-size:13px}
 
+
+/* Marathi-first visual quick guide with animated hand-and-arrow prompts. */
+.guide-heading{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.guide-heading h3{margin:0;font-size:19px}
+.guide-head-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.guide-lang-switch{display:flex;gap:5px}
+.guide-lang-button{border:1px solid var(--line);border-radius:999px;padding:7px 11px;background:var(--surface);color:var(--muted);font-weight:800;font-size:12px}
+.guide-lang-button.on{background:var(--gold2);color:#1a1208;border-color:var(--gold2)}
+.guide-sheet .inner{max-height:84vh;padding-bottom:22px}
+#guide-content{display:grid;gap:2px}
+.guide-step-cartoon{align-items:center;gap:8px;padding:12px 0}
+.guide-step-cartoon .guide-step-num{flex:0 0 23px;width:23px;height:23px;border-radius:50%;background:var(--gold2);color:#1a1208;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.guide-demo{position:relative;flex:0 0 84px;width:84px;height:88px;overflow:hidden;border-radius:13px;border:1px solid rgba(240,215,140,.3);background:linear-gradient(145deg,rgba(240,215,140,.12),rgba(16,12,10,.96));padding:8px 6px 7px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.025)}
+.guide-demo-screen{position:relative;height:100%;width:100%;border-radius:8px;background:rgba(255,255,255,.045);padding:5px 4px;overflow:hidden}
+.guide-demo-top{height:4px;width:40%;border-radius:9px;background:rgba(240,215,140,.55);margin:0 auto 5px}
+.guide-demo-label{display:block;text-align:center;font-size:8px;line-height:1.2;color:var(--text);font-weight:850;margin:3px 0}
+.guide-demo-sub{display:block;text-align:center;font-size:7px;line-height:1.15;color:var(--muted)}
+.guide-demo-target{border:1px solid var(--gold2)!important;box-shadow:0 0 0 3px rgba(240,215,140,.12),0 0 13px rgba(240,215,140,.22)!important;animation:guideTargetGlow 1.4s ease-in-out infinite}
+.guide-demo-qr{width:32px;height:32px;margin:5px auto 0;display:grid;place-items:center;border:3px solid var(--text);border-radius:3px;color:var(--text);font-size:24px;line-height:1;background:repeating-conic-gradient(rgba(255,255,255,.75) 0 25%,transparent 0 50%) 0/7px 7px}
+.guide-demo-camera{font-size:16px;text-align:center;margin-top:2px}
+.guide-demo-table-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin:7px 1px 0}
+.guide-demo-table-grid span{display:grid;place-items:center;height:15px;border:1px solid rgba(240,215,140,.22);border-radius:4px;font-size:7px;color:var(--muted);background:rgba(255,255,255,.025)}
+.guide-demo-table-grid span.guide-demo-target{background:rgba(240,215,140,.18);color:var(--gold2)}
+.guide-demo-food-row{display:flex;align-items:center;gap:3px;margin:8px 0 0;padding:4px 2px;border-radius:6px;background:rgba(255,255,255,.04)}
+.guide-demo-food{font-size:14px}
+.guide-demo-food-name{font-size:7px;line-height:1.15;font-weight:800;color:var(--text);flex:1;min-width:0}
+.guide-demo-button{display:block;margin:6px auto 0;padding:5px 3px;width:100%;border:1px solid rgba(240,215,140,.45);border-radius:6px;background:rgba(212,168,75,.16);color:var(--gold2);font-size:8px;font-weight:900;text-align:center;line-height:1.1}
+.guide-demo-cart{font-size:25px;text-align:center;margin-top:2px}
+.guide-demo-total{font-size:8px;text-align:center;color:var(--gold2);font-weight:900}
+.guide-demo-statuses{display:flex;flex-direction:column;gap:4px;margin-top:7px}
+.guide-demo-status{font-size:7px;border-radius:5px;padding:3px 4px;color:var(--muted);background:rgba(255,255,255,.05)}
+.guide-demo-status.active{color:#1a1208;background:var(--gold2);font-weight:900}
+.guide-demo-input{height:13px;margin:6px 1px 0;border:1px solid rgba(240,215,140,.25);border-radius:4px;font-size:7px;line-height:13px;padding-left:3px;color:var(--muted)}
+.guide-demo-order{font-size:7px;line-height:1.2;color:var(--text);background:rgba(255,255,255,.045);border-radius:5px;padding:5px 3px;margin-top:5px}
+.guide-demo-finger{position:absolute;z-index:5;right:6px;bottom:2px;font-size:23px;line-height:1;filter:drop-shadow(0 2px 2px #000);transform-origin:70% 85%;animation:guideFingerTap 1.25s ease-in-out infinite;pointer-events:none}
+.guide-demo-arrow{position:absolute;z-index:4;right:20px;bottom:22px;font-size:18px;line-height:1;color:var(--gold2);font-weight:900;filter:drop-shadow(0 1px 2px #000);animation:guideArrowNudge 1.25s ease-in-out infinite;pointer-events:none}
+.guide-copy{flex:1;min-width:0}
+.guide-copy>b{display:block;margin-bottom:3px;color:var(--gold2);font-size:13px;line-height:1.3}
+.guide-copy .muted{font-size:11px!important;line-height:1.45}
+@keyframes guideFingerTap{0%,100%{transform:translate(0,0) scale(1)}38%{transform:translate(-3px,-7px) scale(1.04)}55%{transform:translate(-3px,-2px) scale(.9)}72%{transform:translate(0,0) scale(1)}}
+@keyframes guideArrowNudge{0%,100%{opacity:.55;transform:translate(2px,2px)}45%{opacity:1;transform:translate(-3px,-4px)}70%{opacity:.9;transform:translate(0,0)}}
+@keyframes guideTargetGlow{0%,100%{box-shadow:0 0 0 2px rgba(240,215,140,.08)}50%{box-shadow:0 0 0 4px rgba(240,215,140,.2),0 0 10px rgba(240,215,140,.2)}}
+@media(max-width:360px){.guide-step-cartoon{gap:6px}.guide-demo{flex-basis:76px;width:76px;padding:7px 4px}.guide-copy .muted{font-size:10px!important}}
+@media(prefers-reduced-motion:reduce){.guide-demo-finger,.guide-demo-arrow,.guide-demo-target{animation:none!important}}
+
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -1255,14 +1300,20 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 
 <div class="guide-sheet" id="guide-sheet">
   <div class="inner">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <h3 class="gold">Quick guide</h3>
-      <button type="button" class="back" onclick="closeGuide()">Close</button>
+    <div class="guide-heading">
+      <h3 class="gold" id="guide-title">वापरण्याची सोपी माहिती</h3>
+      <div class="guide-head-actions">
+        <div class="guide-lang-switch" role="group" aria-label="माहितीची भाषा">
+          <button type="button" class="guide-lang-button on" id="guide-lang-mr" aria-pressed="true" onclick="setGuideLanguage('mr')">मराठी</button>
+          <button type="button" class="guide-lang-button" id="guide-lang-en" aria-pressed="false" onclick="setGuideLanguage('en')">English</button>
+        </div>
+        <button type="button" class="back" id="guide-close" onclick="closeGuide()">बंद करा</button>
+      </div>
     </div>
-    <p class="muted" style="font-size:12px;margin-bottom:8px">Choose the guide for your role.</p>
+    <p class="muted" id="guide-subtitle" style="font-size:12px;margin-bottom:8px">हाताचे चिन्ह जिथे दिसेल, तिथे टॅप करा.</p>
     <div id="guide-role-tabs" style="display:none"></div>
     <div id="guide-content"></div>
-    <button type="button" class="btn btn-main" style="margin-top:12px" onclick="closeGuide()">Got it</button>
+    <button type="button" class="btn btn-main" id="guide-done" style="margin-top:12px" onclick="closeGuide()">समजले ✓</button>
   </div>
 </div>
 <div class="modal" id="special-modal">
@@ -1481,28 +1532,169 @@ function restoreTips() {
     } catch(e) {}
   });
 }
+var currentGuideRole = 'customer';
+var guideLanguage = 'mr';
+
 function openGuide() {
-  var tabs=document.getElementById('guide-role-tabs'); if(tabs) tabs.style.display='none';
+  var tabs = document.getElementById('guide-role-tabs');
+  if (tabs) tabs.style.display = 'none';
+  currentGuideRole = 'customer';
+  guideLanguage = 'mr';
   document.getElementById('guide-sheet').classList.add('on');
-  showRoleGuide('customer');
+  updateGuideHeader();
+  showRoleGuide(currentGuideRole);
 }
 function openStaffGuide() {
-  if (!pendingRole || ['waiter','kitchen','admin'].indexOf(pendingRole)<0) { toast('Choose staff access first'); return; }
-  var tabs=document.getElementById('guide-role-tabs'); if(tabs) tabs.style.display='none';
+  if (!pendingRole || ['waiter','kitchen','admin'].indexOf(pendingRole) < 0) {
+    toast('Choose staff access first');
+    return;
+  }
+  var tabs = document.getElementById('guide-role-tabs');
+  if (tabs) tabs.style.display = 'none';
+  currentGuideRole = pendingRole;
+  guideLanguage = 'mr';
   document.getElementById('guide-sheet').classList.add('on');
-  showRoleGuide(pendingRole);
+  updateGuideHeader();
+  showRoleGuide(currentGuideRole);
+}
+function setGuideLanguage(language) {
+  guideLanguage = language === 'en' ? 'en' : 'mr';
+  updateGuideHeader();
+  showRoleGuide(currentGuideRole);
+}
+function updateGuideHeader() {
+  var mr = guideLanguage === 'mr';
+  var values = {
+    'guide-title': mr ? 'वापरण्याची सोपी माहिती' : 'Quick how-to guide',
+    'guide-close': mr ? 'बंद करा' : 'Close',
+    'guide-subtitle': mr ? 'हाताचे चिन्ह जिथे दिसेल, तिथे टॅप करा. प्रत्येक पायरी क्रमाने पाहा.' : 'Follow the animated hand and arrow. Go through each step in order.',
+    'guide-done': mr ? 'समजले ✓' : 'Got it ✓'
+  };
+  Object.keys(values).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = values[id];
+  });
+  var mrButton = document.getElementById('guide-lang-mr');
+  var enButton = document.getElementById('guide-lang-en');
+  if (mrButton) { mrButton.classList.toggle('on', mr); mrButton.setAttribute('aria-pressed', mr ? 'true' : 'false'); }
+  if (enButton) { enButton.classList.toggle('on', !mr); enButton.setAttribute('aria-pressed', !mr ? 'true' : 'false'); }
+}
+function guideVisual(kind, language) {
+  var mr = language === 'mr';
+  var v = {
+    scan: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">टेबलचा QR</div><div class="guide-demo-qr guide-demo-target">▦</div><span class="guide-demo-sub">स्कॅन करा</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Table QR</div><div class="guide-demo-qr guide-demo-target">▦</div><span class="guide-demo-sub">Scan here</span>',
+    table: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">टेबल निवडा</div><div class="guide-demo-table-grid"><span>०१</span><span>०२</span><span>०३</span><span>०४</span><span class="guide-demo-target">०५</span><span>०६</span></div>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Choose table</div><div class="guide-demo-table-grid"><span>01</span><span>02</span><span>03</span><span>04</span><span class="guide-demo-target">05</span><span>06</span></div>',
+    menu: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">मेनू</div><div class="guide-demo-food-row"><span class="guide-demo-food">🍲</span><span class="guide-demo-food-name">पदार्थ निवडा</span></div><span class="guide-demo-button guide-demo-target">जोडा +</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Menu</div><div class="guide-demo-food-row"><span class="guide-demo-food">🍲</span><span class="guide-demo-food-name">Choose food</span></div><span class="guide-demo-button guide-demo-target">ADD +</span>',
+    cart: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">तुमची ऑर्डर</div><div class="guide-demo-cart">🛒</div><div class="guide-demo-total">पदार्थ तपासा</div>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Your order</div><div class="guide-demo-cart">🛒</div><div class="guide-demo-total">Review items</div>',
+    submit: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">सगळे बरोबर?</div><span class="guide-demo-button guide-demo-target" style="margin-top:13px;padding:8px 2px">ऑर्डर द्या ✓</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">All correct?</div><span class="guide-demo-button guide-demo-target" style="margin-top:13px;padding:8px 2px">Place order ✓</span>',
+    track: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">ऑर्डरची स्थिती</div><div class="guide-demo-statuses"><span class="guide-demo-status active">१. नवीन</span><span class="guide-demo-status">२. बनत आहे</span><span class="guide-demo-status">३. तयार</span></div>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Order status</div><div class="guide-demo-statuses"><span class="guide-demo-status active">1. New</span><span class="guide-demo-status">2. Cooking</span><span class="guide-demo-status">3. Ready</span></div>',
+    login: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">कर्मचारी लॉगिन</div><div class="guide-demo-input">पासवर्ड ••••</div><span class="guide-demo-button guide-demo-target">लॉगिन</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Staff login</div><div class="guide-demo-input">Password ••••</div><span class="guide-demo-button guide-demo-target">Login</span>',
+    ticket: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">नवीन ऑर्डर</div><div class="guide-demo-order">टेबल ०५<br>२ पदार्थ · सूचना</div><span class="guide-demo-sub">तपशील वाचा</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">New order</div><div class="guide-demo-order">Table 05<br>2 items · Note</div><span class="guide-demo-sub">Read ticket</span>',
+    cooking: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">किचन</div><span class="guide-demo-button guide-demo-target" style="margin-top:15px;padding:8px 1px">बनवायला सुरू</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Kitchen</div><span class="guide-demo-button guide-demo-target" style="margin-top:15px;padding:8px 1px">Start cooking</span>',
+    ready: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">पदार्थ तयार</div><span class="guide-demo-button guide-demo-target" style="margin-top:15px;padding:8px 1px">तयार ✓</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Food ready</div><span class="guide-demo-button guide-demo-target" style="margin-top:15px;padding:8px 1px">READY ✓</span>',
+    serve: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">ऑर्डर पूर्ण</div><span class="guide-demo-button guide-demo-target" style="margin-top:15px;padding:8px 1px">जेवण दिले ✓</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Complete ticket</div><span class="guide-demo-button guide-demo-target" style="margin-top:15px;padding:8px 1px">SERVED ✓</span>',
+    save: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">मेनू बदल</div><div class="guide-demo-input">किंमत ₹...</div><span class="guide-demo-button guide-demo-target">जतन करा</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Edit menu</div><div class="guide-demo-input">Price ₹...</div><span class="guide-demo-button guide-demo-target">Save</span>',
+    qr: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">टेबल QR</div><div class="guide-demo-qr">▦</div><span class="guide-demo-button guide-demo-target">डाउनलोड</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Table QR</div><div class="guide-demo-qr">▦</div><span class="guide-demo-button guide-demo-target">Download</span>',
+    monitor: mr
+      ? '<div class="guide-demo-top"></div><div class="guide-demo-label">आजच्या ऑर्डर्स</div><div class="guide-demo-order">🛎️ मदत हवी<br>🍲 ऑर्डर तयार</div><span class="guide-demo-sub">तपासा</span>'
+      : '<div class="guide-demo-top"></div><div class="guide-demo-label">Today’s orders</div><div class="guide-demo-order">🛎️ Help needed<br>🍲 Order ready</div><span class="guide-demo-sub">Review</span>'
+  };
+  return '<div class="guide-demo" aria-hidden="true"><div class="guide-demo-screen">' + (v[kind] || v.menu) + '</div><span class="guide-demo-arrow">↘</span><span class="guide-demo-finger">👆</span></div>';
 }
 function showRoleGuide(roleName) {
-  var guides = {
-    customer: '<div class="guide-step guide-step-cartoon"><div class="guide-icon" aria-hidden="true">📷</div><div><b>Scan your table QR</b><div class="muted" style="font-size:12px">Use your phone camera. The menu opens for your table automatically. Or swipe the table cards on the welcome screen.</div></div></div><div class="guide-step guide-step-cartoon"><div class="guide-icon" aria-hidden="true">🥗</div><div><b>Choose food</b><div class="muted" style="font-size:12px">Search or choose a category. Use All foods, Veg only, or Non-veg only, then tap ADD.</div></div></div><div class="guide-step guide-step-cartoon"><div class="guide-icon" aria-hidden="true">🛒</div><div><b>Review and send</b><div class="muted" style="font-size:12px">Open your cart, add notes, check the total, and place the order.</div></div></div><div class="guide-step guide-step-cartoon"><div class="guide-icon" aria-hidden="true">🛎️</div><div><b>Track your meal</b><div class="muted" style="font-size:12px">See the order stages, call a waiter, or request your bill. Progress follows order status when updates are available.</div></div></div>',
-    waiter: '<div class="guide-step"><div class="num">1</div><div><b>Sign in to Waiter Pad</b><div class="muted" style="font-size:12px">Open Staff access → Waiter Pad and enter the password provided by the owner.</div></div></div><div class="guide-step"><div class="num">2</div><div><b>Select the guest table</b><div class="muted" style="font-size:12px">Tap the correct table, search or filter dishes, and add requested quantities.</div></div></div><div class="guide-step"><div class="num">3</div><div><b>Confirm and send</b><div class="muted" style="font-size:12px">Add any guest request and tap Send to kitchen. Double-check table, dishes and quantities first.</div></div></div><div class="guide-step"><div class="num">4</div><div><b>Follow requests</b><div class="muted" style="font-size:12px">Check alerts for waiter calls and bill requests. Confirm with the kitchen before saying food is ready.</div></div></div>',
-    kitchen: '<div class="guide-step"><div class="num">1</div><div><b>Open Kitchen</b><div class="muted" style="font-size:12px">Sign in on the kitchen device using the staff password from the owner.</div></div></div><div class="guide-step"><div class="num">2</div><div><b>NEW → COOKING</b><div class="muted" style="font-size:12px">Read the ticket, table number, items, quantities and notes. Tap Start Cooking when preparation begins.</div></div></div><div class="guide-step"><div class="num">3</div><div><b>COOKING → READY</b><div class="muted" style="font-size:12px">Mark Ready only when food is ready to leave the kitchen.</div></div></div><div class="guide-step"><div class="num">4</div><div><b>Handover</b><div class="muted" style="font-size:12px">Mark Served after it is handed to the waiter or guest. Mark items sold out when necessary.</div></div></div>',
-    admin: '<div class="guide-step"><div class="num">1</div><div><b>Sign in to Owner / Admin</b><div class="muted" style="font-size:12px">Use your private owner username and password on a trusted device.</div></div></div><div class="guide-step"><div class="num">2</div><div><b>Manage menu and prices</b><div class="muted" style="font-size:12px">Open Menu, edit the amount, press Save price, or mark an item sold out. Export a menu backup after major edits.</div></div></div><div class="guide-step"><div class="num">3</div><div><b>Print table QR codes</b><div class="muted" style="font-size:12px">Open QR, download one table sticker or generate a printable sheet. Test every code before placing it.</div></div></div><div class="guide-step"><div class="num">4</div><div><b>Monitor service</b><div class="muted" style="font-size:12px">Review orders, alerts, payments and availability. Current prototype edits are local to each browser; shared updates require Supabase.</div></div></div>'
+  currentGuideRole = ['customer','waiter','kitchen','admin'].indexOf(roleName) >= 0 ? roleName : 'customer';
+  var mr = guideLanguage === 'mr';
+  var guideData = {
+    customer: mr ? [
+      {kind:'scan',title:'टेबलचा QR कोड स्कॅन करा',text:'टेबलवरील QR कोड मोबाईल कॅमेऱ्याने स्कॅन करा. स्कॅन होत नसेल, तर खाली दिलेल्या टेबल क्रमांकावर टॅप करा.'},
+      {kind:'table',title:'आपले टेबल निवडा',text:'टेबलचा क्रमांक तपासून त्यावर टॅप करा आणि पुढे जा.'},
+      {kind:'menu',title:'आवडते पदार्थ निवडा',text:'मेनूमधील पदार्थ पाहा. शाकाहारी किंवा मांसाहारी पदार्थ निवडण्यासाठी वरचे पर्याय वापरा. पदार्थ जोडण्यासाठी “जोडा” दाबा.'},
+      {kind:'cart',title:'ऑर्डर तपासून घ्या',text:'कार्ट उघडा. पदार्थ, संख्या आणि एकूण रक्कम तपासा. काही सांगायचे असल्यास सूचना लिहा.'},
+      {kind:'submit',title:'ऑर्डर द्या',text:'सगळे बरोबर असल्यावर “ऑर्डर द्या” दाबा. ऑर्डर किचनला पाठवली जाईल.'},
+      {kind:'track',title:'ऑर्डरची स्थिती पाहा',text:'ऑर्डर नवीन आहे, बनत आहे की तयार आहे ते पाहा. मदत हवी असल्यास वेटरला बोलवा.'}
+    ] : [
+      {kind:'scan',title:'Scan the table QR code',text:'Scan the QR code on your table with your phone camera. If it does not scan, tap the table number below.'},
+      {kind:'table',title:'Choose your table',text:'Check the table number, tap it, and continue.'},
+      {kind:'menu',title:'Choose your food',text:'Browse the menu. Use the Veg or Non-veg filters if needed, then tap ADD for a dish.'},
+      {kind:'cart',title:'Review your order',text:'Open the cart and check the dishes, quantities and total. Add a note if needed.'},
+      {kind:'submit',title:'Place the order',text:'When everything looks correct, tap Place order to send it to the kitchen.'},
+      {kind:'track',title:'Track your order',text:'Check whether the order is new, cooking or ready. Call a waiter if you need help.'}
+    ],
+    waiter: mr ? [
+      {kind:'login',title:'वेटर लॉगिन करा',text:'कर्मचारी प्रवेश उघडा → वेटर पॅड निवडा. मालकाने दिलेला पासवर्ड टाका.'},
+      {kind:'table',title:'योग्य टेबल निवडा',text:'ग्राहकाने सांगितलेल्या टेबल क्रमांकावर टॅप करा.'},
+      {kind:'menu',title:'पदार्थ आणि संख्या जोडा',text:'पदार्थ शोधा, योग्य पदार्थ निवडा आणि आवश्यक तेवढी संख्या वाढवा. ग्राहकाची सूचना असल्यास लिहा.'},
+      {kind:'submit',title:'तपासून किचनला पाठवा',text:'टेबल, पदार्थ आणि संख्या पुन्हा तपासा. मग “किचनला पाठवा” दाबा.'},
+      {kind:'monitor',title:'ग्राहकाच्या विनंत्या पाहा',text:'वेटर कॉल, बिलाची विनंती आणि तयार ऑर्डर तपासा. पदार्थ दिल्यानंतरच “जेवण दिले” निवडा.'}
+    ] : [
+      {kind:'login',title:'Sign in to Waiter Pad',text:'Open Staff access → Waiter Pad and enter the password supplied by the owner.'},
+      {kind:'table',title:'Select the correct table',text:'Tap the table number given by the guest.'},
+      {kind:'menu',title:'Add dishes and quantities',text:'Search for each dish, select the right item and adjust the quantity. Add a guest note when needed.'},
+      {kind:'submit',title:'Review and send to kitchen',text:'Check the table, dishes and quantities again, then tap Send to kitchen.'},
+      {kind:'monitor',title:'Check guest requests',text:'Review waiter calls, bill requests and ready tickets. Mark an order served only after handing over the food.'}
+    ],
+    kitchen: mr ? [
+      {kind:'login',title:'किचनमध्ये लॉगिन करा',text:'किचनसाठी असलेल्या मोबाईल किंवा टॅबलेटवर कर्मचारी पासवर्ड वापरून लॉगिन करा.'},
+      {kind:'ticket',title:'नवीन ऑर्डर वाचा',text:'टेबल क्रमांक, पदार्थ, संख्या आणि ग्राहकाची सूचना नीट वाचा.'},
+      {kind:'cooking',title:'बनवायला सुरुवात करा',text:'पदार्थ बनवायला सुरुवात केल्यावरच “बनवायला सुरू” किंवा COOKING निवडा.'},
+      {kind:'ready',title:'तयार झाल्यावरच READY करा',text:'सगळे पदार्थ तयार होऊन बाहेर देण्यासाठी तयार असतील तेव्हाच “तयार” दाबा.'},
+      {kind:'serve',title:'पदार्थ दिल्यावर नोंद करा',text:'वेटर किंवा ग्राहकाला पदार्थ दिल्यानंतरच ऑर्डर पूर्ण / SERVED करा.'}
+    ] : [
+      {kind:'login',title:'Sign in to Kitchen',text:'Use the staff password on the kitchen phone or tablet.'},
+      {kind:'ticket',title:'Read each new order',text:'Check the table number, dishes, quantities and any guest note carefully.'},
+      {kind:'cooking',title:'Start cooking',text:'Choose Start Cooking / COOKING only when preparation has actually begun.'},
+      {kind:'ready',title:'Mark ready when complete',text:'Tap READY only when all items are ready to leave the kitchen.'},
+      {kind:'serve',title:'Record the handover',text:'Mark SERVED only after the waiter or guest has received the food.'}
+    ],
+    admin: mr ? [
+      {kind:'login',title:'मालक म्हणून लॉगिन करा',text:'विश्वासू डिव्हाइसवर मालकाचा लॉगिन वापरा. पासवर्ड इतरांसोबत शेअर करू नका.'},
+      {kind:'save',title:'मेनू व किंमती बदला',text:'मेनू विभागात पदार्थाची किंमत किंवा उपलब्धता बदला आणि बदल जतन करा.'},
+      {kind:'qr',title:'टेबलचे QR कोड तयार करा',text:'QR विभागातून प्रत्येक टेबलचा कोड डाउनलोड करा. छापण्यापूर्वी प्रत्येक कोड तपासून पाहा.'},
+      {kind:'monitor',title:'ऑर्डर्स व सूचना तपासा',text:'ऑर्डर्स, बिलाच्या नोंदी आणि कर्मचारी सूचना पाहत राहा. गरजेनुसार मेनूची उपलब्धता बदला.'}
+    ] : [
+      {kind:'login',title:'Sign in as Owner / Admin',text:'Use your owner login on a trusted device. Do not share your password.'},
+      {kind:'save',title:'Update menu and prices',text:'Open the menu section, edit prices or availability, and save your changes.'},
+      {kind:'qr',title:'Generate table QR codes',text:'Download the QR code for each table and test every code before printing.'},
+      {kind:'monitor',title:'Review orders and alerts',text:'Check orders, payment records and staff alerts. Update item availability when needed.'}
+    ]
   };
+  var steps = guideData[currentGuideRole] || guideData.customer;
   var content = document.getElementById('guide-content');
-  if (content) content.innerHTML = guides[roleName] || guides.customer;
+  if (content) {
+    content.innerHTML = steps.map(function(step, i) {
+      return '<div class="guide-step guide-step-cartoon"><span class="guide-step-num">' + (i + 1) +
+        '</span>' + guideVisual(step.kind, guideLanguage) +
+        '<div class="guide-copy"><b>' + step.title + '</b><div class="muted">' + step.text + '</div></div></div>';
+    }).join('');
+  }
   document.querySelectorAll('.guide-role-tab').forEach(function(btn) {
-    btn.classList.toggle('on', btn.getAttribute('data-guide') === roleName);
+    btn.classList.toggle('on', btn.getAttribute('data-guide') === currentGuideRole);
   });
 }
 function closeGuide() {
