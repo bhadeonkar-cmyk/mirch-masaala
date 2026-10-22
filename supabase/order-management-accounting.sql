@@ -108,8 +108,8 @@ BEGIN
   END IF;
 
   IF v_role = 'admin' THEN
-    IF v_old = 'PAID' AND v_new <> 'PAID' THEN
-      RAISE EXCEPTION 'A paid order cannot be cancelled or reopened; record a refund adjustment separately';
+    IF v_old IN ('PAID','CANCELLED') AND v_new <> v_old THEN
+      RAISE EXCEPTION 'Paid or cancelled orders cannot be reopened; create a new ticket or record a refund adjustment separately';
     END IF;
     IF v_new = 'PAID' THEN
       RAISE EXCEPTION 'Record the payment through the staff payment function; do not change status to PAID manually';
@@ -165,6 +165,9 @@ DECLARE
 BEGIN
   IF p_ticket_id IS NULL OR trim(p_ticket_id) = '' OR p_public_token IS NULL THEN
     RAISE EXCEPTION 'Order credentials are missing';
+  END IF;
+  IF coalesce(public.get_my_staff_role(), '') <> '' THEN
+    RAISE EXCEPTION 'Staff must use the staff workflow, not the customer cancellation endpoint';
   END IF;
 
   SELECT o.* INTO v_order
@@ -467,7 +470,7 @@ DECLARE
   v_order_count integer := 0;
   v_paid_count integer := 0;
 BEGIN
-  IF public.get_my_staff_role() NOT IN ('admin', 'waiter') THEN
+  IF coalesce(public.get_my_staff_role(), '') NOT IN ('admin', 'waiter') THEN
     RAISE EXCEPTION 'Owner/Admin or signed-in waiter access required to confirm payment';
   END IF;
   IF p_table_number IS NULL OR trim(p_table_number) !~ '^[0-9]{1,2}$' THEN
