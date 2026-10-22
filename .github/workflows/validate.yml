@@ -20,9 +20,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Parse the app's inline JavaScript
+      - name: Run source and order lifecycle QA checks
         run: node scripts/check-inline-js.cjs
       - name: Parse the Supabase integration JavaScript
         run: node --check supabase-live.js
-      - name: Check order lifecycle and accounting safeguards
-        run: node scripts/check-inline-js.cjs
