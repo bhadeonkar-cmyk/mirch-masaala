@@ -35,8 +35,9 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 
 ## Important limitations before real service
 
-- The frontend is **not connected to Supabase yet**. Orders, alerts, menu edits, and order progress rely primarily on the current browser's `localStorage`. They do not reliably sync from customer phones to a separate kitchen or admin device.
-- The login in this static prototype is **not production security**. Demo credential values still exist in public client-side code and can be discovered by someone inspecting the page source. Hiding password hints in the customer UI is not equivalent to protecting an admin account. Connect Supabase Auth or another server-side authentication system before using staff screens for a real restaurant.
+- The live app uses Supabase for the shared menu, order creation/status, customer cancellation, staff roles, notifications, and—after applying the accounts migration—payment and accounting actions. A few convenience preferences and customer details remain device-local.
+- Staff access uses Supabase Auth and database roles. Keep the Supabase publishable key in the browser only; never expose a service-role/secret key. Keep staff credentials private and review database permissions before production use.
+- Apply `supabase/order-management-accounting.sql` once in Supabase SQL Editor to enable owner table cleanup, complimentary/free meal tracking, the shared payment ledger, database-wide stats, cancellation audit records, and role-checked order status transitions. Cleanup preserves records rather than deleting history.
 - Local owner price changes only affect the browser where they are saved until shared database persistence is implemented.
 - UPI requires the owner to enter a real merchant VPA (UPI ID) in Admin → Settings. A missing UPI ID disables the UPI launch path and asks the customer to contact staff.
 - Payment completion is not verified automatically by this static frontend. Even if an app reports that a payment was submitted, staff must verify the money was received before marking an order paid.
@@ -47,3 +48,12 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 - `index.html` — application UI and prototype logic.
 - `manifest.webmanifest` — install metadata for supported browsers.
 - `icon.svg` — app icon.
+
+
+## Owner accounting and table cleanup
+
+Run `supabase/order-management-accounting.sql` once in Supabase SQL Editor after deploying the current app. The migration adds an audit trail, confirmed-payment ledger, complimentary reasons, and test/archive flags. It is designed to be safely re-run.
+
+In **Owner → Stats**, use **Complimentary / free food** to classify an unpaid ticket with a reason; its value is tracked separately from money received. Use **Clean test orders for a table** only when every unarchived ticket at that table is test data. The app previews order count, active count, total order value and recorded payments before asking for confirmation; active tickets are cancelled and all selected records remain in history marked as test. Do not run cleanup on a table with real service unless every ticket has been reviewed.
+
+Record received cash/card/UPI in **Owner → Payment log** by table. Opening a UPI link or tapping Continue never records a payment. Payment receipts are allocated to open tickets and the owner stats use the shared database, including partial balances, cancellations, complimentary value, and excluded test orders.
