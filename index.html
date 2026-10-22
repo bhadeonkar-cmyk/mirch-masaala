@@ -2280,7 +2280,8 @@ function selectPayMethod(method) {
   }else if(method==='card'){
     document.getElementById('pay-card-area').style.display='block';toast('Card at counter');
   }
-}function updateStaffPaymentControls() {
+}
+function updateStaffPaymentControls() {
   var staffCanConfirm = role === 'admin' || role === 'waiter';
   ['pay-cash-confirm-btn','pay-card-confirm-btn'].forEach(function(id) {
     var button = document.getElementById(id);
@@ -2438,7 +2439,7 @@ async function savePaymentLog() {
   var method = document.getElementById('plog-method').value;
   var note = document.getElementById('plog-note').value.trim();
   if (!(amount > 0)) { toast('Enter the amount actually received'); return; }
-  if (!/^\\d{1,2}$/.test(tableNumber)) { toast('Enter the table number (for example 02)'); return; }
+  if (!/^[0-9]{1,2}$/.test(tableNumber)) { toast('Enter the table number (for example 02)'); return; }
   if (typeof window.MM_RECORD_TABLE_PAYMENT !== 'function') { toast('Shared payment setup is not ready.'); return; }
   try {
     var result = await window.MM_RECORD_TABLE_PAYMENT(tableNumber, amount, method, note || 'Recorded by owner');
@@ -3662,7 +3663,7 @@ function drawStats() {
   }
   var version = ++adminStatsRenderVersion;
   var candidates = (Array.isArray(orders) ? orders : []).filter(function(o) {
-    return o && !o.is_test_order && !o.archived_at && String(o.status || '').toUpperCase() !== 'CANCELLED';
+    return o && !o.is_test_order && !o.archived_at && ['CANCELLED','PAID'].indexOf(String(o.status || '').toUpperCase()) < 0;
   }).sort(function(a,b) { return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); }).slice(0,40);
   var ticketOptions = candidates.map(function(o) {
     var label = 'Table ' + String(o.table || '--').padStart(2,'0') + ' · ' + (o.id || '') + ' · ' + String(o.status || '') + ' · ' + money(o.total) +
