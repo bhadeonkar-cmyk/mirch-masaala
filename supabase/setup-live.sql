@@ -916,6 +916,62 @@ $$;
 -- Receive a real payment as owner/waiter. It allocates the amount FIFO to unpaid tickets
 -- at the table and stores each allocation with an audit trail. UPI QR opening is not proof
 -- of receipt; only this authenticated function records payment in accounts.
+-- Return only the remaining amount due for one active table; no ticket contents or guest data.
+CREATE OR REPLACE FUNCTION public.mm_get_public_table_bill(p_table_number text)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $$
+DECLARE
+  v_table_number text;
+  v_table_id uuid;
+  v_amount numeric(12,2);
+  v_order_count integer;
+BEGIN
+  IF p_table_number IS NULL OR trim(p_table_number) !~ '^[0-9]{1,2}$' THEN
+    RAISE EXCEPTION 'Choose a valid table number';
+  END IF;
+  v_table_number := lpad(trim(p_table_number), 2, '0');
+
+  SELECT t.id INTO v_table_id
+  FROM public.restaurant_tables t
+  WHERE t.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+    AND lpad(t.table_number::text, 2, '0') = v_table_number
+    AND t.is_active = true
+  LIMIT 1;
+  IF v_table_id IS NULL THEN RAISE EXCEPTION 'Active table not found'; END IF;
+
+  SELECT
+    coalesce(sum(greatest(round(coalesce(o.total,0) - coalesce(p.paid,0),2),0)),0),
+    count(*)::integer
+  INTO v_amount, v_order_count
+  FROM public.orders o
+  LEFT JOIN (
+    SELECT order_id, sum(amount) AS paid
+    FROM public.order_payments
+    GROUP BY order_id
+  ) p ON p.order_id = o.id
+  WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+    AND o.table_id = v_table_id
+    AND upper(o.status) NOT IN ('CANCELLED','PAID')
+    AND coalesce(o.is_test_order,false) = false
+    AND coalesce(o.is_complimentary,false) = false
+    AND o.archived_at IS NULL
+    AND greatest(round(coalesce(o.total,0) - coalesce(p.paid,0),2),0) > 0.01;
+
+  RETURN jsonb_build_object(
+    'table', v_table_number,
+    'amount', round(coalesce(v_amount,0),2),
+    'order_count', coalesce(v_order_count,0)
+  );
+END
+$$;
+
+REVOKE ALL ON FUNCTION public.mm_get_public_table_bill(text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mm_get_public_table_bill(text) TO anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.mm_staff_record_table_payment(
   p_table_number text,
   p_amount numeric,
