@@ -631,6 +631,9 @@ BEGIN
   IF p_ticket_id IS NULL OR trim(p_ticket_id) = '' OR p_public_token IS NULL THEN
     RAISE EXCEPTION 'Order credentials are missing';
   END IF;
+  IF coalesce(public.get_my_staff_role(), '') <> '' THEN
+    RAISE EXCEPTION 'Staff must use the staff workflow, not the customer cancellation endpoint';
+  END IF;
 
   SELECT o.* INTO v_order
   FROM public.orders AS o
