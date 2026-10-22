@@ -14,7 +14,7 @@
   function menuNameKey(value) {
     var name = String(value || '');
     try { if (name.normalize) name = name.normalize('NFKC'); } catch (e) {}
-    return name.trim().replace(/\\s+/g, ' ').toLocaleLowerCase();
+    return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
   }
   var bundledMenuIdsByName = Object.create(null);
   var bundledMenuItems = (window.MENU && Array.isArray(window.MENU.menu_items))
