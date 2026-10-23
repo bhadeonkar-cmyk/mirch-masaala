@@ -134,7 +134,7 @@ function checkSqlDollarQuotes(source, label) {
     fail(label + ' contains an invalid bare dollar-quote delimiter');
     return;
   }
-  const openings = [...source.matchAll(/^\s*AS\s+(\$[A-Za-z0-9_]*\$)\s*$/gm)].map((m) => m[1]);
+  const openings = [...source.matchAll(/^\s*(?:AS|DO)\s+(\$[A-Za-z0-9_]*\$)\s*$/gm)].map((m) => m[1]);
   const closings = [...source.matchAll(/^\s*(\$[A-Za-z0-9_]*\$);?\s*$/gm)].map((m) => m[1]);
   const counts = (items) => items.reduce((all, item) => {
     all[item] = (all[item] || 0) + 1;
