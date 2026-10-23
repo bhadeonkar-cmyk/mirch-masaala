@@ -7,6 +7,7 @@ const migration = fs.readFileSync('supabase/order-management-accounting.sql', 'u
 const setup = fs.readFileSync('supabase/setup-live.sql', 'utf8');
 const publicBoard = fs.readFileSync('supabase/public-table-status-circles.sql', 'utf8');
 const tableVisitsMigration = fs.readFileSync('supabase/table-visits.sql', 'utf8');
+const visitBillingMigration = fs.readFileSync('supabase/visit-billing-upgrade.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
 
@@ -95,7 +96,17 @@ requireText(publicBoard, 'o.archived_at IS NULL', 'Public board filters archived
   [live, 'window.MM_ADMIN_GET_ORDER_DETAILS = getAdminOrderDetails;', 'Owner can retrieve full ticket history by ticket number'],
   [live, 'window.MM_REFRESH_CUSTOMER_ORDERS = refreshCustomerOrders;', 'Customer can manually refresh saved ticket statuses'],
   [live, 'window.MM_SET_TABLE_VISIT_STATUS = setTableVisitStatus;', 'Table visit transitions use the shared database'],
-  [live, 'await ensurePublicTableVisit(tableNumber);', 'New orders open a table visit when the migration is installed'],
+  [live, 'var visit = await ensurePublicTableVisit(tableNumber);', 'New orders obtain the active server-issued visit ID'],
+  [live, 'p_table_visit_id: visit.visit_id', 'Order RPC sends the active visit ID'],
+  [live, 'customerSessionIdForVisit(visit.visit_id)', 'Each public browser receives a session ID scoped to a visit'],
+  [visitBillingMigration, 'ADD COLUMN IF NOT EXISTS table_visit_id uuid', 'Orders store the active table visit ID'],
+  [visitBillingMigration, 'ADD COLUMN IF NOT EXISTS customer_session_id uuid', 'Orders store a per-browser customer session ID'],
+  [visitBillingMigration, "'visit_id', v_visit_id", 'Visit creation returns its stable ID'],
+  [visitBillingMigration, 'p_table_visit_id uuid DEFAULT NULL', 'Order RPC accepts the server-issued visit ID'],
+  [visitBillingMigration, 'p_customer_session_id uuid DEFAULT NULL', 'Order RPC accepts the visit-scoped customer session ID'],
+  [visitBillingMigration, 'orders_table_visit_id_fkey', 'Order-to-visit foreign key is guarded'],
+  [visitBillingMigration, 'pg_advisory_xact_lock', 'Order placement serializes active visit selection'],
+  [visitBillingMigration, 'The table visit has changed.', 'Stale visit submissions are rejected'],
   [tableVisitsMigration, 'CREATE TABLE IF NOT EXISTS public.restaurant_table_visits', 'Persistent table visits are recorded in the shared database'],
   [tableVisitsMigration, 'mm_staff_get_table_visits', 'Staff can load shared table availability'],
   [tableVisitsMigration, 'mm_staff_set_table_visit_status', 'Table visit transitions use guarded server-side RPCs'],
@@ -154,6 +165,7 @@ function checkCleanupCounterReset(source, label) {
 checkSqlDollarQuotes(migration, 'Accounting migration');
 checkSqlDollarQuotes(setup, 'Fresh setup SQL');
 checkSqlDollarQuotes(tableVisitsMigration, 'Table visits migration');
+checkSqlDollarQuotes(visitBillingMigration, 'Visit billing upgrade migration');
 checkCleanupCounterReset(migration, 'Accounting migration');
 checkCleanupCounterReset(setup, 'Fresh setup SQL');
 if (/DELETE\s+FROM\s+public\.orders/i.test(migration)) {
