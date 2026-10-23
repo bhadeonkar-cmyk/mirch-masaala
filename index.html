@@ -3621,6 +3621,7 @@ function downloadAllQRCodes() {
   });
 }
 var adminStatsRenderVersion = 0;
+var adminStatsRequestVersion = 0;
 function localDateKey(value) {
   var d = value instanceof Date ? value : new Date(value || Date.now());
   if (isNaN(d.getTime())) return '';
@@ -3665,11 +3666,16 @@ function renderAdminAccountsSummary(summary, version) {
 async function refreshAdminAccountsSummary() {
   if (role !== 'admin' || typeof window.MM_LOAD_ADMIN_ACCOUNTS_SUMMARY !== 'function') return;
   var version = adminStatsRenderVersion;
-  var day = localDateKey(new Date());
+  var requestVersion = ++adminStatsRequestVersion;
+  var picker = document.getElementById('accounts-day-filter');
+  var day = picker && /^\\d{4}-\\d{2}-\\d{2}$/.test(picker.value) && picker.value <= localDateKey(new Date())
+    ? picker.value : localDateKey(new Date());
   try {
     var summary = await window.MM_LOAD_ADMIN_ACCOUNTS_SUMMARY(day);
+    if (version !== adminStatsRenderVersion || requestVersion !== adminStatsRequestVersion) return;
     renderAdminAccountsSummary(summary, version);
   } catch (e) {
+    if (version !== adminStatsRenderVersion || requestVersion !== adminStatsRequestVersion) return;
     console.error('[Mirch Masaala accounts summary]',e);
     renderAdminAccountsSummary(null,version);
   }
@@ -3680,6 +3686,10 @@ function drawStats() {
     return;
   }
   var version = ++adminStatsRenderVersion;
+  var today = localDateKey(new Date());
+  var previousDatePicker = document.getElementById('accounts-day-filter');
+  var selectedDay = previousDatePicker && /^\\d{4}-\\d{2}-\\d{2}$/.test(previousDatePicker.value) && previousDatePicker.value <= today
+    ? previousDatePicker.value : today;
   var candidates = (Array.isArray(orders) ? orders : []).filter(function(o) {
     return o && !o.is_test_order && !o.archived_at && ['CANCELLED','PAID'].indexOf(String(o.status || '').toUpperCase()) < 0;
   }).sort(function(a,b) { return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); }).slice(0,40);
@@ -3693,6 +3703,9 @@ function drawStats() {
     return '<option value="' + tableNo + '">Table ' + tableNo + '</option>';
   }).join('');
   document.getElementById('a-stats').innerHTML =
+    '<div class="setup" style="margin-bottom:12px"><label for="accounts-day-filter" class="muted">Accounts date</label>' +
+    '<input type="date" id="accounts-day-filter" value="' + esc(selectedDay) + '" max="' + esc(today) + '" onchange="refreshAdminAccountsSummary()" aria-label="Choose the day for official accounts" style="width:100%;padding:11px;border-radius:10px;margin:6px 0;background:#211815;color:#fff;border:1px solid var(--line)">' +
+    '<p class="muted" style="font-size:11px">Order totals use the order date. Money received uses the date staff recorded the payment. Complimentary meals and test orders are excluded from received revenue.</p></div>' +
     '<div id="accounts-live-summary"><div class="setup"><b>Loading official accounts…</b><p>Connecting to the shared order/payment ledger.</p></div></div>' +
     '<div class="setup" style="margin-top:14px"><h3>Complimentary / free food</h3><p>Choose an order that was given free. Its value is tracked separately and removed from money received. Add a short reason for the audit record.</p>' +
     (ticketOptions ? '<label for="accounts-ticket-select" class="muted">Order</label><select id="accounts-ticket-select" style="width:100%;padding:12px;border-radius:10px;margin:6px 0;background:#211815;color:#fff;border:1px solid var(--line)">' + ticketOptions + '</select>' +
