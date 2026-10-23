@@ -909,6 +909,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <div class="tx"><b id="home-welcome">Welcome!</b> <span id="home-welcome-text">Scan the QR sticker on your table with your phone camera, or swipe below to choose your table.</span></div>
       <button type="button" class="x" onclick="this.parentElement.style.display='none'">×</button>
     </div>
+    <section id="home-my-orders" class="card" aria-label="Your recent orders" style="display:none;flex-direction:column;align-items:stretch;text-align:left;margin:12px 0;padding:14px;gap:8px" aria-live="polite"></section>
     <p class="muted" style="margin-bottom:4px"><b id="home-choose-table" style="color:var(--text)">Choose your table</b></p>
     <div class="table-swipe-guide" id="table-swipe-guide" aria-live="polite"><span class="swipe-side">↔</span><span id="home-swipe-label">Swipe sideways to find your table</span><span class="swipe-hand">👆</span></div>
     <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
@@ -2701,12 +2702,21 @@ function myOrders() {
     if (o.status === 'CANCELLED') cbtn = '<p style="color:var(--bad);font-size:13px;margin-top:8px">Cancelled</p>';
     else if (cancelPendingById[String(o.id)]) cbtn = '<p class="muted" style="font-size:13px;margin-top:8px">Cancelling…</p>';
     else if (canCancel(o)) cbtn = '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span class="gold">⏱ ' + fmt(rem) + '</span><button type="button" class="btn-bad" onclick="cancelOrder(\'' + o.id + '\')">Cancel order</button></div>';
-    return '<div class="card" style="flex-direction:column"><div style="display:flex;justify-content:space-between"><b>' + o.id + '</b><span class="gold">' + o.status + '</span></div>' +
+    return '<div class="card" style="flex-direction:column"><div style="display:flex;justify-content:space-between;gap:8px"><b>' + esc(o.id || '') + '</b><span class="gold">' + esc(o.status || 'NEW') + '</span></div>' +
+      '<div class="muted" style="font-size:11px;margin-top:3px">Table ' + esc(o.table || '—') + (o.createdAt ? ' · ' + esc(new Date(o.createdAt).toLocaleString()) : '') + '</div>' +
       progressMarkup(o) +
-      o.items.map(function(i){ return '<div class="muted">' + i.qty + '× ' + i.name + '</div>'; }).join('') +
+      (Array.isArray(o.items) ? o.items : []).map(function(i){
+        var qty = Number(i.qty) || 1;
+        var line = Number(i.price || 0) * qty;
+        return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-top:4px"><span class="muted">' + qty + '× ' + esc(window.mmDishName ? window.mmDishName(i.name || '') : (i.name || '')) + '</span>' +
+          '<span class="muted">' + (line ? money(line) : '') + '</span></div>';
+      }).join('') +
       '<b class="gold" style="margin-top:6px">₹' + o.total + '</b>' + cbtn + '</div>';
   }).join('');
   go('myorders');
+  if (typeof window.MM_REFRESH_CUSTOMER_ORDERS === 'function') {
+    window.MM_REFRESH_CUSTOMER_ORDERS();
+  }
 }
 
 /* Places local */
@@ -3412,14 +3422,101 @@ function tab(btn, name) {
   if (name === 'payments') drawAdminPayments();
   if (name === 'whatsapp') drawWhatsApp();
 }
+var adminTicketLookupQuery = '';
+var adminTicketLookupResult = null;
+var adminTicketLookupBusy = false;
+
+function renderAdminTicketLookupResult() {
+  var host = document.getElementById('admin-ticket-lookup-result');
+  if (!host) return;
+  var result = adminTicketLookupResult;
+  if (!result) {
+    host.innerHTML = '<p class="muted" style="font-size:11px;margin-top:8px">Ask the customer to show their ticket number in “My orders”. This also finds completed, cancelled and archived test tickets.</p>';
+    return;
+  }
+  if (result.loading) {
+    host.innerHTML = '<p class="muted" style="font-size:12px;margin-top:8px">Finding ticket…</p>';
+    return;
+  }
+  if (result.error) {
+    host.innerHTML = '<p style="color:var(--bad);font-size:12px;margin-top:8px">' + esc(result.error) + '</p>';
+    return;
+  }
+  var itemRows = Array.isArray(result.items) ? result.items : [];
+  var paymentRows = Array.isArray(result.payments) ? result.payments : [];
+  var status = String(result.status || 'UNKNOWN').toUpperCase();
+  var flags = [];
+  if (result.is_test_order || result.archived_at) flags.push('<span style="color:var(--warn);font-size:10px;font-weight:800">TEST / ARCHIVED · excluded from live accounts</span>');
+  if (result.is_complimentary) flags.push('<span style="color:var(--ok);font-size:10px;font-weight:800">COMPLIMENTARY · ' + esc(result.complimentary_reason || 'free meal') + '</span>');
+  if (status === 'CANCELLED') flags.push('<span style="color:var(--bad);font-size:10px;font-weight:800">CANCELLED · ' + esc(result.cancel_reason || 'no reason recorded') + '</span>');
+  var detailsDate = result.created_at ? new Date(result.created_at).toLocaleString() : '';
+  host.innerHTML = '<div class="card" style="flex-direction:column;align-items:stretch;margin-top:10px;gap:7px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><b class="gold">Ticket ' + esc(result.ticket_id || '') + '</b><div class="muted" style="font-size:11px;margin-top:3px">Table ' + esc(result.table || '—') + (detailsDate ? ' · ' + esc(detailsDate) : '') + '</div></div><b style="font-size:12px">' + esc(status) + '</b></div>' +
+    (flags.length ? '<div style="display:flex;flex-direction:column;gap:4px">' + flags.join('') + '</div>' : '') +
+    (itemRows.length ? itemRows.map(function(item) {
+      var qty = Number(item.quantity) || 1;
+      return '<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:7px;font-size:12px"><span>' + qty + '× ' + esc(item.name || 'Dish') +
+        (item.notes ? '<div class="muted" style="font-size:10px">' + esc(item.notes) + '</div>' : '') +
+        '</span><span style="white-space:nowrap">' + money(item.line_total != null ? item.line_total : (Number(item.unit_price) || 0) * qty) + '</span></div>';
+    }).join('') : '<p class="muted" style="font-size:12px">No line items were recorded for this ticket.</p>') +
+    (result.notes ? '<p class="muted" style="font-size:11px">Order note: ' + esc(result.notes) + '</p>' : '') +
+    '<div style="border-top:1px solid var(--line);padding-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">' +
+      '<span>Total</span><b class="gold" style="text-align:right">' + money(result.total) + '</b>' +
+      '<span>Payment recorded</span><b style="text-align:right">' + money(result.paid_total) + '</b>' +
+      '<span>Balance due</span><b style="text-align:right">' + money(result.balance_due) + '</b>' +
+    '</div>' +
+    (paymentRows.length ? '<details><summary class="muted" style="font-size:11px;cursor:pointer">Payment details (' + paymentRows.length + ')</summary>' +
+      paymentRows.map(function(payment) {
+        return '<div class="muted" style="font-size:11px;padding-top:5px">' + esc(String(payment.method || 'payment').toUpperCase()) + ' · ' + money(payment.amount) +
+          ' · ' + esc(payment.created_at ? new Date(payment.created_at).toLocaleString() : '') +
+          (payment.note ? ' · ' + esc(payment.note) : '') + '</div>';
+      }).join('') + '</details>' : '') +
+    '</div>';
+}
+
+async function lookupAdminTicket() {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
+  var input = document.getElementById('admin-ticket-lookup');
+  var ticket = String(input ? input.value : adminTicketLookupQuery).trim().toUpperCase();
+  adminTicketLookupQuery = ticket;
+  if (!/^[A-Z0-9-]{4,64}$/.test(ticket)) {
+    adminTicketLookupResult = {error:'Enter the ticket number shown on the customer receipt.'};
+    renderAdminTicketLookupResult();
+    return;
+  }
+  if (adminTicketLookupBusy) return;
+  if (typeof window.MM_ADMIN_GET_ORDER_DETAILS !== 'function') {
+    adminTicketLookupResult = {error:'Run the latest order-management-accounting.sql migration in Supabase, then refresh.'};
+    renderAdminTicketLookupResult();
+    return;
+  }
+  adminTicketLookupBusy = true;
+  adminTicketLookupResult = {loading:true};
+  renderAdminTicketLookupResult();
+  try {
+    adminTicketLookupResult = await window.MM_ADMIN_GET_ORDER_DETAILS(ticket);
+  } catch (e) {
+    console.error('[Mirch Masaala owner ticket lookup]', e);
+    adminTicketLookupResult = {error:e && e.message ? e.message : 'Could not find that ticket. Check the number and connection.'};
+  } finally {
+    adminTicketLookupBusy = false;
+    renderAdminTicketLookupResult();
+  }
+}
+
 function drawAdminOrders() {
+  var lookupInput = document.getElementById('admin-ticket-lookup');
+  if (lookupInput && document.activeElement === lookupInput) {
+    adminTicketLookupQuery = lookupInput.value;
+    return;
+  }
   var operationalOrders = (Array.isArray(orders) ? orders : []).filter(function(o) {
     return o && !o.is_test_order && !o.archived_at;
   });
-  var N = operationalOrders.filter(function(o){ return o.status === 'NEW'; });
-  var P = operationalOrders.filter(function(o){ return o.status === 'PREPARING'; });
-  var R = operationalOrders.filter(function(o){ return o.status === 'READY'; });
-  var html = '<div class="stats"><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + operationalOrders.filter(function(o){return o.status==='SERVED';}).length + '</b>Served</div></div>';
+  var N = operationalOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'NEW'; });
+  var P = operationalOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'PREPARING'; });
+  var R = operationalOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'READY'; });
+  var html = '<div class="stats"><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + operationalOrders.filter(function(o){return String(o.status || '').toUpperCase()==='SERVED';}).length + '</b>Served</div></div>';
   function sec(title, list) {
     if (!list.length) return '';
     return '<h3 class="gold" style="font-size:12px;padding:8px 12px">' + title + '</h3>' + list.map(function(o) {
@@ -3431,7 +3528,11 @@ function drawAdminOrders() {
   }
   html += sec('New', N) + sec('Cooking', P) + sec('Ready', R);
   if (!operationalOrders.length) html += '<p class="muted center" style="padding:30px">No active orders — they appear automatically</p>';
+  html += '<div style="padding:10px 12px 16px"><h3 class="gold" style="font-size:13px">Verify an order</h3><p class="muted" style="font-size:11px;margin:4px 0 8px">Search by the ticket number on the customer’s receipt. Includes served, paid, cancelled and archived test orders.</p>' +
+    '<div style="display:flex;gap:7px;align-items:stretch"><input id="admin-ticket-lookup" value="' + esc(adminTicketLookupQuery) + '" placeholder="Ticket number (e.g. MM-ABC123)" aria-label="Customer ticket number" oninput="adminTicketLookupQuery=this.value" onkeydown="if(event.key===\'Enter\'){event.preventDefault();lookupAdminTicket()}" style="flex:1;min-width:0;padding:11px;border:1px solid var(--line);border-radius:10px;background:#211815;color:#fff">' +
+    '<button type="button" class="btn btn-main" onclick="lookupAdminTicket()" ' + (adminTicketLookupBusy ? 'disabled' : '') + '>Find</button></div><div id="admin-ticket-lookup-result" aria-live="polite"></div></div>';
   document.getElementById('a-orders').innerHTML = html;
+  renderAdminTicketLookupResult();
 }
 function enableRoleNotifications() {
   if (typeof window.MM_ENABLE_BROWSER_NOTIFICATIONS === 'function') {
@@ -4298,10 +4399,75 @@ function scrollToVisit() {
   go('visit-page');
 }
 function renderCustomerHomeOrders() {
-  // The top-right public status circles replace the larger customer order cards.
-  // Detailed own tickets remain available in the Track my orders screen.
   var host = document.getElementById('home-my-orders');
-  if (host) { host.style.display = 'none'; host.innerHTML = ''; }
+  if (!host) return;
+
+  var tokens = [];
+  var storedOrders = [];
+  try { tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || []; } catch (e) {}
+  try { storedOrders = JSON.parse(localStorage.getItem('mm_o') || '[]') || []; } catch (e) {}
+  if (!Array.isArray(tokens) || !tokens.length) {
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+
+  var allowed = Object.create(null);
+  tokens.forEach(function (token) {
+    if (token && token.id && token.token) allowed[String(token.id)] = true;
+  });
+  var byId = Object.create(null);
+  (Array.isArray(storedOrders) ? storedOrders : []).concat(Array.isArray(orders) ? orders : []).forEach(function (order) {
+    if (!order || !allowed[String(order.id)]) return;
+    var id = String(order.id);
+    var previous = byId[id];
+    // Preserve the confirmed cancellation if a stale in-memory copy is encountered.
+    if (!previous || (order.customerCancelConfirmed && !previous.customerCancelConfirmed) ||
+        new Date(order.createdAt || 0).getTime() >= new Date(previous.createdAt || 0).getTime()) {
+      byId[id] = Object.assign({}, previous || {}, order);
+    }
+  });
+  var mine = Object.keys(byId).map(function (id) { return byId[id]; })
+    .sort(function (a, b) { return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(); });
+
+  if (!mine.length) {
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+
+  var latest = mine[0];
+  var status = String(latest.status || 'NEW').toUpperCase();
+  var items = Array.isArray(latest.items) ? latest.items : [];
+  var itemSummary = items.slice(0, 3).map(function (item) {
+    return '<div style="font-size:12px;color:var(--text);padding:2px 0">' +
+      '<span style="color:var(--gold2);font-weight:800">' + (Number(item.qty) || 1) + '×</span> ' +
+      esc(window.mmDishName ? window.mmDishName(item.name || '') : (item.name || '')) + '</div>';
+  }).join('');
+  if (items.length > 3) itemSummary += '<div class="muted" style="font-size:11px">+' + (items.length - 3) + ' more items</div>';
+  var created = latest.createdAt ? new Date(latest.createdAt).toLocaleString() : '';
+  var heading = window.mmI18n('Your recent order', 'तुमची अलीकडील ऑर्डर');
+  var subheading = window.mmI18n('Saved on this phone so you can check it again.', 'ही ऑर्डर या मोबाईलवर जतन आहे. पुन्हा तपासू शकता.');
+  var viewLabel = window.mmI18n('View items & status', 'पदार्थ व स्थिती पाहा');
+  host.style.display = 'flex';
+  host.innerHTML =
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">' +
+      '<div><div style="font-size:10px;letter-spacing:1px;color:var(--gold2);font-weight:800">📋 ' + heading + '</div>' +
+      '<p class="muted" style="font-size:11px;margin-top:3px">' + subheading + '</p></div>' +
+      '<span style="font-size:11px;font-weight:800;padding:5px 8px;border-radius:8px;background:rgba(212,168,75,.12);color:var(--gold2)">' + esc(status) + '</span>' +
+    '</div>' +
+    '<div style="border-top:1px solid var(--line);padding-top:8px">' +
+      '<b style="font-size:13px">Ticket ' + esc(latest.id || '') + '</b>' +
+      '<div class="muted" style="font-size:11px;margin-top:3px">' +
+        window.mmI18n('Table', 'टेबल') + ' ' + esc(latest.table || '—') + (created ? ' · ' + esc(created) : '') +
+      '</div>' +
+    '</div>' +
+    (itemSummary || '<p class="muted" style="font-size:12px">Order details are syncing…</p>') +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px">' +
+      '<b class="gold">' + money(latest.total) + '</b>' +
+      '<span class="muted" style="font-size:11px">' + mine.length + ' ' + window.mmI18n('saved ticket(s)', 'जतन ऑर्डर') + '</span>' +
+    '</div>' +
+    '<button type="button" class="btn btn-main" style="margin-top:3px" onclick="myOrders()">' + viewLabel + ' →</button>';
 }
 function renderPublicOrderBoard(rows) {
   var host = document.getElementById('public-order-board');
