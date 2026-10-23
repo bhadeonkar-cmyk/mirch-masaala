@@ -768,26 +768,30 @@
   }
 
   async function ensurePublicTableVisit(tableNumber) {
-    if (!client || !window.MM_SUPABASE_ENABLED) {
-      throw new Error('The shared database is not connected. Please refresh and try again.');
-    }
+    if (!client || !window.MM_SUPABASE_ENABLED) return null;
     try {
       var result = await client.rpc('mm_ensure_public_table_visit', {
         p_table_number: String(tableNumber || '').padStart(2, '0')
       });
       if (result.error) throw result.error;
       var visit = rpcPayload(result.data);
-      if (!visit || !visit.visit_id) {
-        throw new Error('The server did not return an active table visit.');
-      }
       if (['admin', 'waiter'].indexOf(String(window.role || '')) >= 0) await refreshTableVisits();
-      return visit;
-    } catch (e) {
+      if (visit && visit.visit_id) return visit;
+      // Compatibility during rollout: the older table-visits.sql returns no visit_id.
+      // Continue using the old RPC shape until visit-billing-upgrade.sql is applied.
       if (!tableVisitSetupMessageShown) {
         tableVisitSetupMessageShown = true;
-        console.info('[Mirch Masaala table visits] Apply supabase/table-visits.sql and supabase/visit-billing-upgrade.sql in Supabase SQL Editor.', e && e.message ? e.message : e);
+        console.info('[Mirch Masaala table visits] Order-to-visit linkage is pending. Apply supabase/visit-billing-upgrade.sql in Supabase SQL Editor.');
       }
-      throw new Error('Table visit setup is not ready. The owner must apply the table-visits and visit-billing-upgrade SQL migrations before new orders can be placed.');
+      return null;
+    } catch (e) {
+      // Preserve existing ordering if the optional visit migration has not yet been applied.
+      // The new visit-linked behavior activates after visit-billing-upgrade.sql is installed.
+      if (!tableVisitSetupMessageShown) {
+        tableVisitSetupMessageShown = true;
+        console.info('[Mirch Masaala table visits] Shared visit linkage is not active yet. Apply supabase/table-visits.sql and supabase/visit-billing-upgrade.sql.', e && e.message ? e.message : e);
+      }
+      return null;
     }
   }
 
@@ -832,21 +836,25 @@
     var actorRole = String(window.role || '');
     // A separate browser gets a separate session ID for the same active visit.
     // Staff-originated tickets are linked to the visit but are not labelled as a guest session.
-    var customerSessionId = actorRole ? null : customerSessionIdForVisit(visit.visit_id);
+    var customerSessionId = visit && visit.visit_id && !actorRole
+      ? customerSessionIdForVisit(visit.visit_id) : null;
     var ticket = window.makeTicketId(tableNumber, new Date());
     var payload = buildOrderItems(cartItems);
-    var result = await client.rpc('mm_place_order', {
+    var orderArgs = {
       p_restaurant_id: RESTAURANT_ID,
       p_table_number: String(tableNumber).padStart(2, '0'),
       p_ticket_id: ticket,
       p_notes: String(notes || '').slice(0, 1000),
-      p_items: payload,
-      p_table_visit_id: visit.visit_id,
-      p_customer_session_id: customerSessionId
-    });
+      p_items: payload
+    };
+    if (visit && visit.visit_id) {
+      orderArgs.p_table_visit_id = visit.visit_id;
+      orderArgs.p_customer_session_id = customerSessionId;
+    }
+    var result = await client.rpc('mm_place_order', orderArgs);
     if (result.error) throw result.error;
     var created = rpcPayload(result.data);
-    if (!created || !created.id || !created.publicToken || !created.visitId) {
+    if (!created || !created.id || !created.publicToken || (visit && visit.visit_id && !created.visitId)) {
       throw new Error('Supabase did not confirm the new order and its table visit. Please refresh and check the order before trying again.');
     }
     storePublicToken(created.id, created.publicToken);
@@ -855,7 +863,7 @@
       dbId: created.dbId,
       publicToken: created.publicToken,
       table: String(created.table || tableNumber).padStart(2, '0'),
-      visitId: created.visitId,
+      visitId: created.visitId || null,
       customerSessionId: created.customerSessionId || customerSessionId || null,
       items: created.items || [],
       total: Number(created.total) || 0,
