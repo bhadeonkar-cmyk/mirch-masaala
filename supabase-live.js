@@ -210,14 +210,15 @@
     var table = String(row.table_number || '').padStart(2, '0');
     var title = 'Mirch Masaala';
     var body = row.message || '';
-    if (type === 'PARTY_BOOKING') { title = 'NEW PARTY BOOKING REQUEST'; body = row.message || 'A new party booking request needs your attention.'; }
+    if (type === 'PAYMENT_CHECK') { title = 'PAYMENT VERIFICATION · TABLE ' + table; body = row.message || 'A guest says they paid. Please verify the transaction before recording payment.'; }
+    else if (type === 'PARTY_BOOKING') { title = 'NEW PARTY BOOKING REQUEST'; body = row.message || 'A new party booking request needs your attention.'; }
     else if (type === 'WAITER_CALL') { title = 'WAITER NEEDED · TABLE ' + table; body = 'A guest is waiting for a waiter.'; }
     else if (type === 'BILL_REQUEST') { title = 'BILL REQUEST · TABLE ' + table; body = 'Please attend the table bill request.'; }
     else if (type === 'NEW_ORDER') { title = 'NEW ORDER · TABLE ' + table; body = 'A new kitchen ticket has arrived.'; }
     else if (type === 'ORDER_READY') { title = 'ORDER READY · TABLE ' + table; body = 'Please check the ready ticket.'; }
     else if (type === 'ITEM_SOLD_OUT') { title = 'ITEM SOLD OUT'; body = row.item_name || row.message || 'Kitchen changed menu availability.'; }
     try {
-      var notification = new Notification(title, { body: body, tag: 'mm-alert-' + row.id, icon: './icon.svg', requireInteraction: type === 'WAITER_CALL' || type === 'BILL_REQUEST' || type === 'PARTY_BOOKING' });
+      var notification = new Notification(title, { body: body, tag: 'mm-alert-' + row.id, icon: './icon.svg', requireInteraction: type === 'WAITER_CALL' || type === 'BILL_REQUEST' || type === 'PARTY_BOOKING' || type === 'PAYMENT_CHECK' });
       notification.onclick = function () { try { window.focus(); } catch (e) {} notification.close(); };
     } catch (e) {}
   }
