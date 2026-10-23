@@ -24,3 +24,40 @@ jobs:
         run: node scripts/check-inline-js.cjs
       - name: Parse the Supabase integration JavaScript
         run: node --check supabase-live.js
+
+  sql-integration:
+    name: Exercise accounting functions in PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mirch_masaala_qa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mirch_masaala_qa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: mirch_masaala_qa
+      PGPASSWORD: postgres
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Create isolated Supabase schema fixture
+        run: psql -v ON_ERROR_STOP=1 -f scripts/sql-qa-fixture.sql
+      - name: Compile accounting migration in PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f supabase/order-management-accounting.sql
+      - name: Exercise cancellation, cleanup, payments and stats
+        run: psql -v ON_ERROR_STOP=1 -f scripts/check-accounting-behavior.sql
