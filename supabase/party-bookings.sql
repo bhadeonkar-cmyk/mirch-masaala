@@ -66,7 +66,8 @@ BEGIN
   ALTER TABLE public.mm_restaurant_notifications
     ADD CONSTRAINT mm_restaurant_notifications_type_check
     CHECK (notification_type IN (
-      'WAITER_CALL','BILL_REQUEST','NEW_ORDER','ORDER_READY','ITEM_SOLD_OUT','PARTY_BOOKING'
+      'WAITER_CALL','BILL_REQUEST','NEW_ORDER','ORDER_READY','ITEM_SOLD_OUT',
+      'PARTY_BOOKING','PAYMENT_CHECK'
     ));
 END
 $$;
