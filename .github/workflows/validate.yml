@@ -61,11 +61,14 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/order-management-accounting.sql
       - name: Exercise cancellation, cleanup, payments and stats
         run: psql -v ON_ERROR_STOP=1 -f scripts/check-accounting-behavior.sql
-      - name: Compile and exercise party booking migration
+      - name: Compile and exercise party and payment-verification migrations
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/party-bookings.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/customer-payment-confirmation.sql
           psql -v ON_ERROR_STOP=1 -f scripts/check-party-bookings.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/check-payment-confirmation.sql
           psql -v ON_ERROR_STOP=1 -f supabase/party-bookings.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/customer-payment-confirmation.sql
       - name: Verify accounting migration is safe to re-run
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/order-management-accounting.sql
