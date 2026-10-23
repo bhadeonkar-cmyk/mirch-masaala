@@ -1776,8 +1776,10 @@ function go(id) {
   }
   if (el) el.classList.add('on');
   try { window.scrollTo(0, 0); } catch (e) {}
+  if (id === 'home' && typeof renderHomeTables === 'function') renderHomeTables();
   if (typeof renderPublicOrderBoard === 'function') renderPublicOrderBoard(window.MM_PUBLIC_ORDER_ROWS || []);
   if (id === 'home' && typeof renderCustomerHomeOrders === 'function') renderCustomerHomeOrders();
+  if (id === 'customer' && typeof updateCustomerBottomActions === 'function') updateCustomerBottomActions();
   if (id === 'reviews-page' && typeof renderReviewSection === 'function') renderReviewSection();
   if (id === 'visit-page' && typeof renderVisitSection === 'function') renderVisitSection();
 }
@@ -2157,6 +2159,7 @@ function maybeSuggestSpecial() {
 function startTable(n) {
   if (!isOpen) { toast(SETTINGS.closedMessage || 'Restaurant is closed'); return; }
   table = String(n).padStart(2, '0');
+  try { localStorage.setItem('mm_customer_active_table', table); } catch (e) {}
   cart = load('mm_c_' + table, []);
   cat = 'all'; dietFilter = 'all';
   document.getElementById('search').value = '';
@@ -2164,6 +2167,7 @@ function startTable(n) {
   drawDietFilters(); drawCats(); drawMenu(); drawSpecials(); updCart();
   restoreTips();
   go('customer');
+  updateCustomerBottomActions();
   maybeSuggestSpecial();
   setTimeout(function() {
     if (!currentCustomer) {
@@ -2416,8 +2420,9 @@ function updCart() {
   var tot = cart.reduce(function(s,c){ return s + c.price * c.qty; }, 0);
   document.getElementById('badge').textContent = n;
   var bar = document.getElementById('cart-bar');
-  if (n > 0) { bar.style.display = 'flex'; bar.textContent = '🛒 ' + window.mmI18n('View cart','कार्ट पहा') + ' · ' + n + ' ' + window.mmI18n('items','पदार्थ') + ' · ₹' + tot; }
+  if (n > 0) { bar.style.display = 'flex'; bar.textContent = '🛒 ' + window.mmI18n('Cart','कार्ट') + ' · ' + n + ' · ₹' + tot; }
   else bar.style.display = 'none';
+  if (typeof updateCustomerBottomActions === 'function') updateCustomerBottomActions();
 }
 function openCart() {
   drawCart();
@@ -4937,11 +4942,90 @@ function syncCenteredHomeTable() {
   if(best){var n=best.getAttribute('data-table-number');if(n&&n!==selectedHomeTable)selectHomeTable(n,best,true);}
 }
 function continueHomeTable(){if(!selectedHomeTable){toast('Swipe and select a table first');return;}startTable(selectedHomeTable);}
+function customerOrderTokensById() {
+  var tokens = [];
+  try { tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || []; } catch (e) {}
+  var ids = Object.create(null);
+  if (Array.isArray(tokens)) tokens.forEach(function(token) {
+    if (token && token.id && token.token) ids[String(token.id)] = true;
+  });
+  return ids;
+}
+function customerOrdersAtTable(tableNumber) {
+  var tableNo = String(tableNumber || '').padStart(2, '0');
+  var ids = customerOrderTokensById();
+  var source = Array.isArray(orders) ? orders : [];
+  if (!source.length) {
+    try { source = JSON.parse(localStorage.getItem('mm_o') || '[]') || []; } catch (e) { source = []; }
+  }
+  return source.filter(function(order) {
+    return order && ids[String(order.id)] &&
+      String(order.table || '').padStart(2, '0') === tableNo;
+  });
+}
+function customerHasActiveOrdersForTable(tableNumber) {
+  return customerOrdersAtTable(tableNumber).some(function(order) {
+    var status = String(order.status || 'NEW').toUpperCase();
+    return ['CANCELLED','PAID','COMPLIMENTARY'].indexOf(status) < 0 &&
+      !order.is_complimentary && !order.is_test_order && !order.archived_at;
+  });
+}
+function updateCustomerBottomActions() {
+  var tableNo = String(table || '').padStart(2, '0');
+  if (!tableNo || tableNo === '00') {
+    try { tableNo = String(localStorage.getItem('mm_customer_active_table') || '').padStart(2, '0'); } catch (e) {}
+  }
+  var activeOrders = !!tableNo && tableNo !== '00' && customerHasActiveOrdersForTable(tableNo);
+  var billButton = document.getElementById('customer-bill-pay-btn');
+  if (billButton) billButton.style.display = activeOrders ? 'inline-flex' : 'none';
+  var changeButton = document.getElementById('customer-change-table');
+  var lockLabel = document.getElementById('customer-table-lock');
+  var lockNumber = document.getElementById('customer-table-context-number');
+  if (lockNumber && tableNo && tableNo !== '00') lockNumber.textContent = tableNo;
+  if (changeButton) changeButton.style.display = activeOrders ? 'none' : 'inline-flex';
+  if (lockLabel) lockLabel.style.display = activeOrders ? 'inline-flex' : 'none';
+  return activeOrders;
+}
+var homeRenderedCustomerLockTable = '';
+function getCustomerHomeLockTable() {
+  if (role) return '';
+  var active = '';
+  try { active = String(localStorage.getItem('mm_customer_active_table') || '').padStart(2, '0'); } catch (e) {}
+  return active && active !== '00' && customerHasActiveOrdersForTable(active) ? active : '';
+}
+function syncCustomerHomeTablePicker() {
+  var home = document.getElementById('home');
+  if (!home || !home.classList.contains('on')) return;
+  var locked = getCustomerHomeLockTable();
+  if (locked !== homeRenderedCustomerLockTable) renderHomeTables();
+}
 function renderHomeTables() {
   rebuildTables();
   var g=document.getElementById('tables');if(!g)return;
   g.innerHTML='';selectedHomeTable=null;
   var btn=document.getElementById('table-continue');if(btn)btn.style.display='none';
+  var scanButton=document.getElementById('scan-table-btn');
+  var swipeGuide=document.getElementById('table-swipe-guide');
+  var lockedTable=getCustomerHomeLockTable();
+  homeRenderedCustomerLockTable=lockedTable;
+  if (lockedTable) {
+    var fixed=document.createElement('button');
+    fixed.type='button';fixed.className='tbtn table-carousel-card selected home-locked-table';
+    fixed.setAttribute('aria-label','Your active table '+lockedTable);
+    fixed.innerHTML='<span class="table-mini-cartoon" aria-hidden="true">🍽️</span><strong>'+lockedTable+'</strong><small class="home-locked-caption">YOUR TABLE</small>';
+    fixed.onclick=function(){startTable(lockedTable);};
+    g.appendChild(fixed);
+    selectedHomeTable=lockedTable;
+    g.classList.add('home-table-locked');
+    if(swipeGuide){swipeGuide.style.display='block';swipeGuide.innerHTML='<span class="swipe-side">✦</span><span>You’re dining at Table '+lockedTable+'. Other tables stay hidden during this visit.</span><span class="swipe-hand">✓</span>';}
+    if(btn){btn.style.display='flex';btn.textContent='Return to Table '+lockedTable+' →';}
+    if(scanButton)scanButton.style.display='none';
+    g.onscroll=null;g.onpointerdown=null;g.onpointerup=null;g.onpointercancel=null;
+    return;
+  }
+  g.classList.remove('home-table-locked');
+  if(scanButton)scanButton.style.display='';
+  if(swipeGuide)swipeGuide.style.display='';
   MENU.tables.forEach(function(t){
     var b=document.createElement('button');b.type='button';b.className='tbtn table-carousel-card';b.style.setProperty('--card-index',g.children.length);b.setAttribute('data-table-number',t.number);
     b.innerHTML='<span class="table-mini-cartoon" aria-hidden="true">🍽️</span><strong>'+t.number+'</strong>';
