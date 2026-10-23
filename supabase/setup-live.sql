@@ -811,7 +811,7 @@ $$;
 
 -- Owner cleanup is archival, not deletion. The expected count ensures the table preview
 -- has not gone stale between confirmation and execution.
-DROP FUNCTION IF EXISTS public.mm_admin_clear_table_orders(text, text, integer, text);
+DROP FUNCTION IF EXISTS public.mm_admin_clear_table_orders(text, text, integer);
 CREATE OR REPLACE FUNCTION public.mm_admin_clear_table_orders(
   p_table_number text, p_reason text, p_expected_count integer, p_expected_fingerprint text
 )
