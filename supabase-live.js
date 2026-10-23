@@ -410,13 +410,26 @@
     if (['admin', 'waiter', 'kitchen'].indexOf(window.role) < 0) return;
     staffRefreshBusy = true;
     try {
-      var result = await client.from('orders')
-        .select('id,ticket_id,table_id,status,notes,total,created_at,public_token,order_number,is_test_order,is_complimentary,complimentary_reason,cancel_reason,archived_at')
-        .eq('restaurant_id', RESTAURANT_ID)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (result.error) throw result.error;
-      var rows = result.data || [];
+      var orderColumns = 'id,ticket_id,table_id,status,notes,total,created_at,public_token,order_number,is_test_order,is_complimentary,complimentary_reason,cancel_reason,archived_at,updated_at';
+      // Always fetch every active kitchen ticket even if more than 100 newer history rows exist.
+      var fetches = await Promise.all([
+        client.from('orders').select(orderColumns)
+          .eq('restaurant_id', RESTAURANT_ID)
+          .order('created_at', { ascending: false }).limit(100),
+        client.from('orders').select(orderColumns)
+          .eq('restaurant_id', RESTAURANT_ID)
+          .in('status', ['NEW','PREPARING','READY'])
+          .is('archived_at', null)
+          .order('created_at', { ascending: false })
+      ]);
+      if (fetches[0].error) throw fetches[0].error;
+      if (fetches[1].error) throw fetches[1].error;
+      var rowsById = Object.create(null);
+      (fetches[0].data || []).concat(fetches[1].data || []).forEach(function (row) {
+        if (row && row.id) rowsById[String(row.id)] = row;
+      });
+      var rows = Object.keys(rowsById).map(function (id) { return rowsById[id]; })
+        .sort(function (a, b) { return new Date(b.created_at || 0) - new Date(a.created_at || 0); });
       if (!rows.length) {
         window.orders = [];
         try { localStorage.setItem('mm_o', '[]'); } catch (e) {}
@@ -850,11 +863,23 @@
     return ownerRpc('mm_admin_preview_table_cleanup', { p_table_number: String(tableNumber || '') });
   }
 
-  async function clearTableOrders(tableNumber, reason, expectedCount) {
+  async function clearTableOrders(tableNumber, reason, expectedCount, expectedFingerprint) {
     var data = await ownerRpc('mm_admin_clear_table_orders', {
       p_table_number: String(tableNumber || ''),
       p_reason: String(reason || '').slice(0, 240),
-      p_expected_count: Number(expectedCount)
+      p_expected_count: Number(expectedCount),
+      p_expected_fingerprint: String(expectedFingerprint || '')
+    });
+    await refreshStaffOrders();
+    await refreshPublicOrderBoard();
+    if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    return data;
+  }
+
+  async function cancelAdminOrder(ticketId, reason) {
+    var data = await ownerRpc('mm_admin_cancel_order', {
+      p_ticket_id: String(ticketId || ''),
+      p_reason: String(reason || '').slice(0, 240)
     });
     await refreshStaffOrders();
     await refreshPublicOrderBoard();
@@ -928,7 +953,7 @@
       return;
     }
     var permitted = actor === 'admin'
-      ? ['NEW', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'].indexOf(nextStatus) >= 0
+      ? ['NEW', 'PREPARING', 'READY', 'SERVED'].indexOf(nextStatus) >= 0
       : actor === 'kitchen'
         ? ['PREPARING', 'READY'].indexOf(nextStatus) >= 0
         : nextStatus === 'SERVED';
@@ -1645,6 +1670,7 @@
     window.MM_CANCEL_CUSTOMER_ORDER = cancelCustomerOrder;
     window.MM_PREVIEW_TABLE_CLEANUP = previewTableCleanup;
     window.MM_CLEAR_TABLE_ORDERS = clearTableOrders;
+    window.MM_CANCEL_ADMIN_ORDER = cancelAdminOrder;
     window.MM_SET_ORDER_COMPLIMENTARY = setOrderComplimentary;
     window.MM_RECORD_TABLE_PAYMENT = recordTablePayment;
     window.MM_GET_PUBLIC_TABLE_BILL = getPublicTableBill;
