@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
     .select("id, target_role, notification_type, table_number, ticket_id, item_name, message, push_dispatch_token")
     .eq("restaurant_id", RESTAURANT_ID)
     .in("id", ids)
-    .in("notification_type", ["WAITER_CALL", "BILL_REQUEST", "PARTY_BOOKING", "PAYMENT_CHECK"])
+    .in("notification_type", ["WAITER_CALL", "BILL_REQUEST", "PARTY_BOOKING", "PAYMENT_CHECK", "CASH_AT_COUNTER"])
     .is("push_sent_at", null)
     .is("resolved_at", null)
     .gt("created_at", recentCutoff);
