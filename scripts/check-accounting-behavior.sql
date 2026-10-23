@@ -8,6 +8,7 @@ DECLARE
   v_preview jsonb;
   v_cleanup jsonb;
   v_result jsonb;
+  v_lookup jsonb;
   v_payment jsonb;
   v_summary jsonb;
   v_bill jsonb;
@@ -165,6 +166,14 @@ BEGIN
   END;
   IF NOT v_rejected THEN RAISE EXCEPTION 'QA failed: waiter was allowed to preview owner cleanup'; END IF;
 
+  v_rejected := false;
+  BEGIN
+    v_lookup := public.mm_admin_get_order_details('MM-T2-PAID');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM = 'Owner/Admin access required' THEN v_rejected := true; ELSE RAISE; END IF;
+  END;
+  IF NOT v_rejected THEN RAISE EXCEPTION 'QA failed: waiter was allowed to inspect a ticket via owner lookup'; END IF;
+
   -- Preview/fingerprint confirmation archives table-02 history, cancels active tickets,
   -- and reports the true processed count (not preview-count + processed-count).
   PERFORM set_config('app.qa_role','admin',false);
@@ -189,6 +198,18 @@ BEGIN
   IF v_status <> 'CANCELLED' THEN RAISE EXCEPTION 'QA failed: active test ticket was not cancelled'; END IF;
   SELECT status INTO v_status FROM public.orders WHERE ticket_id='MM-T2-DONE';
   IF v_status <> 'SERVED' THEN RAISE EXCEPTION 'QA failed: completed ticket status/history was changed'; END IF;
+
+  -- Owner lookup must still verify exact line items and payments on archived history.
+  v_lookup := public.mm_admin_get_order_details('MM-T2-PAID');
+  IF v_lookup->>'ticket_id' <> 'MM-T2-PAID'
+     OR v_lookup->>'status' <> 'PAID'
+     OR v_lookup->>'is_test_order' <> 'true'
+     OR v_lookup->>'archived_at' IS NULL
+     OR v_lookup->'items'->0->>'name' <> 'QA paid dish'
+     OR (v_lookup->>'paid_total')::numeric <> 40
+     OR (v_lookup->>'balance_due')::numeric <> 0 THEN
+    RAISE EXCEPTION 'QA failed: owner ticket lookup did not return archived item/payment details: %', v_lookup;
+  END IF;
 
   -- Archived tasting orders must not contribute to the public table balance or cash totals.
   v_bill := public.mm_get_public_table_bill('02');
