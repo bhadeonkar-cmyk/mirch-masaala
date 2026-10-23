@@ -9,6 +9,7 @@ const publicBoard = fs.readFileSync('supabase/public-table-status-circles.sql', 
 const tableVisitsMigration = fs.readFileSync('supabase/table-visits.sql', 'utf8');
 const visitBillingMigration = fs.readFileSync('supabase/visit-billing-upgrade.sql', 'utf8');
 const partyBookingsMigration = fs.readFileSync('supabase/party-bookings.sql', 'utf8');
+const paymentConfirmationMigration = fs.readFileSync('supabase/customer-payment-confirmation.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
 const staffPushEdge = fs.readFileSync('supabase/functions/send-staff-push/index.ts', 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
@@ -53,7 +54,9 @@ try {
   ['MM_SUBMIT_PARTY_BOOKING', 'Party booking submits to the shared database'],
   ['MM_LOAD_PARTY_BOOKINGS', 'Owner party dashboard reads shared booking records'],
   ['MM_UPDATE_PARTY_BOOKING', 'Owner can update party booking status'],
-  ['dispatchStaffPushForGuestRequest', 'New party requests dispatch owner push when configured'],
+  ['dispatchStaffPushForGuestRequest', 'Guest requests can dispatch configured staff push alerts'],
+  ['MM_REQUEST_PAYMENT_VERIFICATION', 'Customer can request payment verification from staff'],
+  ["mm_guest_request_payment_check", 'Payment verification uses the shared database RPC'],
   ['for (var i = 0; i < tokens.length; i++)', 'Every retained customer ticket gets status refresh'],
   [".select('ticket_id,status').maybeSingle()", 'Staff status change confirms a database row was updated'],
   [".select('id,price').maybeSingle()", 'Owner price update confirms a database row was updated'],
@@ -62,6 +65,12 @@ try {
 
 [
   ['function cancelOrder(id)', 'Customer cancellation UI exists'],
+  ['id="customer-bill-pay-btn"', 'Customer has a persistent bill and payment action'],
+  ['customerHasActiveOrdersForTable(tableNumber)', 'Customer table focus is limited to their active table'],
+  ['id="customer-table-lock"', 'Customer sees a fixed current-table label after ordering'],
+  ['id="pay-verify-upi-btn"', 'Customer can ask the owner/waiter to verify a reported UPI payment'],
+  ['function requestPaymentVerification()', 'Payment verification button never self-confirms a payment'],
+  ['PAYMENT_CHECK', 'Owner and waiter have a dedicated payment verification alert'],
   ['id="home-party-link"', 'Customer has an animated party booking shortcut'],
   ['id="p-phone" placeholder="10-digit mobile number" type="tel"', 'Party booking phone number is required in the form'],
   ['function sendPartyWhatsApp()', 'Customer can message the restaurant with booking details'],
@@ -179,11 +188,17 @@ checkSqlDollarQuotes(setup, 'Fresh setup SQL');
 checkSqlDollarQuotes(tableVisitsMigration, 'Table visits migration');
 checkSqlDollarQuotes(visitBillingMigration, 'Visit billing upgrade migration');
 checkSqlDollarQuotes(partyBookingsMigration, 'Party bookings migration');
+checkSqlDollarQuotes(paymentConfirmationMigration, 'Customer payment verification migration');
+requireText(paymentConfirmationMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_request_payment_check', 'Customer payment verification RPC exists');
+requireText(paymentConfirmationMigration, "'PAYMENT_CHECK'", 'Payment verification notifications have a distinct type');
+requireText(paymentConfirmationMigration, "ARRAY['waiter','admin']::text[]", 'Payment verification alerts target both owner and waiter');
+requireText(paymentConfirmationMigration, "v_method NOT IN ('upi','gpay','phonepe')", 'Payment verification rejects unsupported methods');
 requireText(partyBookingsMigration, 'CREATE OR REPLACE FUNCTION public.mm_submit_party_booking', 'Party request validation RPC exists');
 requireText(partyBookingsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_list_party_bookings', 'Owner party list RPC exists');
 requireText(partyBookingsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_update_party_booking', 'Owner party status RPC exists');
 requireText(partyBookingsMigration, "'PARTY_BOOKING'", 'Party request creates an owner alert');
 requireText(staffPushEdge, '"PARTY_BOOKING"', 'Background push sender supports party booking alerts');
+requireText(staffPushEdge, '"PAYMENT_CHECK"', 'Background push sender supports payment verification alerts');
 checkCleanupCounterReset(migration, 'Accounting migration');
 checkCleanupCounterReset(setup, 'Fresh setup SQL');
 if (/DELETE\s+FROM\s+public\.orders/i.test(migration)) {
