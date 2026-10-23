@@ -52,7 +52,7 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 
 ## Owner accounting and table cleanup
 
-Run `supabase/order-management-accounting.sql` once in Supabase SQL Editor after deploying the current app. The migration adds an audit trail, confirmed-payment ledger, complimentary reasons, and test/archive flags. It is designed to be safely re-run.
+Run `supabase/order-management-accounting.sql` once in Supabase SQL Editor after deploying the current app. The migration adds an audit trail, confirmed-payment ledger, complimentary reasons, and test/archive flags. It is designed to be safely re-run. The earlier `supabase/customer-cancel-order.sql` is deprecated and intentionally contains no executable SQL; do not use it to update an installation after this accounting migration.
 
 In **Owner → Orders**, cancel an unserved ticket with a reason; cancellation is saved to the shared order status and audit log. In **Owner → Stats**, use **Complimentary / free food** to classify an unpaid ticket with a reason; its value is tracked separately from money received. Use **Clean test orders for a table** only after reviewing the full ticket list and confirming every unarchived ticket at that table is test data. The app previews order count, active count, total order value and recorded payments before asking for confirmation; active tickets are cancelled and all selected records remain in history marked as test. Do not run cleanup on a table with real service unless every ticket has been reviewed.
 
