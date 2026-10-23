@@ -82,6 +82,63 @@
     return data;
   }
 
+  function dispatchStaffPushForGuestRequest(data) {
+    var ids = data && Array.isArray(data.notification_ids) ? data.notification_ids : [];
+    var tokens = data && Array.isArray(data.dispatch_tokens) ? data.dispatch_tokens : [];
+    if (ids.length && tokens.length && client && client.functions && typeof client.functions.invoke === 'function') {
+      client.functions.invoke('send-staff-push', { body: { notification_ids: ids, dispatch_tokens: tokens } })
+        .then(function (sent) {
+          if (sent && sent.error) console.info('[Mirch Masaala push] The in-app alert is saved; background push may need setup.');
+        })
+        .catch(function (err) {
+          console.info('[Mirch Masaala push] The in-app alert is saved; background push may need setup.', err && err.message ? err.message : err);
+        });
+    }
+  }
+
+  async function submitPartyBooking(payload) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Party booking is not connected yet. Please try again shortly.');
+    var input = payload || {};
+    var result = await client.rpc('mm_submit_party_booking', {
+      p_name: String(input.name || '').trim(),
+      p_phone: String(input.phone || '').trim(),
+      p_event_type: String(input.eventType || ''),
+      p_event_date: String(input.eventDate || ''),
+      p_event_time: String(input.eventTime || ''),
+      p_guest_count: Number(input.guestCount),
+      p_notes: String(input.notes || '').trim()
+    });
+    if (result.error) throw result.error;
+    var saved = rpcPayload(result.data);
+    if (!saved || !saved.id || !saved.booking_ref) {
+      throw new Error('The restaurant did not confirm the booking request. Please try again.');
+    }
+    dispatchStaffPushForGuestRequest(saved);
+    return saved;
+  }
+
+  async function loadPartyBookings() {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    if (String(window.role || '') !== 'admin') throw new Error('Owner/Admin access required.');
+    var result = await client.rpc('mm_admin_list_party_bookings', { p_limit: 150 });
+    if (result.error) throw result.error;
+    return Array.isArray(result.data) ? result.data : [];
+  }
+
+  async function updatePartyBooking(id, status, ownerNotes) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    if (String(window.role || '') !== 'admin') throw new Error('Owner/Admin access required.');
+    var result = await client.rpc('mm_admin_update_party_booking', {
+      p_booking_id: String(id || ''),
+      p_status: String(status || '').toUpperCase(),
+      p_owner_notes: String(ownerNotes || '').trim()
+    });
+    if (result.error) throw result.error;
+    var saved = rpcPayload(result.data);
+    if (!saved || !saved.id) throw new Error('The booking status was not confirmed. Please refresh and try again.');
+    return saved;
+  }
+
   async function loadStaffNotifications() {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
     if (['admin', 'waiter', 'kitchen'].indexOf(window.role) < 0) return [];
@@ -1751,6 +1808,9 @@
     window.MM_SUPABASE_STATUS = 'connected';
     window.MM_SAVE_CUSTOMER_PROFILE = saveRemoteCustomerProfile;
     window.MM_SUBMIT_RESTAURANT_REVIEW = submitRestaurantReview;
+    window.MM_SUBMIT_PARTY_BOOKING = submitPartyBooking;
+    window.MM_LOAD_PARTY_BOOKINGS = loadPartyBookings;
+    window.MM_UPDATE_PARTY_BOOKING = updatePartyBooking;
     window.MM_LOAD_RESTAURANT_REVIEWS = loadRestaurantReviews;
     window.MM_ADMIN_SET_REVIEW_STATUS = setRestaurantReviewStatus;
     window.MM_ADMIN_DELETE_RESTAURANT_REVIEW = deleteRestaurantReview;
