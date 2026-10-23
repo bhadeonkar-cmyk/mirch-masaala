@@ -3668,7 +3668,7 @@ async function refreshAdminAccountsSummary() {
   var version = adminStatsRenderVersion;
   var requestVersion = ++adminStatsRequestVersion;
   var picker = document.getElementById('accounts-day-filter');
-  var day = picker && /^\\d{4}-\\d{2}-\\d{2}$/.test(picker.value) && picker.value <= localDateKey(new Date())
+  var day = picker && /^\d{4}-\d{2}-\d{2}$/.test(picker.value) && picker.value <= localDateKey(new Date())
     ? picker.value : localDateKey(new Date());
   try {
     var summary = await window.MM_LOAD_ADMIN_ACCOUNTS_SUMMARY(day);
@@ -3688,7 +3688,7 @@ function drawStats() {
   var version = ++adminStatsRenderVersion;
   var today = localDateKey(new Date());
   var previousDatePicker = document.getElementById('accounts-day-filter');
-  var selectedDay = previousDatePicker && /^\\d{4}-\\d{2}-\\d{2}$/.test(previousDatePicker.value) && previousDatePicker.value <= today
+  var selectedDay = previousDatePicker && /^\d{4}-\d{2}-\d{2}$/.test(previousDatePicker.value) && previousDatePicker.value <= today
     ? previousDatePicker.value : today;
   var candidates = (Array.isArray(orders) ? orders : []).filter(function(o) {
     return o && !o.is_test_order && !o.archived_at && ['CANCELLED','PAID'].indexOf(String(o.status || '').toUpperCase()) < 0;
