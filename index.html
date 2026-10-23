@@ -859,6 +859,25 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 #tables .table-carousel-card.table-pop{animation:tableSelectBounce .26s ease-out!important;animation-delay:0ms!important}
 @media(prefers-reduced-motion:reduce){#tables .table-carousel-card{transition:none!important}}
 
+
+/* Customer-first order recheck: a quiet text-sized control, not a floating card. */
+#public-order-board{display:none!important}
+#home .wrap{padding-top:18px!important}
+#success .order-success-wrap{padding-top:18px!important}
+#home-my-orders{margin:6px 0 10px!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;gap:0!important}
+.home-recheck-order{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:7px 12px;border:1px solid rgba(240,215,140,.28);border-radius:999px;background:rgba(240,215,140,.045);color:var(--gold2);font-size:12px;font-weight:750;letter-spacing:.01em}
+.home-recheck-order:active{transform:translateY(1px)}
+.home-recheck-order:focus-visible{outline:2px solid var(--gold2);outline-offset:3px}
+#w-secondary-alert{margin:6px -2px 10px}
+.waiter-visit-control{margin:0 0 12px;padding:10px 11px;border:1px solid rgba(240,215,140,.17);border-radius:12px;background:rgba(240,215,140,.035)}
+.waiter-visit-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.waiter-visit-row>div{min-width:0;flex:1}
+.waiter-visit-row b{display:block;font-size:12px;font-weight:800;color:var(--gold2)}
+.waiter-visit-row small{display:block;margin-top:3px;color:var(--muted);font-size:10px;line-height:1.4}
+.waiter-visit-row .btn:disabled{opacity:.42;cursor:not-allowed}
+.waiter-table-card.is-in-service:not(.has-live-order){border-color:rgba(212,168,75,.45)!important;background:#211c16!important}
+.waiter-table-card.is-in-service:not(.has-live-order) strong{color:var(--gold2)}
+
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -909,7 +928,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <div class="tx"><b id="home-welcome">Welcome!</b> <span id="home-welcome-text">Scan the QR sticker on your table with your phone camera, or swipe below to choose your table.</span></div>
       <button type="button" class="x" onclick="this.parentElement.style.display='none'">×</button>
     </div>
-    <section id="home-my-orders" class="card" aria-label="Your recent orders" style="display:none;flex-direction:column;align-items:stretch;text-align:left;margin:12px 0;padding:14px;gap:8px" aria-live="polite"></section>
+    <section id="home-my-orders" aria-label="Recheck your order" style="display:none" aria-live="polite"></section>
     <p class="muted" style="margin-bottom:4px"><b id="home-choose-table" style="color:var(--text)">Choose your table</b></p>
     <div class="table-swipe-guide" id="table-swipe-guide" aria-live="polite"><span class="swipe-side">↔</span><span id="home-swipe-label">Swipe sideways to find your table</span><span class="swipe-hand">👆</span></div>
     <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
@@ -1101,12 +1120,14 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div class="wrap">
     <p class="waiter-pick-hint muted" id="w-table-picker-hint">Tap a table to start. Highlighted tables already have orders.</p>
     <div class="table-grid waiter-tables-grid" id="w-tables"></div>
+    <div id="w-secondary-alert" class="role-alert-host" aria-live="polite"></div>
     <div id="w-area" style="display:none">
       <div class="waiter-selected-table">
         <div><small id="w-taking-order-label">TAKING ORDER FOR</small><strong><span id="w-table-word">Table</span> <span id="w-selected-number">01</span></strong></div>
         <button type="button" class="back" id="w-change-table" onclick="wShowTables()">← Change table</button>
       </div>
       <section class="waiter-live-queue" id="w-live-orders" aria-label="Orders for selected table"></section>
+      <section class="waiter-visit-control" id="w-visit-control" aria-label="Table visit status" style="display:none"></section>
       <input class="search" id="w-search" placeholder="Search dishes…" oninput="wMenu()" aria-label="Search dishes">
       <div class="diet-filters" id="w-diet-filters" role="group" aria-label="Filter by food type"></div>
       <div class="cats" id="w-cats"></div>
@@ -2967,16 +2988,24 @@ function updateWaiterTableIndicators() {
         ['NEW','PREPARING','READY'].indexOf(String(o.status || '').toUpperCase()) >= 0;
     }).sort(function(a,b){ return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); });
     var active = tableOrders.length ? String(tableOrders[0].status || 'NEW').toUpperCase() : '';
+    var visit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[num];
+    var inService = !!(window.MM_TABLE_VISITS_READY && visit && String(visit.status).toUpperCase() === 'OPEN');
     b.classList.toggle('on', num === wTable);
     b.classList.toggle('has-draft', draftCount > 0);
     b.classList.toggle('has-live-order', tableOrders.length > 0);
     b.classList.toggle('has-ready-order', active === 'READY');
+    b.classList.toggle('is-in-service', inService);
+
     var label = draftCount ? draftCount + ' ' + window.mmI18n('item' + (draftCount === 1 ? '' : 's') + ' selected', 'पदार्थ निवडले') :
       (active === 'READY' ? window.mmI18n('READY · SERVE','तयार · वाढा') :
        active === 'PREPARING' ? window.mmI18n('COOKING','बनत आहे') :
-       active === 'NEW' ? window.mmI18n('NEW ORDER','नवीन ऑर्डर') : window.mmI18n('No active order','सध्या ऑर्डर नाही'));
+       active === 'NEW' ? window.mmI18n('NEW ORDER','नवीन ऑर्डर') :
+       (window.MM_TABLE_VISITS_READY ? (inService ? window.mmI18n('IN SERVICE','टेबल सुरू आहे') : window.mmI18n('READY FOR NEXT GUEST','पुढील ग्राहकासाठी तयार')) : window.mmI18n('No active order','सध्या ऑर्डर नाही')));
     b.innerHTML = '<strong>' + esc(num) + '</strong><small>' + label + '</small>';
-    b.setAttribute('aria-label', window.mmI18n('Table','टेबल') + ' ' + num + (active ? ', ' + window.mmI18n(active, ({READY:'तयार',PREPARING:'बनत आहे',NEW:'नवीन ऑर्डर'})[active] || active.toLowerCase()) : '') + (draftCount ? ', ' + draftCount + ' ' + window.mmI18n('draft items','ड्राफ्ट पदार्थ') : ''));
+    b.setAttribute('aria-label', window.mmI18n('Table','टेबल') + ' ' + num +
+      (active ? ', ' + window.mmI18n(active, ({READY:'तयार',PREPARING:'बनत आहे',NEW:'नवीन ऑर्डर'})[active] || active.toLowerCase()) :
+       (window.MM_TABLE_VISITS_READY ? (inService ? ', in service' : ', ready for next guest') : '')) +
+      (draftCount ? ', ' + draftCount + ' ' + window.mmI18n('draft items','ड्राफ्ट पदार्थ') : ''));
   });
 }
 function renderWaiterTables() {
@@ -3128,8 +3157,98 @@ function wSend() {
   wDrawCart(); wMenu(); drawWaiterOrders(); toast(window.mmI18n('Ticket ','ऑर्डर ') + id + window.mmI18n(' sent · Table ',' पाठवली · टेबल ') + wTable);
 }
 
+function renderWaiterVisitControl() {
+  var host = document.getElementById('w-visit-control');
+  if (!host) return;
+  if (!wTable) {
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+  host.style.display = 'block';
+
+  if (!window.MM_TABLE_VISITS_READY) {
+    host.innerHTML =
+      '<div class="waiter-visit-row"><div><b>' + window.mmI18n('Table visit status','टेबल भेट स्थिती') + '</b>' +
+      '<small>' + window.mmI18n('One-time setup is required to track when this table is ready for the next guest.','टेबल पुढील ग्राहकासाठी कधी तयार आहे हे पाहण्यासाठी एकदाच सेटअप आवश्यक आहे.') + '</small></div>' +
+      '<button type="button" class="btn btn-soft btn-sm" disabled style="width:auto">' + window.mmI18n('Setup pending','सेटअप बाकी') + '</button></div>';
+    return;
+  }
+
+  var num = String(wTable).padStart(2, '0');
+  var visit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[num];
+  var isOpen = !!(visit && String(visit.status || '').toUpperCase() === 'OPEN');
+  if (!isOpen) {
+    host.innerHTML =
+      '<div class="waiter-visit-row"><div><b>' + window.mmI18n('Ready for next guest','पुढील ग्राहकासाठी तयार') + '</b>' +
+      '<small>' + window.mmI18n('Start the visit when guests are seated.','ग्राहक बसल्यावर भेट सुरू करा.') + '</small></div>' +
+      '<button type="button" class="btn btn-soft btn-sm" onclick="startTableVisit()" style="width:auto">' + window.mmI18n('Start visit','भेट सुरू करा') + '</button></div>';
+    return;
+  }
+
+  var hasActiveTickets = (orders || []).some(function (o) {
+    return o && !o.is_test_order && !o.archived_at &&
+      String(o.table || '').padStart(2, '0') === num &&
+      ['NEW','PREPARING','READY'].indexOf(String(o.status || '').toUpperCase()) >= 0;
+  });
+  var startedAt = visit.started_at ? new Date(visit.started_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+  host.innerHTML =
+    '<div class="waiter-visit-row"><div><b>' + window.mmI18n('Visit in progress','टेबल भेट सुरू आहे') + '</b>' +
+    '<small>' + (startedAt ? window.mmI18n('Started at ','सुरू वेळ ') + esc(startedAt) + ' · ' : '') +
+    window.mmI18n('Finish only after guests leave, tickets are complete and the bill is paid.','ग्राहक गेल्यावर, सर्व ऑर्डर पूर्ण झाल्यावर आणि बिल भरल्यावरच बंद करा.') + '</small></div>' +
+    '<button type="button" class="btn btn-soft btn-sm" onclick="finishTableVisit()" ' +
+    (hasActiveTickets ? 'disabled title="Serve or cancel all active tickets first" ' : '') +
+    'style="width:auto">' + window.mmI18n('Finish visit','भेट पूर्ण करा') + '</button></div>';
+}
+
+async function startTableVisit() {
+  if (!wTable) return;
+  if (typeof window.MM_SET_TABLE_VISIT_STATUS !== 'function') {
+    toast(window.mmI18n('Table visit setup is not connected yet. Ask the owner to run supabase/table-visits.sql.','टेबल भेट सेटअप जोडलेले नाही. मालकाने Supabase मध्ये table-visits.sql चालवावे.'));
+    return;
+  }
+  try {
+    await window.MM_SET_TABLE_VISIT_STATUS(wTable, 'START');
+    toast(window.mmI18n('Table ','टेबल ') + wTable + window.mmI18n(' marked in service.',' सुरू केले.'));
+    renderWaiterVisitControl();
+  } catch (e) {
+    toast(e && e.message ? e.message : 'Could not start the table visit.');
+  }
+}
+
+async function finishTableVisit() {
+  if (!wTable) return;
+  if (typeof window.MM_SET_TABLE_VISIT_STATUS !== 'function') {
+    toast(window.mmI18n('Table visit setup is not connected yet. Ask the owner to run supabase/table-visits.sql.','टेबल भेट सेटअप जोडलेले नाही. मालकाने Supabase मध्ये table-visits.sql चालवावे.'));
+    return;
+  }
+  var num = String(wTable).padStart(2, '0');
+  var active = (orders || []).some(function (o) {
+    return o && !o.is_test_order && !o.archived_at &&
+      String(o.table || '').padStart(2, '0') === num &&
+      ['NEW','PREPARING','READY'].indexOf(String(o.status || '').toUpperCase()) >= 0;
+  });
+  if (active) {
+    toast(window.mmI18n('Serve or cancel all active tickets before finishing this visit.','भेट पूर्ण करण्यापूर्वी सर्व सुरू ऑर्डर सर्व्ह किंवा रद्द करा.'));
+    return;
+  }
+  var confirmText = window.mmI18n(
+    'Finish Table ' + num + ' visit? Confirm that the guests have left and the table is reset. The system will block this if the bill is still unpaid.',
+    'टेबल ' + num + ' भेट पूर्ण करायची? ग्राहक गेले आहेत आणि टेबल पुन्हा तयार आहे याची खात्री करा. बिल बाकी असल्यास सिस्टम बंद करू देणार नाही.'
+  );
+  if (!confirm(confirmText)) return;
+  try {
+    await window.MM_SET_TABLE_VISIT_STATUS(num, 'FINISH');
+    toast(window.mmI18n('Table ','टेबल ') + num + window.mmI18n(' is ready for the next guest.',' पुढील ग्राहकासाठी तयार आहे.'));
+    renderWaiterVisitControl();
+  } catch (e) {
+    toast(e && e.message ? e.message : window.mmI18n('Could not finish the visit. Check active tickets and the bill.','भेट पूर्ण झाली नाही. ऑर्डर व बिल तपासा.'));
+  }
+}
+
 function drawWaiterOrders() {
   updateWaiterTableIndicators();
+  renderWaiterVisitControl();
   var host = document.getElementById('w-live-orders'); if (!host) return;
   if (!wTable) { host.innerHTML = ''; host.style.display = 'none'; return; }
   host.style.display = 'block';
@@ -3588,7 +3707,10 @@ function renderRoleNotifications(rows) {
         '</article>';
     }).join('');
   }
-  renderRows('w-urgent-alert', currentRole === 'waiter' ? rows.filter(function(n){return ['WAITER_CALL','BILL_REQUEST','ORDER_READY'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'waiter');
+  // Only a direct waiter call is urgent enough to sit above the table picker.
+  renderRows('w-urgent-alert', currentRole === 'waiter' ? rows.filter(function(n){return String(n.notification_type).toUpperCase()==='WAITER_CALL';}) : [], 'waiter');
+  // Routine bill and ready-food alerts stay below the table picker, so they do not obscure table selection.
+  renderRows('w-secondary-alert', currentRole === 'waiter' ? rows.filter(function(n){return ['BILL_REQUEST','ORDER_READY'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'waiter');
   renderRows('k-urgent-alert', currentRole === 'kitchen' ? rows.filter(function(n){return String(n.notification_type).toUpperCase()==='NEW_ORDER';}) : [], 'kitchen');
   renderRows('a-urgent-alert', currentRole === 'admin' ? rows.filter(function(n){return ['ITEM_SOLD_OUT','BILL_REQUEST'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'admin');
   var alertTab = document.getElementById('a-alerts');
@@ -4402,156 +4524,37 @@ function renderCustomerHomeOrders() {
   var host = document.getElementById('home-my-orders');
   if (!host) return;
 
+  // The order-specific secret is saved per ticket on this browser. It lets the
+  // same guest reopen their order without a sign-in or a spoofable device ID.
   var tokens = [];
-  var storedOrders = [];
   try { tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || []; } catch (e) {}
-  try { storedOrders = JSON.parse(localStorage.getItem('mm_o') || '[]') || []; } catch (e) {}
-  if (!Array.isArray(tokens) || !tokens.length) {
+  if (!Array.isArray(tokens)) tokens = [];
+  var validTokens = tokens.filter(function (token) {
+    return token && token.id && token.token;
+  });
+
+  if (!validTokens.length) {
     host.style.display = 'none';
     host.innerHTML = '';
     return;
   }
 
-  var allowed = Object.create(null);
-  tokens.forEach(function (token) {
-    if (token && token.id && token.token) allowed[String(token.id)] = true;
-  });
-  var byId = Object.create(null);
-  (Array.isArray(storedOrders) ? storedOrders : []).concat(Array.isArray(orders) ? orders : []).forEach(function (order) {
-    if (!order || !allowed[String(order.id)]) return;
-    var id = String(order.id);
-    var previous = byId[id];
-    var merged = Object.assign({}, previous || {}, order);
-    if (previous && previous.customerCancelConfirmed || order.customerCancelConfirmed) {
-      merged.customerCancelConfirmed = true;
-      if (String(previous && previous.status || '').toUpperCase() === 'CANCELLED' ||
-          String(order.status || '').toUpperCase() === 'CANCELLED') merged.status = 'CANCELLED';
-      merged.cancelledAt = (order.cancelledAt || (previous && previous.cancelledAt) || null);
-    }
-    byId[id] = merged;
-  });
-  var mine = Object.keys(byId).map(function (id) { return byId[id]; })
-    .sort(function (a, b) { return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(); });
-
-  if (!mine.length) {
-    host.style.display = 'none';
-    host.innerHTML = '';
-    return;
-  }
-
-  var latest = mine[0];
-  var status = String(latest.status || 'NEW').toUpperCase();
-  var items = Array.isArray(latest.items) ? latest.items : [];
-  var itemSummary = items.slice(0, 3).map(function (item) {
-    return '<div style="font-size:12px;color:var(--text);padding:2px 0">' +
-      '<span style="color:var(--gold2);font-weight:800">' + (Number(item.qty) || 1) + '×</span> ' +
-      esc(window.mmDishName ? window.mmDishName(item.name || '') : (item.name || '')) + '</div>';
-  }).join('');
-  if (items.length > 3) itemSummary += '<div class="muted" style="font-size:11px">+' + (items.length - 3) + ' more items</div>';
-  var created = latest.createdAt ? new Date(latest.createdAt).toLocaleString() : '';
-  var heading = window.mmI18n('Your recent order', 'तुमची अलीकडील ऑर्डर');
-  var subheading = window.mmI18n('Saved on this device so you can check it again.', 'ही ऑर्डर या मोबाईलवर जतन आहे. पुन्हा तपासू शकता.');
-  var viewLabel = window.mmI18n('View items & status', 'पदार्थ व स्थिती पाहा');
-  host.style.display = 'flex';
+  host.style.display = 'block';
   host.innerHTML =
-    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">' +
-      '<div><div style="font-size:10px;letter-spacing:1px;color:var(--gold2);font-weight:800">📋 ' + heading + '</div>' +
-      '<p class="muted" style="font-size:11px;margin-top:3px">' + subheading + '</p></div>' +
-      '<span style="font-size:11px;font-weight:800;padding:5px 8px;border-radius:8px;background:rgba(212,168,75,.12);color:var(--gold2)">' + esc(status) + '</span>' +
-    '</div>' +
-    '<div style="border-top:1px solid var(--line);padding-top:8px">' +
-      '<b style="font-size:13px">Ticket ' + esc(latest.id || '') + '</b>' +
-      '<div class="muted" style="font-size:11px;margin-top:3px">' +
-        window.mmI18n('Table', 'टेबल') + ' ' + esc(latest.table || '—') + (created ? ' · ' + esc(created) : '') +
-      '</div>' +
-    '</div>' +
-    (itemSummary || '<p class="muted" style="font-size:12px">Order details are syncing…</p>') +
-    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px">' +
-      '<b class="gold">' + money(latest.total) + '</b>' +
-      '<span class="muted" style="font-size:11px">' + mine.length + ' ' + window.mmI18n('saved ticket(s)', 'जतन ऑर्डर') + '</span>' +
-    '</div>' +
-    '<button type="button" class="btn btn-main" style="margin-top:3px" onclick="myOrders()">' + viewLabel + ' →</button>';
+    '<button type="button" class="home-recheck-order" onclick="myOrders()" aria-label="Recheck your order details and status">' +
+      '<span aria-hidden="true" style="font-size:15px;line-height:1">↻</span>' +
+      '<span>' + window.mmI18n('Recheck order', 'ऑर्डर पुन्हा तपासा') + '</span>' +
+      '<span aria-hidden="true" style="opacity:.65">→</span>' +
+    '</button>';
 }
 function renderPublicOrderBoard(rows) {
+  // Table-wide kitchen status is staff-facing information. Keep it off the
+  // customer home screen so it never floats over the menu/table picker.
+  window.MM_PUBLIC_ORDER_ROWS = Array.isArray(rows) ? rows : [];
   var host = document.getElementById('public-order-board');
   if (!host) return;
-
-  // Merge shared restaurant statuses with this guest's own recent tickets as a fallback.
-  // That means the guest sees their own table status even before the public SQL function is updated.
-  var combined = Array.isArray(rows) ? rows.slice() : [];
-  try {
-    var tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || [];
-    var savedOrders = JSON.parse(localStorage.getItem('mm_o') || '[]') || [];
-    var allowed = {};
-    if (Array.isArray(tokens)) tokens.forEach(function(t) {
-      if (t && t.id && t.token) allowed[String(t.id)] = true;
-    });
-    // Only add this guest's own token-verified tickets from memory/storage.
-    var ownTickets = [];
-    if (Array.isArray(savedOrders)) ownTickets = ownTickets.concat(savedOrders);
-    if (Array.isArray(window.orders)) ownTickets = ownTickets.concat(window.orders);
-    ownTickets.forEach(function(o) {
-      if (!o || !allowed[String(o.id)] || o.is_test_order || o.archived_at) return;
-      var status = String(o.status || '').toUpperCase();
-      if (['NEW','PREPARING','READY'].indexOf(status) < 0) return;
-      var created = new Date(o.createdAt || 0).getTime();
-      if (created && Date.now() - created > 4 * 60 * 60 * 1000) return;
-      combined.push({
-        table_number: String(o.table || '').padStart(2,'0'),
-        status: status,
-        created_at: o.createdAt || '',
-        ticket: o.orderNumber || o.id || ''
-      });
-    });
-  } catch (e) {}
-
-  combined = combined.filter(function(row) {
-    return row && ['NEW','PREPARING','READY'].indexOf(String(row.status || '').toUpperCase()) >= 0;
-  });
-  window.MM_PUBLIC_ORDER_ROWS = Array.isArray(rows) ? rows : [];
-
-  var activeScreen = document.querySelector('.screen.on');
-  if (!activeScreen || ['home','success'].indexOf(activeScreen.id) < 0) {
-    host.style.display = 'none';
-    return;
-  }
-
-  // One circle per table: prioritize ready food, then cooking, then waiting.
-  var priority = {NEW:1, PREPARING:2, READY:3};
-  var byTable = {};
-  combined.forEach(function(row) {
-    var tableNo = String(row.table_number || '').trim().padStart(2,'0');
-    var status = String(row.status || '').toUpperCase();
-    if (!tableNo || tableNo === '—' || !/^[0-9]{2}$/.test(tableNo)) return;
-    var existing = byTable[tableNo];
-    if (!existing || priority[status] > priority[existing.status]) {
-      byTable[tableNo] = {table_number:tableNo,status:status};
-    }
-  });
-  var items = Object.keys(byTable).map(function(k){ return byTable[k]; });
-  items.sort(function(a,b){
-    return priority[a.status]-priority[b.status] ||
-      String(a.table_number).localeCompare(String(b.table_number),undefined,{numeric:true});
-  });
-  if (!items.length) {
-    host.style.display = 'none';
-    host.innerHTML = '';
-    return;
-  }
-
-  var shown = items.slice(0,15);
-  var extra = Math.max(0,items.length-shown.length);
-  host.style.display = 'block';
-  host.setAttribute('aria-label','Table statuses: orange waiting to start, yellow preparing, green ready');
-  host.innerHTML =
-    '<div class="public-board-heading"><span>TABLE STATUS</span><span class="public-board-live">LIVE</span></div>' +
-    '<div class="public-board-legend"><span class="key-new">● New</span><span class="key-preparing">● Cooking</span><span class="key-ready">● Ready</span></div>' +
-    '<div class="public-board-circles">' + shown.map(function(row) {
-      var status=String(row.status).toUpperCase();
-      var cls=status==='NEW'?'new':status==='READY'?'ready':'preparing';
-      var label=status==='NEW'?'Waiting to start':status==='READY'?'Ready to collect':'Preparing';
-      return '<span class="public-table-circle '+cls+'" title="Table '+esc(row.table_number)+' · '+label+'" aria-label="Table '+esc(row.table_number)+' · '+label+'">'+esc(row.table_number)+'</span>';
-    }).join('') + (extra ? '<span class="public-table-more">+'+extra+'</span>' : '') + '</div>';
+  host.style.display = 'none';
+  host.innerHTML = '';
 }
 function esc(t) {
   return String(t || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
