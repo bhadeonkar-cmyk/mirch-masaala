@@ -108,7 +108,28 @@
       p_guest_count: Number(input.guestCount),
       p_notes: String(input.notes || '').trim()
     });
-    if (result.error) throw result.error;
+    if (result.error) {
+      var backendError = result.error;
+      var errorCode = String(backendError.code || '');
+      var errorText = String(backendError.message || '') + ' ' + String(backendError.details || '');
+      console.error('[Mirch Masaala party booking RPC]', {
+        code: errorCode, message: backendError.message, details: backendError.details, hint: backendError.hint
+      });
+      if (errorCode === 'PGRST202' || errorCode === '42883' ||
+          /mm_submit_party_booking/i.test(errorText) && /could not find|does not exist|schema cache|not found/i.test(errorText)) {
+        var setupError = new Error('Online party booking is not connected to the shared database yet. Please contact the restaurant directly on WhatsApp.');
+        setupError.code = 'MM_PARTY_BOOKING_SETUP_REQUIRED';
+        throw setupError;
+      }
+      if (errorCode === '42P01' || errorCode === '42501') {
+        var accessError = new Error('Online party booking is temporarily unavailable. Please contact the restaurant directly on WhatsApp.');
+        accessError.code = 'MM_PARTY_BOOKING_BACKEND_UNAVAILABLE';
+        throw accessError;
+      }
+      var saveError = new Error('We could not save your request just now. Please try again in a moment or contact the restaurant.');
+      saveError.code = errorCode || 'MM_PARTY_BOOKING_SAVE_FAILED';
+      throw saveError;
+    }
     var saved = rpcPayload(result.data);
     if (!saved || !saved.id || !saved.booking_ref) {
       throw new Error('The restaurant did not confirm the booking request. Please try again.');
