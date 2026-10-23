@@ -928,6 +928,17 @@
     return data;
   }
 
+  async function getAdminOrderDetails(ticketId) {
+    assertOwner();
+    var result = await client.rpc('mm_admin_get_order_details', {
+      p_ticket_id: String(ticketId || '').trim().slice(0, 64)
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not load that order.');
+    var details = rpcPayload(result.data);
+    if (!details || !details.ticket_id) throw new Error('No ticket details were returned.');
+    return details;
+  }
+
   async function loadAdminAccountsSummary(day) {
     assertOwner();
     var result = await client.rpc('mm_admin_accounts_summary', { p_day: day || null });
@@ -1682,6 +1693,7 @@
     window.logout = secureLogout;
     window.placeOrder = placeCustomerOrder;
     window.MM_CANCEL_CUSTOMER_ORDER = cancelCustomerOrder;
+    window.MM_REFRESH_CUSTOMER_ORDERS = refreshCustomerOrders;
     window.MM_PREVIEW_TABLE_CLEANUP = previewTableCleanup;
     window.MM_CLEAR_TABLE_ORDERS = clearTableOrders;
     window.MM_CANCEL_ADMIN_ORDER = cancelAdminOrder;
@@ -1689,6 +1701,7 @@
     window.MM_RECORD_TABLE_PAYMENT = recordTablePayment;
     window.MM_GET_PUBLIC_TABLE_BILL = getPublicTableBill;
     window.MM_LOAD_ADMIN_ACCOUNTS_SUMMARY = loadAdminAccountsSummary;
+    window.MM_ADMIN_GET_ORDER_DETAILS = getAdminOrderDetails;
     window.MM_LOAD_ADMIN_PAYMENTS = loadAdminPayments;
     window.MM_REFRESH_STAFF_ORDERS = refreshStaffOrders;
     window.wSend = sendWaiterOrder;
