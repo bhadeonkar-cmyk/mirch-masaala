@@ -24,7 +24,15 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 - **Waiter:** select a table, add items, and send a ticket. The table selection is visibly highlighted and the confirmation shows the ticket number.
 - **Kitchen:** each ticket is shown with its table number and ticket reference. On mobile, New / Cooking / Ready lanes stack vertically for easier reading.
 - **Owner/Admin:** everyday tools are Orders, Alerts, Menu, QR, and Settings. Reports, party bookings, reviews, and payment log are in **More tools**.
+- **Party bookings:** the animated **Party booking** circle opens a separate request form; no dine-in table is required. Name, Indian mobile number, occasion, date, time, and guest count are required. Successful requests are saved in the shared database with a reference such as `PARTY-00001`, and create an owner alert. The owner can mark requests Contacted, Confirmed, or Unavailable and open a prefilled WhatsApp message to the customer with the full booking details.
 - **After placing an order:** the customer sees the ticket/progress and three actions: Order more, Track my orders, and Request bill / Pay. Back on Home, a small **Recheck order** control opens the full ticket list only when tapped; order details no longer occupy the landing screen. Ticket-specific access tokens are stored on the originating browser, so this is not an account-based cross-device order history.
+
+## Party booking setup
+
+1. In Supabase SQL Editor, apply `supabase/party-bookings.sql` after `supabase/setup-live.sql` and `supabase/role-notifications.sql`. The migration creates the shared booking records and the public request / owner-management RPCs. It does not assign a table number to a party.
+2. Push alerts when the owner has configured staff web-push require `supabase/staff-push-notifications.sql`, the associated Supabase Edge Function secrets/subscriptions, and redeploying the updated `supabase/functions/send-staff-push/index.ts`.
+3. On submission, the customer sees the saved booking reference and the event details, with a button to open WhatsApp to the restaurant. In the owner panel, **More tools → Party bookings** shows shared requests, status controls, and a **WhatsApp customer** action.
+4. The WhatsApp actions open a prefilled message. The person using WhatsApp must review and tap **Send**. Automatic outbound WhatsApp messages to customers and owners are not enabled by the web link alone; they require an approved WhatsApp Business API integration and appropriate configuration/consent.
 
 ## Publish with GitHub Pages
 
