@@ -97,7 +97,7 @@ requireText(publicBoard, 'o.archived_at IS NULL', 'Public board filters archived
   [live, 'window.MM_REFRESH_CUSTOMER_ORDERS = refreshCustomerOrders;', 'Customer can manually refresh saved ticket statuses'],
   [live, 'window.MM_SET_TABLE_VISIT_STATUS = setTableVisitStatus;', 'Table visit transitions use the shared database'],
   [live, 'var visit = await ensurePublicTableVisit(tableNumber);', 'New orders obtain the active server-issued visit ID'],
-  [live, 'p_table_visit_id: visit.visit_id', 'Order RPC sends the active visit ID'],
+  [live, 'orderArgs.p_table_visit_id = visit.visit_id', 'Order RPC sends the active visit ID'],
   [live, 'customerSessionIdForVisit(visit.visit_id)', 'Each public browser receives a session ID scoped to a visit'],
   [visitBillingMigration, 'ADD COLUMN IF NOT EXISTS table_visit_id uuid', 'Orders store the active table visit ID'],
   [visitBillingMigration, 'ADD COLUMN IF NOT EXISTS customer_session_id uuid', 'Orders store a per-browser customer session ID'],
