@@ -1272,6 +1272,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <textarea id="p-notes" maxlength="1000" placeholder="Menu preferences, cake, decorations or other requests…"></textarea>
       <p class="muted" style="font-size:12px;margin-top:8px">Restaurant WhatsApp: <b class="gold" id="party-admin-contact">+91 9657076450</b></p>
       <button type="button" class="btn btn-main" id="party-submit-btn" onclick="sendParty()">Send party request</button>
+      <button type="button" class="btn btn-soft" id="party-whatsapp-fallback-btn" style="margin-top:8px" onclick="sendPartyWhatsAppFromForm()">Send details via WhatsApp</button>
       <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeParty()">Close</button>
     </div>
     <div id="party-confirmation" style="display:none">
@@ -4443,11 +4444,45 @@ async function sendParty() {
     toast('Your party request has been saved. We will contact you to confirm availability.');
   } catch (err) {
     console.error('[Mirch Masaala party booking]', err);
-    toast('We could not submit your request just now. Please try again in a moment or contact the restaurant.');
+    toast(err && err.message ? err.message : 'We could not submit your request just now. Please try again in a moment or contact the restaurant.');
   } finally {
     partySubmissionBusy = false;
     if (button && !lastPartySubmission) { button.disabled = false; button.textContent = 'Send party request'; }
   }
+}
+function sendPartyWhatsAppFromForm() {
+  var name = document.getElementById('p-name').value.trim();
+  var mobile = normalizeIndianMobile(document.getElementById('p-phone').value.trim());
+  var eventType = document.getElementById('p-type').value;
+  var eventDate = document.getElementById('p-date').value;
+  var eventTime = document.getElementById('p-time').value;
+  var guestCount = Number(document.getElementById('p-guests').value);
+  var notes = document.getElementById('p-notes').value.trim();
+  setPartyMinimumDate();
+  if (!name) { toast('Please enter your name.'); document.getElementById('p-name').focus(); return; }
+  if (!mobile) { toast('Please enter a valid 10-digit Indian mobile number.'); document.getElementById('p-phone').focus(); return; }
+  if (!eventDate || eventDate < partyTodayLocal()) { toast('Please choose today or a future date.'); document.getElementById('p-date').focus(); return; }
+  if (!eventTime) { toast('Please choose your preferred time.'); document.getElementById('p-time').focus(); return; }
+  if (!Number.isInteger(guestCount) || guestCount < 1 || guestCount > 500) { toast('Please enter a guest count between 1 and 500.'); document.getElementById('p-guests').focus(); return; }
+  if (notes.length > 1000) { toast('Please keep special requests under 1,000 characters.'); return; }
+  var digits = String(SETTINGS.whatsappNumber || SETTINGS.adminPhone || '').replace(/\D/g, '');
+  if (digits.length === 10) digits = '91' + digits;
+  if (!digits || digits.length < 11) { toast('The restaurant WhatsApp number is not configured. Please call the restaurant.'); return; }
+  var lines = [
+    'Hello Mirch Masaala team,',
+    'I would like to request a party booking. Please check availability and contact me to confirm the arrangements.',
+    '',
+    'Name: ' + name,
+    'Contact number: ' + mobile.display,
+    'Occasion: ' + eventType,
+    'Preferred date: ' + partyDisplayDate(eventDate),
+    'Preferred time: ' + partyDisplayTime(eventTime),
+    'Number of guests: ' + guestCount,
+    'Special requests: ' + (notes || 'None'),
+    '',
+    'Please let me know whether this date and time are available, along with menu options and any advance payment required. Thank you.'
+  ];
+  window.open('https://wa.me/' + digits + '?text=' + encodeURIComponent(lines.join('\n')), '_blank', 'noopener');
 }
 function sendPartyWhatsApp() {
   var booking = lastPartySubmission;
