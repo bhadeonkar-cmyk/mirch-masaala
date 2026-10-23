@@ -79,6 +79,23 @@ requireText(setup, 'CREATE OR REPLACE FUNCTION public.mm_admin_clear_table_order
 requireText(setup, 'CREATE OR REPLACE FUNCTION public.mm_staff_record_table_payment', 'Fresh setup includes payment ledger');
 requireText(setup, 'Staff must use the staff workflow', 'Fresh setup protects customer cancellation RPC');
 requireText(publicBoard, 'o.archived_at IS NULL', 'Public board filters archived orders');
+[
+  [live, 'window.MM_CANCEL_ADMIN_ORDER = cancelAdminOrder;', 'Owner ticket cancellation export exists'],
+  [html, 'accounts-clean-confirm', 'Cleanup requires explicit owner confirmation'],
+  [html, 'async function executeTableCleanup()', 'Cleanup confirmation has a separate handler'],
+  [migration, 'p_expected_fingerprint text', 'Cleanup rejects stale table previews'],
+  [migration, 'owner_cancel_count', 'Owner cancellations appear in accounts stats'],
+  [migration, "(p.created_at AT TIME ZONE 'Asia/Kolkata')::date = v_day", 'Daily received money follows payment date'],
+  [setup, 'CREATE OR REPLACE FUNCTION public.mm_admin_cancel_order', 'Fresh setup includes audited owner cancellation'],
+  [setup, 'p_expected_fingerprint text', 'Fresh setup checks cleanup snapshots']
+].forEach(([source, needle, label]) => requireText(source, needle, label));
+
+const kitchenStart = html.indexOf('function drawK()');
+const kitchenDeclaration = html.indexOf('var operationalOrders =', kitchenStart);
+const kitchenUse = html.indexOf('operationalOrders.filter', kitchenStart);
+if (kitchenDeclaration < 0 || kitchenUse < 0 || kitchenDeclaration > kitchenUse) {
+  fail('Kitchen queue variable must be initialized before use');
+}
 
 if (html.includes("o.status = 'CANCELLED'; save('mm_o', orders)")) fail('Unsafe local-only cancellation code remains');
 if (html.includes("o.status = 'PAID';")) fail('Unsafe local-only payment status mutation remains');
