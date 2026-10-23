@@ -4421,11 +4421,14 @@ function renderCustomerHomeOrders() {
     if (!order || !allowed[String(order.id)]) return;
     var id = String(order.id);
     var previous = byId[id];
-    // Preserve the confirmed cancellation if a stale in-memory copy is encountered.
-    if (!previous || (order.customerCancelConfirmed && !previous.customerCancelConfirmed) ||
-        new Date(order.createdAt || 0).getTime() >= new Date(previous.createdAt || 0).getTime()) {
-      byId[id] = Object.assign({}, previous || {}, order);
+    var merged = Object.assign({}, previous || {}, order);
+    if (previous && previous.customerCancelConfirmed || order.customerCancelConfirmed) {
+      merged.customerCancelConfirmed = true;
+      if (String(previous && previous.status || '').toUpperCase() === 'CANCELLED' ||
+          String(order.status || '').toUpperCase() === 'CANCELLED') merged.status = 'CANCELLED';
+      merged.cancelledAt = (order.cancelledAt || (previous && previous.cancelledAt) || null);
     }
+    byId[id] = merged;
   });
   var mine = Object.keys(byId).map(function (id) { return byId[id]; })
     .sort(function (a, b) { return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(); });
@@ -4447,7 +4450,7 @@ function renderCustomerHomeOrders() {
   if (items.length > 3) itemSummary += '<div class="muted" style="font-size:11px">+' + (items.length - 3) + ' more items</div>';
   var created = latest.createdAt ? new Date(latest.createdAt).toLocaleString() : '';
   var heading = window.mmI18n('Your recent order', 'तुमची अलीकडील ऑर्डर');
-  var subheading = window.mmI18n('Saved on this phone so you can check it again.', 'ही ऑर्डर या मोबाईलवर जतन आहे. पुन्हा तपासू शकता.');
+  var subheading = window.mmI18n('Saved on this device so you can check it again.', 'ही ऑर्डर या मोबाईलवर जतन आहे. पुन्हा तपासू शकता.');
   var viewLabel = window.mmI18n('View items & status', 'पदार्थ व स्थिती पाहा');
   host.style.display = 'flex';
   host.innerHTML =
