@@ -82,6 +82,30 @@
     return data;
   }
 
+  async function requestPaymentVerification(tableNumber, method) {
+    if (!client || !window.MM_SUPABASE_ENABLED) {
+      throw new Error('The shared payment verification service is not connected yet.');
+    }
+    var result = await client.rpc('mm_guest_request_payment_check', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_table_number: String(tableNumber || '').padStart(2, '0'),
+      p_method: String(method || 'upi').toLowerCase()
+    });
+    if (result.error) {
+      var code = String(result.error.code || '');
+      var detail = String(result.error.message || '');
+      console.error('[Mirch Masaala payment verification]', { code: code, message: detail });
+      if (code === 'PGRST202' || code === '42883' || /mm_guest_request_payment_check/i.test(detail)) {
+        throw new Error('Payment verification is not connected yet. Please show your payment receipt to the waiter.');
+      }
+      throw new Error('We could not notify staff just now. Please show your payment receipt to the waiter.');
+    }
+    var data = rpcPayload(result.data) || {};
+    if (data && data.ok === false) throw new Error('We could not send the verification request. Please ask your waiter.');
+    dispatchStaffPushForGuestRequest(data);
+    return data;
+  }
+
   function dispatchStaffPushForGuestRequest(data) {
     var ids = data && Array.isArray(data.notification_ids) ? data.notification_ids : [];
     var tokens = data && Array.isArray(data.dispatch_tokens) ? data.dispatch_tokens : [];
@@ -1845,6 +1869,7 @@
     window.MM_STOP_CUSTOMER_WHATSAPP = stopCustomerWhatsApp;
     window.MM_SEND_WHATSAPP_BROADCAST = sendWhatsAppBroadcast;
     window.MM_CREATE_GUEST_NOTIFICATION = createGuestNotification;
+    window.MM_REQUEST_PAYMENT_VERIFICATION = requestPaymentVerification;
     window.MM_REFRESH_TABLE_VISITS = refreshTableVisits;
     window.MM_SET_TABLE_VISIT_STATUS = setTableVisitStatus;
     window.MM_LOAD_STAFF_NOTIFICATIONS = loadStaffNotifications;
