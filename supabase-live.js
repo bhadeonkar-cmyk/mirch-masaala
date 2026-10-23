@@ -768,23 +768,47 @@
   }
 
   async function ensurePublicTableVisit(tableNumber) {
-    if (!client || !window.MM_SUPABASE_ENABLED) return false;
+    if (!client || !window.MM_SUPABASE_ENABLED) {
+      throw new Error('The shared database is not connected. Please refresh and try again.');
+    }
     try {
       var result = await client.rpc('mm_ensure_public_table_visit', {
         p_table_number: String(tableNumber || '').padStart(2, '0')
       });
       if (result.error) throw result.error;
+      var visit = rpcPayload(result.data);
+      if (!visit || !visit.visit_id) {
+        throw new Error('The server did not return an active table visit.');
+      }
       if (['admin', 'waiter'].indexOf(String(window.role || '')) >= 0) await refreshTableVisits();
-      return true;
+      return visit;
     } catch (e) {
-      // Keep the core ordering flow working if the one-time table-visit migration
-      // has not been applied yet. Orders still use the existing shared order RPC.
       if (!tableVisitSetupMessageShown) {
         tableVisitSetupMessageShown = true;
-        console.info('[Mirch Masaala table visits] Table visit tracking is not enabled yet. Apply supabase/table-visits.sql.', e && e.message ? e.message : e);
+        console.info('[Mirch Masaala table visits] Apply supabase/table-visits.sql and supabase/visit-billing-upgrade.sql in Supabase SQL Editor.', e && e.message ? e.message : e);
       }
-      return false;
+      throw new Error('Table visit setup is not ready. The owner must apply the table-visits and visit-billing-upgrade SQL migrations before new orders can be placed.');
     }
+  }
+
+  function customerSessionIdForVisit(visitId) {
+    var visitKey = String(visitId || '').trim();
+    if (!visitKey) throw new Error('The active table visit is missing. Refresh and try again.');
+    var key = 'mm_customer_session_' + visitKey;
+    var value = '';
+    try { value = String(localStorage.getItem(key) || ''); } catch (e) {}
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        value = window.crypto.randomUUID();
+      } else {
+        value = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+          var r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+        });
+      }
+      try { localStorage.setItem(key, value); } catch (e) {}
+    }
+    return value;
   }
 
   async function setTableVisitStatus(tableNumber, action) {
@@ -804,7 +828,11 @@
 
   async function createSharedOrder(tableNumber, cartItems, notes) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected yet. Please refresh and try again.');
-    await ensurePublicTableVisit(tableNumber);
+    var visit = await ensurePublicTableVisit(tableNumber);
+    var actorRole = String(window.role || '');
+    // A separate browser gets a separate session ID for the same active visit.
+    // Staff-originated tickets are linked to the visit but are not labelled as a guest session.
+    var customerSessionId = actorRole ? null : customerSessionIdForVisit(visit.visit_id);
     var ticket = window.makeTicketId(tableNumber, new Date());
     var payload = buildOrderItems(cartItems);
     var result = await client.rpc('mm_place_order', {
@@ -812,17 +840,23 @@
       p_table_number: String(tableNumber).padStart(2, '0'),
       p_ticket_id: ticket,
       p_notes: String(notes || '').slice(0, 1000),
-      p_items: payload
+      p_items: payload,
+      p_table_visit_id: visit.visit_id,
+      p_customer_session_id: customerSessionId
     });
     if (result.error) throw result.error;
     var created = rpcPayload(result.data);
-    if (!created || !created.id || !created.publicToken) throw new Error('Supabase did not return the new order ticket. Please refresh and try again.');
+    if (!created || !created.id || !created.publicToken || !created.visitId) {
+      throw new Error('Supabase did not confirm the new order and its table visit. Please refresh and check the order before trying again.');
+    }
     storePublicToken(created.id, created.publicToken);
     return {
       id: created.id,
       dbId: created.dbId,
       publicToken: created.publicToken,
       table: String(created.table || tableNumber).padStart(2, '0'),
+      visitId: created.visitId,
+      customerSessionId: created.customerSessionId || customerSessionId || null,
       items: created.items || [],
       total: Number(created.total) || 0,
       status: String(created.status || 'NEW').toUpperCase(),
