@@ -1207,6 +1207,40 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 }
 </style>
 <script src="./qr-matrices.js"></script>
+<style>
+/* Customer-side Explore shortcut: visible without interrupting ordering. */
+.customer-explore-shortcut {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 11px;
+  margin: 2px 0 13px;
+  padding: 10px 12px;
+  border: 1px solid rgba(212,168,75,.20);
+  border-radius: 12px 18px 18px 18px;
+  background: linear-gradient(110deg, rgba(212,168,75,.095), rgba(255,255,255,.018) 62%, rgba(212,168,75,.045));
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.customer-explore-shortcut:focus-visible { outline: 2px solid var(--gold2); outline-offset: 2px; }
+.customer-explore-shortcut:hover { border-color: rgba(212,168,75,.42); background: linear-gradient(110deg, rgba(212,168,75,.13), rgba(255,255,255,.025)); }
+.customer-explore-shortcut:active { transform: scale(.99); }
+.customer-explore-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 37px; height: 37px; flex: 0 0 37px;
+  border: 1px solid rgba(212,168,75,.21);
+  border-radius: 11px;
+  background: rgba(212,168,75,.09);
+  font-size: 19px;
+}
+.customer-explore-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.customer-explore-copy b { font-size: 12px; font-weight: 800; color: var(--gold2); }
+.customer-explore-copy small { font-size: 11px; line-height: 1.35; color: var(--muted); }
+.customer-explore-arrow { font-size: 23px; line-height: 1; color: var(--gold2); }
+@media(prefers-reduced-motion:reduce) { .customer-explore-shortcut { transition: none; } }
+</style>
 </head>
 <body>
 
@@ -1288,7 +1322,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
         <span class="home-shortcut-label" id="home-party-booking">Party booking</span>
       </div>
       <div class="home-shortcut">
-        <button type="button" class="home-icon-btn" id="home-explore-link" aria-label="Places to visit" title="Places to visit" onclick="go('explore')"><span aria-hidden="true">🗺️</span></button>
+        <button type="button" class="home-icon-btn" id="home-explore-link" aria-label="Places to visit" title="Places to visit" onclick="openExploreFromHome()"><span aria-hidden="true">🗺️</span></button>
         <span class="home-shortcut-label" id="home-places-to-visit">Places to visit</span>
       </div>
       <div class="home-shortcut" id="home-visit-shortcut" style="display:none">
@@ -1388,6 +1422,11 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <div class="tx"><b id="menu-tip-title">How to order:</b> <span id="menu-tip-message">Choose dishes, tap ADD, then open your cart to place the order.</span></div>
       <button type="button" class="x" onclick="dismissTip('menu-tip')">×</button>
     </div>
+    <button type="button" class="customer-explore-shortcut" onclick="openExploreFromCustomer()" aria-label="Places to visit near the restaurant">
+      <span class="customer-explore-icon" aria-hidden="true">🗺️</span>
+      <span class="customer-explore-copy"><b>Places to visit</b><small>Explore nearby attractions while you wait</small></span>
+      <span class="customer-explore-arrow" aria-hidden="true">›</span>
+    </button>
     <input class="search" id="search" placeholder="Search dishes…" oninput="drawMenu()" aria-label="Search menu">
     
     <div class="diet-filters" id="diet-filters" role="group" aria-label="Filter by food type"></div>
@@ -1447,8 +1486,8 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 <!-- EXPLORE (local data) -->
 <div id="explore" class="screen">
   <div class="topbar">
-    <button type="button" class="back" onclick="go('home')">← Home</button>
-    <strong class="gold">Near Kas Plateau</strong>
+    <button type="button" class="back" id="explore-back-button" onclick="backFromExplore()">← Back</button>
+    <strong class="gold">Places to visit</strong>
     <span></span>
   </div>
   <div class="wrap">
@@ -1837,6 +1876,19 @@ function go(id) {
   if (id === 'customer' && typeof updateCustomerBottomActions === 'function') updateCustomerBottomActions();
   if (id === 'reviews-page' && typeof renderReviewSection === 'function') renderReviewSection();
   if (id === 'visit-page' && typeof renderVisitSection === 'function') renderVisitSection();
+}
+var exploreReturnScreen = 'home';
+function openExploreFromHome() {
+  exploreReturnScreen = 'home';
+  go('explore');
+}
+function openExploreFromCustomer() {
+  exploreReturnScreen = 'customer';
+  go('explore');
+}
+function backFromExplore() {
+  var destination = exploreReturnScreen === 'customer' && table ? 'customer' : 'home';
+  go(destination);
 }
 function setOpenPill() {
   var p = document.getElementById('status-pill');
