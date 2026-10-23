@@ -4194,15 +4194,16 @@ async function drawParty() {
     if (status !== 'CONFIRMED' && status !== 'UNAVAILABLE') actions += '<button type="button" class="btn btn-ok btn-sm" onclick="updatePartyStatus(\'' + esc(b.id) + '\',\'CONFIRMED\')">Confirm booking</button>';
     if (status !== 'UNAVAILABLE') actions += '<button type="button" class="btn btn-soft btn-sm" onclick="updatePartyStatus(\'' + esc(b.id) + '\',\'UNAVAILABLE\')">Mark unavailable</button>';
     actions += '<button type="button" class="btn btn-main btn-sm" onclick="messagePartyCustomer(\'' + esc(b.id) + '\')">WhatsApp customer</button>';
+    var phoneLink = partyWhatsAppDigits(b.customer_phone);
     return '<article class="card" style="flex-direction:column;align-items:stretch;gap:8px">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b class="gold">' + esc(b.booking_ref || 'Party booking') + '</b><b style="color:' + statusColor + '">' + esc(status.replace(/_/g,' ')) + '</b></div>' +
-      '<div><b>' + esc(b.customer_name || 'Guest') + '</b> · <a href="tel:' + esc(partyWhatsAppDigits(b.customer_phone).replace(/^91/, '+91 ')) + '" style="color:var(--gold2)">' + esc(b.customer_phone || '') + '</a></div>' +
+      '<div><b>' + esc(b.customer_name || 'Guest') + '</b> · ' + (phoneLink ? '<a href="tel:+' + phoneLink + '" style="color:var(--gold2)">' : '<span>') + esc(b.customer_phone || '') + (phoneLink ? '</a>' : '</span>') + '</div>' +
       '<div>' + esc(b.event_type || 'Celebration') + ' · ' + Number(b.guest_count || 0) + ' guests</div>' +
       '<div class="muted">' + esc(partyDisplayDate(b.event_date)) + ' · ' + esc(partyDisplayTime(b.event_time)) + '</div>' +
       (b.customer_notes ? '<div style="font-size:13px"><b>Customer requests:</b> ' + esc(b.customer_notes) + '</div>' : '') +
       (b.owner_notes ? '<div class="muted" style="font-size:12px"><b>Owner notes:</b> ' + esc(b.owner_notes) + '</div>' : '') +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:3px">' + actions + '</div>' +
-      '<div class="muted" style="font-size:11px">Request received: ' + esc(b.created_at ? new Date(b.created_at).toLocaleString() : '') + ' · Not a confirmed booking until status is Confirmed.</div>' +
+      '<div class="muted" style="font-size:11px">Request received: ' + esc(b.created_at ? new Date(b.created_at).toLocaleString() : '') + ' · Not confirmed until status is Confirmed.</div>' +
       '</article>';
   }).join('') : '<p class="muted center" style="padding:18px">No shared party requests yet.</p>';
   var legacyHtml = bookings.length ? '<div class="setup" style="margin-top:14px"><h4>Older requests saved on this device</h4><p class="muted" style="font-size:12px">These older requests were saved only in this browser and are not shared with other devices.</p>' +
@@ -4214,16 +4215,6 @@ async function drawParty() {
 function openPartyFromAlert() {
   var menu = document.getElementById('admin-more');
   if (menu) { menu.value = 'party'; tab(menu, 'party'); }
-}
-function safeGoogleReviewURL(raw) {
-  document.getElementById('a-party').innerHTML = bookings.length ? bookings.map(function(b) {
-    return '<div class="card" style="flex-direction:column"><b class="gold">' + b.type + '</b><div>' + b.name + ' · ' + b.phone + '</div><div class="muted">' + b.date + ' · ' + b.guests + ' guests</div>' +
-      (b.status === 'NEW' ? '<button type="button" class="btn btn-ok btn-sm" style="margin-top:8px;width:auto" onclick="markParty(' + b.id + ')">Mark called</button>' : '<span class="muted">Contacted</span>') + '</div>';
-  }).join('') : '<p class="muted center">No party requests</p>';
-}
-function markParty(id) {
-  var b = bookings.find(function(x){ return x.id === id; });
-  if (b) { b.status = 'CONTACTED'; save('mm_b', bookings); drawParty(); }
 }
 function safeGoogleReviewURL(raw) {
   var value = String(raw || '').trim();
@@ -4331,6 +4322,51 @@ async function deleteRestaurantReview(reviewId) {
   } catch (e) { toast('Could not delete review: ' + (e && e.message ? e.message : 'try again')); }
 }
 
+function partyDisplayDate(value) {
+  var match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? match[3] + '/' + match[2] + '/' + match[1] : (value || 'Not specified');
+}
+function partyDisplayTime(value) {
+  var match = String(value || '').slice(0,5).match(/^(\d{2}):(\d{2})$/);
+  if (!match) return value || 'Not specified';
+  var hour = Number(match[1]), minute = match[2], suffix = hour >= 12 ? 'PM' : 'AM';
+  hour = hour % 12 || 12;
+  return hour + ':' + minute + ' ' + suffix;
+}
+function partyTodayLocal() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function setPartyMinimumDate() {
+  var dateInput = document.getElementById('p-date');
+  if (!dateInput) return;
+  var today = partyTodayLocal();
+  dateInput.min = today;
+  if (dateInput.value && dateInput.value < today) dateInput.value = '';
+}
+function normalizeIndianMobile(raw) {
+  var digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 12 && digits.slice(0,2) === '91') digits = digits.slice(2);
+  if (!/^[6-9]\d{9}$/.test(digits)) return null;
+  return { local: digits, international: '91' + digits, display: '+91 ' + digits.slice(0,5) + ' ' + digits.slice(5) };
+}
+function resetPartyModal() {
+  lastPartySubmission = null;
+  partySubmissionBusy = false;
+  var fields = document.getElementById('party-request-fields');
+  var confirmation = document.getElementById('party-confirmation');
+  if (fields) fields.style.display = 'block';
+  if (confirmation) confirmation.style.display = 'none';
+  ['p-name','p-phone','p-date','p-time','p-guests','p-notes'].forEach(function(id) {
+    var input = document.getElementById(id);
+    if (input) input.value = '';
+  });
+  var eventType = document.getElementById('p-type');
+  if (eventType) eventType.selectedIndex = 0;
+  var button = document.getElementById('party-submit-btn');
+  if (button) { button.disabled = false; button.textContent = 'Send party request'; }
+  setPartyMinimumDate();
+}
 function openParty() {
   var contact = document.getElementById('party-admin-contact');
   if (contact) {
@@ -4372,13 +4408,8 @@ async function sendParty() {
   if (button) { button.disabled = true; button.textContent = 'Sending request…'; }
   try {
     var saved = await window.MM_SUBMIT_PARTY_BOOKING({
-      name: name,
-      phone: mobile.display,
-      eventType: eventType,
-      eventDate: eventDate,
-      eventTime: eventTime,
-      guestCount: guestCount,
-      notes: notes
+      name: name, phone: mobile.display, eventType: eventType,
+      eventDate: eventDate, eventTime: eventTime, guestCount: guestCount, notes: notes
     });
     lastPartySubmission = Object.assign({}, saved, {
       name: saved.name || name,
@@ -4405,7 +4436,6 @@ async function sendParty() {
         '<div><b>Guests:</b> ' + Number(lastPartySubmission.guest_count) + '</div>' +
         (lastPartySubmission.notes ? '<div><b>Special requests:</b> ' + esc(lastPartySubmission.notes) + '</div>' : '');
     }
-    partySubmissionBusy = false;
     toast('Your party request has been saved. We will contact you to confirm availability.');
   } catch (err) {
     console.error('[Mirch Masaala party booking]', err);
@@ -4437,28 +4467,6 @@ function sendPartyWhatsApp() {
     'Please confirm availability and advise me about menu options and any advance payment required. Thank you.'
   ];
   window.open('https://wa.me/' + digits + '?text=' + encodeURIComponent(lines.join('\n')), '_blank', 'noopener');
-}
-function openReview() {
-  var contact = document.getElementById('party-admin-contact');
-  if (contact) {
-    var digits = String(SETTINGS.whatsappNumber || '').replace(/\D/g, '');
-    contact.textContent = digits ? '+' + digits : 'Not configured';
-  }
-  document.getElementById('party-modal').classList.add('on');
-}
-function closeParty() { document.getElementById('party-modal').classList.remove('on'); }
-function sendParty() {
-  var name = document.getElementById('p-name').value.trim();
-  var phone = document.getElementById('p-phone').value.trim();
-  if (!name || !phone) { toast('Name & phone needed'); return; }
-  bookings.unshift({
-    id: Date.now(), name: name, phone: phone,
-    type: document.getElementById('p-type').value,
-    date: document.getElementById('p-date').value || 'TBD',
-    guests: document.getElementById('p-guests').value || '?',
-    notes: document.getElementById('p-notes').value.trim(), status: 'NEW'
-  });
-  save('mm_b', bookings); closeParty(); toast('Request sent · we will call you');
 }
 function openReview() { stars = 0; setStar(0); document.getElementById('review-modal').classList.add('on'); }
 function closeReview() { document.getElementById('review-modal').classList.remove('on'); }
