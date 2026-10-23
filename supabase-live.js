@@ -1219,6 +1219,7 @@
     var data = rpcPayload(result.data);
     await refreshStaffOrders();
     await refreshRoleNotifications();
+    await refreshTableVisits();
     if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
     return data;
   }
