@@ -10,6 +10,7 @@ const tableVisitsMigration = fs.readFileSync('supabase/table-visits.sql', 'utf8'
 const visitBillingMigration = fs.readFileSync('supabase/visit-billing-upgrade.sql', 'utf8');
 const partyBookingsMigration = fs.readFileSync('supabase/party-bookings.sql', 'utf8');
 const paymentConfirmationMigration = fs.readFileSync('supabase/customer-payment-confirmation.sql', 'utf8');
+const cashCounterMigration = fs.readFileSync('supabase/customer-cash-counter.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
 const staffPushEdge = fs.readFileSync('supabase/functions/send-staff-push/index.ts', 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
@@ -57,6 +58,11 @@ try {
   ['dispatchStaffPushForGuestRequest', 'Guest requests can dispatch configured staff push alerts'],
   ['MM_REQUEST_PAYMENT_VERIFICATION', 'Customer can request payment verification from staff'],
   ["mm_guest_request_payment_check", 'Payment verification uses the shared database RPC'],
+  ['MM_GET_PUBLIC_VISIT_BILL', 'Customer bill is scoped to the exact table visit and browser session'],
+  ['MM_REQUEST_CASH_COUNTER_RELEASE', 'Cash checkout releases a visit through the server'],
+  ['MM_GET_STAFF_VISIT_BILL', 'Counter staff can load the exact visit balance'],
+  ['MM_RECORD_VISIT_PAYMENT', 'Counter payments are allocated to one table visit'],
+  ['MM_REQUEST_VISIT_PAYMENT_VERIFICATION', 'UPI verification requests are scoped to the active visit'],
   ['for (var i = 0; i < tokens.length; i++)', 'Every retained customer ticket gets status refresh'],
   [".select('ticket_id,status').maybeSingle()", 'Staff status change confirms a database row was updated'],
   [".select('id,price').maybeSingle()", 'Owner price update confirms a database row was updated'],
@@ -73,6 +79,12 @@ try {
   ['id="customer-table-lock"', 'Customer sees a fixed current-table label after ordering'],
   ['id="pay-verify-upi-btn"', 'Customer can ask the owner/waiter to verify a reported UPI payment'],
   ['function requestPaymentVerification()', 'Payment verification button never self-confirms a payment'],
+  ['id="pay-cash-leave-btn"', 'Customer can release the table after choosing cash at counter'],
+  ['function releaseTableForCash()', 'Cash checkout notifies staff and returns the customer Home'],
+  ['function customerVisitContextForTable(tableNumber)', 'Customer checkout retains a verified visit/session pair'],
+  ['function openCashCounterCollection(visitId, tableNumber, notificationId, method)', 'Staff cash alert opens the correct visit balance'],
+  ['CASH_AT_COUNTER', 'Cash-at-counter alert appears to owner and waiter'],
+  ['mm_customer_closed_visit_ids', 'A released visit no longer locks the customer table picker'],
   ['PAYMENT_CHECK', 'Owner and waiter have a dedicated payment verification alert'],
   ['id="home-party-link"', 'Customer has an animated party booking shortcut'],
   ['id="p-phone" placeholder="10-digit mobile number" type="tel"', 'Party booking phone number is required in the form'],
@@ -192,7 +204,14 @@ checkSqlDollarQuotes(tableVisitsMigration, 'Table visits migration');
 checkSqlDollarQuotes(visitBillingMigration, 'Visit billing upgrade migration');
 checkSqlDollarQuotes(partyBookingsMigration, 'Party bookings migration');
 checkSqlDollarQuotes(paymentConfirmationMigration, 'Customer payment verification migration');
+checkSqlDollarQuotes(cashCounterMigration, 'Customer cash-at-counter migration');
+checkSqlDollarQuotes(fs.readFileSync('scripts/check-cash-counter-release.sql', 'utf8'), 'Cash counter checkout QA script');
 requireText(paymentConfirmationMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_request_payment_check', 'Customer payment verification RPC exists');
+requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_cash_counter_release', 'Cash checkout is authorized and committed server-side');
+requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_get_visit_bill', 'Customer bill lookup is visit-scoped');
+requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_staff_record_visit_payment', 'Staff settlement is scoped to the original visit');
+requireText(cashCounterMigration, "'CASH_AT_COUNTER'", 'Cash checkout creates a dedicated owner/waiter alert');
+requireText(cashCounterMigration, 'o.table_visit_id=v_visit.id', 'Old unpaid balances never spill into a new table visit');
 requireText(paymentConfirmationMigration, "'PAYMENT_CHECK'", 'Payment verification notifications have a distinct type');
 requireText(paymentConfirmationMigration, "ARRAY['waiter','admin']::text[]", 'Payment verification alerts target both owner and waiter');
 requireText(paymentConfirmationMigration, "v_method NOT IN ('upi','gpay','phonepe')", 'Payment verification rejects unsupported methods');
