@@ -2828,7 +2828,7 @@ async function syncCustomerVisitCheckoutStatus() {
       updateCustomerBottomActions();
       syncCustomerHomeTablePicker();
       toast(paymentSettled
-        ? 'Payment confirmed by staff. Table ' + tableNo + ' is now available.'
+        ? 'No balance remains for your visit. Table ' + tableNo + ' is now available.'
         : 'Table ' + tableNo + ' has been released. ₹' + remaining.toFixed(2) + ' remains due at the counter.');
       if (payModalOpen ||
           (document.getElementById('customer') && document.getElementById('customer').classList.contains('on')) ||
