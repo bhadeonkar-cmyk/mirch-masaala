@@ -1150,6 +1150,61 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   .home-recheck-order:hover .recheck-icon span { animation: none !important; transition: none !important; }
 }
 
+/* Table focus and checkout controls */
+.customer-table-lock {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 58px;
+  padding: 6px 8px;
+  border: 1px solid rgba(240,215,140,.24);
+  border-radius: 10px 14px 14px 14px;
+  background: rgba(240,215,140,.07);
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  white-space: nowrap;
+}
+.customer-table-lock b { color: var(--gold2); font-size: 15px; letter-spacing: .02em; }
+.customer-bottom #customer-bill-pay-btn {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 12px 9px;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(212,168,75,.16);
+}
+.customer-bottom .customer-help-btn {
+  padding: 12px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+#tables.home-table-locked { display: flex; justify-content: center; overflow: visible; }
+#tables.home-table-locked .home-locked-table {
+  flex: 0 0 86px;
+  min-width: 86px;
+  width: 86px;
+  height: 94px;
+  border-radius: 20px 20px 20px 8px;
+  border-width: 1px;
+  background: linear-gradient(155deg, rgba(212,168,75,.2), rgba(28,21,17,.94) 75%);
+}
+#tables .home-locked-caption {
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+#table-swipe-guide { line-height: 1.4; }
+@media(max-width:360px) {
+  .customer-bottom { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .customer-bottom #cart-bar { padding: 11px 8px; font-size: 12px; }
+  .customer-bottom #customer-bill-pay-btn { padding: 11px 7px; font-size: 11px; }
+  .customer-bottom .customer-help-btn { padding: 11px 7px; font-size: 11px; }
+}
 </style>
 <script src="./qr-matrices.js"></script>
 </head>
@@ -2559,6 +2614,10 @@ function showPayQR(amount, orderId) {
   document.getElementById('pay-upi-area').style.display = 'none';
   document.getElementById('pay-cash-area').style.display = 'none';
   document.getElementById('pay-card-area').style.display = 'none';
+  var verifyButton = document.getElementById('pay-verify-upi-btn');
+  var verifyStatus = document.getElementById('pay-verify-upi-status');
+  if (verifyButton) { verifyButton.disabled = false; verifyButton.textContent = '✓ I\'ve paid — please verify'; }
+  if (verifyStatus) verifyStatus.textContent = 'After paying, tap this button so the owner or waiter can verify the transaction.';
   var cardBtn = document.getElementById('pay-card-btn');
   var cashBtn = document.getElementById('pay-cash-btn');
   if (cardBtn) cardBtn.style.display = SETTINGS.acceptCard === false ? 'none' : 'block';
@@ -2970,6 +3029,37 @@ function callWaiter() {
     console.error('[Mirch Masaala waiter call]', err);
     toast('Could not alert the waiter. Please contact staff directly.');
   });
+}
+var paymentVerificationBusy = false;
+async function requestPaymentVerification() {
+  if (paymentVerificationBusy) return;
+  var tableNumber = String(payContext.table || table || '').padStart(2, '0');
+  var button = document.getElementById('pay-verify-upi-btn');
+  var status = document.getElementById('pay-verify-upi-status');
+  if (['admin','waiter'].indexOf(String(role || '')) >= 0) {
+    toast('Staff should verify the transaction and record it from the payment controls.');
+    return;
+  }
+  if (typeof window.MM_REQUEST_PAYMENT_VERIFICATION !== 'function') {
+    toast('Payment verification setup is not active yet. Please show your payment receipt to the waiter.');
+    return;
+  }
+  paymentVerificationBusy = true;
+  if (button) { button.disabled = true; button.textContent = 'Sending request…'; }
+  if (status) status.textContent = 'Notifying the owner and waiter…';
+  try {
+    await window.MM_REQUEST_PAYMENT_VERIFICATION(tableNumber, payContext.method || 'upi');
+    if (button) button.textContent = '✓ Verification requested';
+    if (status) status.textContent = 'The owner and waiter have been notified. Please wait while they verify the transaction. Your bill will not be marked paid until staff confirms receipt.';
+    toast('Payment verification requested. Please wait for staff confirmation.');
+  } catch (err) {
+    console.error('[Mirch Masaala payment verification request]', err);
+    if (button) { button.disabled = false; button.textContent = '✓ I\'ve paid — please verify'; }
+    if (status) status.textContent = err && err.message ? err.message : 'Please show the payment receipt to the waiter for verification.';
+    toast(err && err.message ? err.message : 'Could not notify staff. Please show the receipt to the waiter.');
+  } finally {
+    paymentVerificationBusy = false;
+  }
 }
 function reqBill() {
   var tableNumber = String(table || '').padStart(2, '0');
@@ -5189,6 +5279,8 @@ function scrollToVisit() {
 }
 function renderCustomerHomeOrders() {
   var host = document.getElementById('home-my-orders');
+  if (typeof updateCustomerBottomActions === 'function') updateCustomerBottomActions();
+  if (typeof syncCustomerHomeTablePicker === 'function') syncCustomerHomeTablePicker();
   if (!host) return;
 
   // The order-specific secret is saved per ticket on this browser. It lets the
