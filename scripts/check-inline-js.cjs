@@ -8,7 +8,9 @@ const setup = fs.readFileSync('supabase/setup-live.sql', 'utf8');
 const publicBoard = fs.readFileSync('supabase/public-table-status-circles.sql', 'utf8');
 const tableVisitsMigration = fs.readFileSync('supabase/table-visits.sql', 'utf8');
 const visitBillingMigration = fs.readFileSync('supabase/visit-billing-upgrade.sql', 'utf8');
+const partyBookingsMigration = fs.readFileSync('supabase/party-bookings.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
+const staffPushEdge = fs.readFileSync('supabase/functions/send-staff-push/index.ts', 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
 
 function fail(message) {
@@ -48,6 +50,10 @@ try {
   ['MM_GET_PUBLIC_TABLE_BILL', 'Customer bill uses the shared balance API'],
   ['MM_LOAD_ADMIN_ACCOUNTS_SUMMARY', 'Stats use authoritative shared accounts'],
   ['MM_LOAD_ADMIN_PAYMENTS', 'Payment log reads shared receipts'],
+  ['MM_SUBMIT_PARTY_BOOKING', 'Party booking submits to the shared database'],
+  ['MM_LOAD_PARTY_BOOKINGS', 'Owner party dashboard reads shared booking records'],
+  ['MM_UPDATE_PARTY_BOOKING', 'Owner can update party booking status'],
+  ['dispatchStaffPushForGuestRequest', 'New party requests dispatch owner push when configured'],
   ['for (var i = 0; i < tokens.length; i++)', 'Every retained customer ticket gets status refresh'],
   [".select('ticket_id,status').maybeSingle()", 'Staff status change confirms a database row was updated'],
   [".select('id,price').maybeSingle()", 'Owner price update confirms a database row was updated'],
@@ -56,6 +62,12 @@ try {
 
 [
   ['function cancelOrder(id)', 'Customer cancellation UI exists'],
+  ['id="home-party-link"', 'Customer has an animated party booking shortcut'],
+  ['id="p-phone" placeholder="10-digit mobile number" type="tel"', 'Party booking phone number is required in the form'],
+  ['function sendPartyWhatsApp()', 'Customer can message the restaurant with booking details'],
+  ['function messagePartyCustomer(id)', 'Owner can message the customer with booking details'],
+  ['function updatePartyStatus(id, status)', 'Owner can update party request status'],
+  ['PARTY_BOOKING', 'Party requests appear in owner alert UI'],
   ['previewAndCleanTable()', 'Owner can preview/clean test tickets'],
   ['toggleSelectedOrderComplimentary()', 'Owner can classify free meals'],
   ['refreshAdminAccountsSummary()', 'Account stats refresh without resetting controls'],
@@ -166,6 +178,12 @@ checkSqlDollarQuotes(migration, 'Accounting migration');
 checkSqlDollarQuotes(setup, 'Fresh setup SQL');
 checkSqlDollarQuotes(tableVisitsMigration, 'Table visits migration');
 checkSqlDollarQuotes(visitBillingMigration, 'Visit billing upgrade migration');
+checkSqlDollarQuotes(partyBookingsMigration, 'Party bookings migration');
+requireText(partyBookingsMigration, 'CREATE OR REPLACE FUNCTION public.mm_submit_party_booking', 'Party request validation RPC exists');
+requireText(partyBookingsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_list_party_bookings', 'Owner party list RPC exists');
+requireText(partyBookingsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_update_party_booking', 'Owner party status RPC exists');
+requireText(partyBookingsMigration, "'PARTY_BOOKING'", 'Party request creates an owner alert');
+requireText(staffPushEdge, '"PARTY_BOOKING"', 'Background push sender supports party booking alerts');
 checkCleanupCounterReset(migration, 'Accounting migration');
 checkCleanupCounterReset(setup, 'Fresh setup SQL');
 if (/DELETE\s+FROM\s+public\.orders/i.test(migration)) {
