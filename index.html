@@ -4111,7 +4111,111 @@ async function executeTableCleanup() {
   }
 }
 
-function drawParty() {
+function partyWhatsAppDigits(raw) {
+  var digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 10) digits = '91' + digits;
+  return digits.length >= 11 && digits.length <= 15 ? digits : '';
+}
+function partyWhatsAppMessage(booking) {
+  var status = String(booking.status || 'NEW').toUpperCase();
+  var intro = status === 'CONFIRMED'
+    ? 'We are pleased to confirm your party booking at Mirch Masaala. We look forward to welcoming you!'
+    : status === 'UNAVAILABLE'
+      ? 'Unfortunately, we cannot accommodate the request at the preferred date and time. Please reply with an alternate date or time and we will check availability.'
+      : status === 'CONTACTED'
+        ? 'Our team is contacting you to discuss availability, menu choices and arrangements for your celebration.'
+        : 'We have received your party booking request and are reviewing availability. This is not yet a confirmed booking.';
+  return [
+    'Hello ' + (booking.customer_name || 'Guest') + ',',
+    intro,
+    '',
+    'Mirch Masaala party booking details',
+    'Reference: ' + (booking.booking_ref || ''),
+    'Occasion: ' + (booking.event_type || ''),
+    'Preferred date: ' + partyDisplayDate(booking.event_date),
+    'Preferred time: ' + partyDisplayTime(booking.event_time),
+    'Guests: ' + (booking.guest_count || ''),
+    'Contact number: ' + (booking.customer_phone || ''),
+    'Special requests: ' + (booking.customer_notes || 'None'),
+    'Status: ' + status.replace(/_/g, ' '),
+    '',
+    'Please reply to this message to discuss or confirm any remaining arrangements. Thank you for choosing Mirch Masaala.'
+  ].join('\n');
+}
+function messagePartyCustomer(id) {
+  var booking = partyBookingsFromServer.find(function(b) { return String(b.id) === String(id); });
+  if (!booking) { toast('Please refresh the Party Bookings list and try again.'); return; }
+  var digits = partyWhatsAppDigits(booking.customer_phone);
+  if (!digits) { toast('This booking does not have a valid WhatsApp number. Please call the customer.'); return; }
+  window.open('https://wa.me/' + digits + '?text=' + encodeURIComponent(partyWhatsAppMessage(booking)), '_blank', 'noopener');
+}
+async function updatePartyStatus(id, status) {
+  if (typeof window.MM_UPDATE_PARTY_BOOKING !== 'function') {
+    toast('Party booking setup is not ready. Please apply supabase/party-bookings.sql.');
+    return;
+  }
+  var booking = partyBookingsFromServer.find(function(b) { return String(b.id) === String(id); });
+  try {
+    await window.MM_UPDATE_PARTY_BOOKING(id, status, booking ? (booking.owner_notes || '') : '');
+    toast(status === 'CONFIRMED' ? 'Booking status saved as confirmed. Please message the customer.' :
+      status === 'UNAVAILABLE' ? 'Availability update saved. Please message the customer.' :
+      status === 'CONTACTED' ? 'Booking marked as contacted.' : 'Booking status updated.');
+    await drawParty();
+    if (typeof window.MM_REFRESH_ROLE_NOTIFICATIONS === 'function') window.MM_REFRESH_ROLE_NOTIFICATIONS(true);
+  } catch (err) {
+    console.error('[Mirch Masaala party booking update]', err);
+    toast(err && err.message ? err.message : 'Could not update this booking. Please try again.');
+  }
+}
+function markParty(id) {
+  var old = bookings.find(function(b) { return String(b.id) === String(id); });
+  if (old) { old.status = 'CONTACTED'; save('mm_b', bookings); drawParty(); }
+}
+async function drawParty() {
+  var host = document.getElementById('a-party');
+  if (!host) return;
+  if (typeof window.MM_LOAD_PARTY_BOOKINGS !== 'function') {
+    host.innerHTML = '<div class="setup"><h3>Party booking setup required</h3><p>Please apply <b>supabase/party-bookings.sql</b> in the Supabase SQL Editor to receive requests across devices.</p></div>';
+    return;
+  }
+  host.innerHTML = '<p class="muted center" style="padding:18px">Loading shared party requests…</p>';
+  try {
+    partyBookingsFromServer = await window.MM_LOAD_PARTY_BOOKINGS();
+  } catch (err) {
+    console.error('[Mirch Masaala load party bookings]', err);
+    host.innerHTML = '<div class="setup"><h3>Could not load shared party bookings</h3><p>' + esc(err && err.message ? err.message : 'Please check the database connection.') + '</p><p class="muted">If this setup has not been applied yet, run <b>supabase/party-bookings.sql</b> after the staff notifications setup.</p><button type="button" class="btn btn-soft" onclick="drawParty()">Try again</button></div>';
+    return;
+  }
+  var remoteHtml = partyBookingsFromServer.length ? partyBookingsFromServer.map(function(b) {
+    var status = String(b.status || 'NEW').toUpperCase();
+    var statusColor = status === 'CONFIRMED' ? 'var(--ok)' : status === 'UNAVAILABLE' ? 'var(--bad)' : 'var(--gold2)';
+    var actions = '';
+    if (status === 'NEW') actions += '<button type="button" class="btn btn-soft btn-sm" onclick="updatePartyStatus(\'' + esc(b.id) + '\',\'CONTACTED\')">Mark contacted</button>';
+    if (status !== 'CONFIRMED' && status !== 'UNAVAILABLE') actions += '<button type="button" class="btn btn-ok btn-sm" onclick="updatePartyStatus(\'' + esc(b.id) + '\',\'CONFIRMED\')">Confirm booking</button>';
+    if (status !== 'UNAVAILABLE') actions += '<button type="button" class="btn btn-soft btn-sm" onclick="updatePartyStatus(\'' + esc(b.id) + '\',\'UNAVAILABLE\')">Mark unavailable</button>';
+    actions += '<button type="button" class="btn btn-main btn-sm" onclick="messagePartyCustomer(\'' + esc(b.id) + '\')">WhatsApp customer</button>';
+    return '<article class="card" style="flex-direction:column;align-items:stretch;gap:8px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b class="gold">' + esc(b.booking_ref || 'Party booking') + '</b><b style="color:' + statusColor + '">' + esc(status.replace(/_/g,' ')) + '</b></div>' +
+      '<div><b>' + esc(b.customer_name || 'Guest') + '</b> · <a href="tel:' + esc(partyWhatsAppDigits(b.customer_phone).replace(/^91/, '+91 ')) + '" style="color:var(--gold2)">' + esc(b.customer_phone || '') + '</a></div>' +
+      '<div>' + esc(b.event_type || 'Celebration') + ' · ' + Number(b.guest_count || 0) + ' guests</div>' +
+      '<div class="muted">' + esc(partyDisplayDate(b.event_date)) + ' · ' + esc(partyDisplayTime(b.event_time)) + '</div>' +
+      (b.customer_notes ? '<div style="font-size:13px"><b>Customer requests:</b> ' + esc(b.customer_notes) + '</div>' : '') +
+      (b.owner_notes ? '<div class="muted" style="font-size:12px"><b>Owner notes:</b> ' + esc(b.owner_notes) + '</div>' : '') +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:3px">' + actions + '</div>' +
+      '<div class="muted" style="font-size:11px">Request received: ' + esc(b.created_at ? new Date(b.created_at).toLocaleString() : '') + ' · Not a confirmed booking until status is Confirmed.</div>' +
+      '</article>';
+  }).join('') : '<p class="muted center" style="padding:18px">No shared party requests yet.</p>';
+  var legacyHtml = bookings.length ? '<div class="setup" style="margin-top:14px"><h4>Older requests saved on this device</h4><p class="muted" style="font-size:12px">These older requests were saved only in this browser and are not shared with other devices.</p>' +
+    bookings.map(function(b) { return '<div style="padding:8px 0;border-top:1px solid var(--line)"><b>' + esc(b.type || 'Party request') + '</b> · ' + esc(b.name || '') + ' · ' + esc(b.phone || '') +
+      '<div class="muted">' + esc(b.date || 'Date not specified') + ' · ' + esc(b.guests || '?') + ' guests · ' + esc(b.status || 'NEW') + '</div>' +
+      (b.status === 'NEW' ? '<button type="button" class="btn btn-soft btn-sm" style="margin-top:6px" onclick="markParty(' + Number(b.id) + ')">Mark contacted (old request)</button>' : '') + '</div>'; }).join('') + '</div>' : '';
+  host.innerHTML = '<div class="setup" style="margin-bottom:10px"><h3>Party booking requests</h3><p class="muted" style="font-size:12px">Requests are saved independently of dine-in tables. Change the status, then use WhatsApp customer to send the details and continue the conversation.</p></div>' + remoteHtml + legacyHtml;
+}
+function openPartyFromAlert() {
+  var menu = document.getElementById('admin-more');
+  if (menu) { menu.value = 'party'; tab(menu, 'party'); }
+}
+function safeGoogleReviewURL(raw) {
   document.getElementById('a-party').innerHTML = bookings.length ? bookings.map(function(b) {
     return '<div class="card" style="flex-direction:column"><b class="gold">' + b.type + '</b><div>' + b.name + ' · ' + b.phone + '</div><div class="muted">' + b.date + ' · ' + b.guests + ' guests</div>' +
       (b.status === 'NEW' ? '<button type="button" class="btn btn-ok btn-sm" style="margin-top:8px;width:auto" onclick="markParty(' + b.id + ')">Mark called</button>' : '<span class="muted">Contacted</span>') + '</div>';
@@ -4228,6 +4332,113 @@ async function deleteRestaurantReview(reviewId) {
 }
 
 function openParty() {
+  var contact = document.getElementById('party-admin-contact');
+  if (contact) {
+    var digits = String(SETTINGS.whatsappNumber || SETTINGS.adminPhone || '').replace(/\D/g, '');
+    contact.textContent = digits ? '+' + digits : 'Not configured';
+  }
+  setPartyMinimumDate();
+  document.getElementById('party-modal').classList.add('on');
+}
+function closeParty() {
+  document.getElementById('party-modal').classList.remove('on');
+  if (lastPartySubmission) resetPartyModal();
+}
+async function sendParty() {
+  if (partySubmissionBusy) return;
+  var name = document.getElementById('p-name').value.trim();
+  var phoneInput = document.getElementById('p-phone').value.trim();
+  var mobile = normalizeIndianMobile(phoneInput);
+  var eventType = document.getElementById('p-type').value;
+  var eventDate = document.getElementById('p-date').value;
+  var eventTime = document.getElementById('p-time').value;
+  var guestCount = Number(document.getElementById('p-guests').value);
+  var notes = document.getElementById('p-notes').value.trim();
+
+  setPartyMinimumDate();
+  if (!name) { toast('Please enter your name.'); document.getElementById('p-name').focus(); return; }
+  if (!mobile) { toast('Please enter a valid 10-digit Indian mobile number.'); document.getElementById('p-phone').focus(); return; }
+  if (!eventDate || eventDate < partyTodayLocal()) { toast('Please choose today or a future date.'); document.getElementById('p-date').focus(); return; }
+  if (!eventTime) { toast('Please choose your preferred time.'); document.getElementById('p-time').focus(); return; }
+  if (!Number.isInteger(guestCount) || guestCount < 1 || guestCount > 500) { toast('Please enter a guest count between 1 and 500.'); document.getElementById('p-guests').focus(); return; }
+  if (notes.length > 1000) { toast('Please keep special requests under 1,000 characters.'); return; }
+  if (typeof window.MM_SUBMIT_PARTY_BOOKING !== 'function') {
+    toast('Party booking setup is not ready yet. Please contact the restaurant directly.');
+    return;
+  }
+
+  partySubmissionBusy = true;
+  var button = document.getElementById('party-submit-btn');
+  if (button) { button.disabled = true; button.textContent = 'Sending request…'; }
+  try {
+    var saved = await window.MM_SUBMIT_PARTY_BOOKING({
+      name: name,
+      phone: mobile.display,
+      eventType: eventType,
+      eventDate: eventDate,
+      eventTime: eventTime,
+      guestCount: guestCount,
+      notes: notes
+    });
+    lastPartySubmission = Object.assign({}, saved, {
+      name: saved.name || name,
+      phone: saved.phone || mobile.display,
+      event_type: saved.event_type || eventType,
+      event_date: saved.event_date || eventDate,
+      event_time: saved.event_time || eventTime,
+      guest_count: Number(saved.guest_count) || guestCount,
+      notes: saved.notes || notes
+    });
+    var fields = document.getElementById('party-request-fields');
+    var confirmation = document.getElementById('party-confirmation');
+    if (fields) fields.style.display = 'none';
+    if (confirmation) confirmation.style.display = 'block';
+    var ref = document.getElementById('party-confirm-ref');
+    if (ref) ref.textContent = lastPartySubmission.booking_ref;
+    var detail = document.getElementById('party-confirm-details');
+    if (detail) {
+      detail.innerHTML = '<div><b>Name:</b> ' + esc(lastPartySubmission.name) + '</div>' +
+        '<div><b>Phone:</b> ' + esc(lastPartySubmission.phone) + '</div>' +
+        '<div><b>Occasion:</b> ' + esc(lastPartySubmission.event_type) + '</div>' +
+        '<div><b>Date:</b> ' + esc(partyDisplayDate(lastPartySubmission.event_date)) + '</div>' +
+        '<div><b>Time:</b> ' + esc(partyDisplayTime(lastPartySubmission.event_time)) + '</div>' +
+        '<div><b>Guests:</b> ' + Number(lastPartySubmission.guest_count) + '</div>' +
+        (lastPartySubmission.notes ? '<div><b>Special requests:</b> ' + esc(lastPartySubmission.notes) + '</div>' : '');
+    }
+    partySubmissionBusy = false;
+    toast('Your party request has been saved. We will contact you to confirm availability.');
+  } catch (err) {
+    console.error('[Mirch Masaala party booking]', err);
+    toast(err && err.message ? err.message : 'We could not save your request. Please try again.');
+  } finally {
+    partySubmissionBusy = false;
+    if (button && !lastPartySubmission) { button.disabled = false; button.textContent = 'Send party request'; }
+  }
+}
+function sendPartyWhatsApp() {
+  var booking = lastPartySubmission;
+  if (!booking) { toast('Please submit your party request first.'); return; }
+  var digits = String(SETTINGS.whatsappNumber || SETTINGS.adminPhone || '').replace(/\D/g, '');
+  if (digits.length === 10) digits = '91' + digits;
+  if (!digits || digits.length < 11) { toast('The restaurant WhatsApp number is not configured. Please call the restaurant.'); return; }
+  var lines = [
+    'Hello Mirch Masaala team,',
+    'I have submitted a party booking request and would like to discuss and confirm the arrangements.',
+    '',
+    'Booking reference: ' + booking.booking_ref,
+    'Name: ' + booking.name,
+    'Contact number: ' + booking.phone,
+    'Occasion: ' + booking.event_type,
+    'Preferred date: ' + partyDisplayDate(booking.event_date),
+    'Preferred time: ' + partyDisplayTime(booking.event_time),
+    'Number of guests: ' + booking.guest_count,
+    'Special requests: ' + (booking.notes || 'None'),
+    '',
+    'Please confirm availability and advise me about menu options and any advance payment required. Thank you.'
+  ];
+  window.open('https://wa.me/' + digits + '?text=' + encodeURIComponent(lines.join('\n')), '_blank', 'noopener');
+}
+function openReview() {
   var contact = document.getElementById('party-admin-contact');
   if (contact) {
     var digits = String(SETTINGS.whatsappNumber || '').replace(/\D/g, '');
