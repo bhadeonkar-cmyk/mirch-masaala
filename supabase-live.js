@@ -37,6 +37,8 @@
   var publicOrderBoardWarningShown = false;
 
   window.MM_SUPABASE_ENABLED = false;
+  window.MM_TABLE_VISITS = window.MM_TABLE_VISITS || {};
+  window.MM_TABLE_VISITS_READY = false;
   window.MM_SUPABASE_STATUS = 'connecting';
   window.MM_MENU_READY = false;
   window.MM_MENU_LOAD_ERROR = false;
@@ -729,8 +731,80 @@
     });
   }
 
+  var tableVisitRefreshBusy = false;
+  var tableVisitSetupMessageShown = false;
+
+  async function refreshTableVisits() {
+    if (tableVisitRefreshBusy || !client || !window.MM_SUPABASE_ENABLED ||
+        ['admin', 'waiter'].indexOf(String(window.role || '')) < 0) return;
+    tableVisitRefreshBusy = true;
+    try {
+      var result = await client.rpc('mm_staff_get_table_visits');
+      if (result.error) throw result.error;
+      var rows = Array.isArray(result.data) ? result.data : [];
+      var map = Object.create(null);
+      rows.forEach(function (row) {
+        if (!row || !row.table_number) return;
+        var number = String(row.table_number).padStart(2, '0');
+        map[number] = {
+          table_number: number,
+          status: String(row.status || 'AVAILABLE').toUpperCase(),
+          started_at: row.started_at || null
+        };
+      });
+      window.MM_TABLE_VISITS = map;
+      window.MM_TABLE_VISITS_READY = true;
+      if (typeof window.updateWaiterTableIndicators === 'function') window.updateWaiterTableIndicators();
+      if (typeof window.renderWaiterVisitControl === 'function') window.renderWaiterVisitControl();
+    } catch (e) {
+      window.MM_TABLE_VISITS_READY = false;
+      if (!tableVisitSetupMessageShown) {
+        tableVisitSetupMessageShown = true;
+        console.info('[Mirch Masaala table visits] Apply supabase/table-visits.sql in Supabase SQL Editor to enable persistent table visit status.', e && e.message ? e.message : e);
+      }
+    } finally {
+      tableVisitRefreshBusy = false;
+    }
+  }
+
+  async function ensurePublicTableVisit(tableNumber) {
+    if (!client || !window.MM_SUPABASE_ENABLED) return false;
+    try {
+      var result = await client.rpc('mm_ensure_public_table_visit', {
+        p_table_number: String(tableNumber || '').padStart(2, '0')
+      });
+      if (result.error) throw result.error;
+      if (['admin', 'waiter'].indexOf(String(window.role || '')) >= 0) await refreshTableVisits();
+      return true;
+    } catch (e) {
+      // Keep the core ordering flow working if the one-time table-visit migration
+      // has not been applied yet. Orders still use the existing shared order RPC.
+      if (!tableVisitSetupMessageShown) {
+        tableVisitSetupMessageShown = true;
+        console.info('[Mirch Masaala table visits] Table visit tracking is not enabled yet. Apply supabase/table-visits.sql.', e && e.message ? e.message : e);
+      }
+      return false;
+    }
+  }
+
+  async function setTableVisitStatus(tableNumber, action) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) {
+      throw new Error('Sign in as the owner or waiter to manage table visits.');
+    }
+    var result = await client.rpc('mm_staff_set_table_visit_status', {
+      p_table_number: String(tableNumber || '').padStart(2, '0'),
+      p_action: String(action || '').toUpperCase()
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not update the table visit.');
+    await refreshTableVisits();
+    if (typeof window.drawWaiterOrders === 'function') window.drawWaiterOrders();
+    return result.data;
+  }
+
   async function createSharedOrder(tableNumber, cartItems, notes) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected yet. Please refresh and try again.');
+    await ensurePublicTableVisit(tableNumber);
     var ticket = window.makeTicketId(tableNumber, new Date());
     var payload = buildOrderItems(cartItems);
     var result = await client.rpc('mm_place_order', {
@@ -1647,6 +1721,8 @@
     window.MM_STOP_CUSTOMER_WHATSAPP = stopCustomerWhatsApp;
     window.MM_SEND_WHATSAPP_BROADCAST = sendWhatsAppBroadcast;
     window.MM_CREATE_GUEST_NOTIFICATION = createGuestNotification;
+    window.MM_REFRESH_TABLE_VISITS = refreshTableVisits;
+    window.MM_SET_TABLE_VISIT_STATUS = setTableVisitStatus;
     window.MM_LOAD_STAFF_NOTIFICATIONS = loadStaffNotifications;
     window.MM_RESOLVE_STAFF_NOTIFICATION = resolveStaffNotification;
     window.MM_REFRESH_ROLE_NOTIFICATIONS = refreshRoleNotifications;
@@ -1749,6 +1825,8 @@
     }, 20000);
     restoreStaffSession();
     refreshCustomerOrders();
+    setTimeout(refreshTableVisits, 1200);
+    setInterval(refreshTableVisits, 8000);
     refreshPublicOrderBoard();
     setInterval(function () { loadMenu(!!window.role, true); }, 20000);
     setInterval(refreshStaffOrders, 3000);
