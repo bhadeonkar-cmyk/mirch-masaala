@@ -580,11 +580,15 @@ BEGIN
   END IF;
 
   IF v_role = 'admin' THEN
-    IF v_new = 'CANCELLED'
-       AND v_old <> 'CANCELLED'
-       AND coalesce(current_setting('app.mm_owner_table_cleanup', true), '') <> 'on'
-       AND EXISTS (SELECT 1 FROM public.order_payments p WHERE p.order_id = OLD.id) THEN
-      RAISE EXCEPTION 'This ticket already has recorded payments. Resolve the payment or refund first.';
+    IF v_new = 'CANCELLED' AND v_old <> 'CANCELLED' THEN
+      IF coalesce(current_setting('app.mm_owner_table_cleanup', true), '') <> 'on' THEN
+        IF coalesce(current_setting('app.mm_owner_order_cancel', true), '') <> 'on' THEN
+          RAISE EXCEPTION 'Use the audited owner cancellation action to cancel a ticket';
+        END IF;
+        IF EXISTS (SELECT 1 FROM public.order_payments p WHERE p.order_id = OLD.id) THEN
+          RAISE EXCEPTION 'This ticket already has recorded payments. Resolve the payment or refund first.';
+        END IF;
+      END IF;
     END IF;
     IF v_old IN ('PAID','CANCELLED') AND v_new <> v_old THEN
       RAISE EXCEPTION 'Paid or cancelled orders cannot be reopened; create a new ticket or record a refund adjustment separately';
@@ -707,6 +711,55 @@ REVOKE ALL ON FUNCTION public.mm_cancel_public_order(text, uuid) FROM PUBLIC, an
 GRANT EXECUTE ON FUNCTION public.mm_cancel_public_order(text, uuid) TO anon, authenticated;
 
 -- Owners preview all unarchived records for a table before approving test-data cleanup.
+CREATE OR REPLACE FUNCTION public.mm_admin_cancel_order(
+  p_ticket_id text,
+  p_reason text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $
+DECLARE
+  v_order public.orders%ROWTYPE;
+  v_table_number text;
+  v_old_status text;
+BEGIN
+  IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN RAISE EXCEPTION 'Owner/Admin access required'; END IF;
+  IF p_ticket_id IS NULL OR trim(p_ticket_id) = '' THEN RAISE EXCEPTION 'Choose a valid ticket'; END IF;
+  IF p_reason IS NULL OR length(trim(p_reason)) < 3 OR length(trim(p_reason)) > 240 THEN
+    RAISE EXCEPTION 'Enter a cancellation reason between 3 and 240 characters';
+  END IF;
+  SELECT o.* INTO v_order FROM public.orders o
+  WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+    AND o.ticket_id = p_ticket_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Order not found'; END IF;
+  v_old_status := upper(coalesce(v_order.status,''));
+  IF v_old_status NOT IN ('NEW','PREPARING','READY') THEN RAISE EXCEPTION 'Only unserved orders can be cancelled here'; END IF;
+  IF v_order.archived_at IS NOT NULL OR coalesce(v_order.is_test_order,false) THEN
+    RAISE EXCEPTION 'This test/archive ticket is not an active service order';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.order_payments p WHERE p.order_id = v_order.id) THEN
+    RAISE EXCEPTION 'This ticket has recorded payments. Resolve the payment or refund first.';
+  END IF;
+  PERFORM pg_catalog.set_config('app.mm_owner_order_cancel', 'on', true);
+  UPDATE public.orders o SET status = 'CANCELLED', cancel_reason = 'OWNER_CANCELLED'
+  WHERE o.id = v_order.id AND upper(o.status) IN ('NEW','PREPARING','READY')
+  RETURNING o.* INTO v_order;
+  IF NOT FOUND THEN RAISE EXCEPTION 'The order changed and can no longer be cancelled'; END IF;
+  SELECT lpad(t.table_number::text, 2, '0') INTO v_table_number
+  FROM public.restaurant_tables t WHERE t.id = v_order.table_id;
+  INSERT INTO public.order_management_audit
+    (restaurant_id, order_id, ticket_id, table_number, action, from_status, to_status,
+     amount, reason, actor_user_id, created_at)
+  VALUES
+    (v_order.restaurant_id, v_order.id, v_order.ticket_id, v_table_number, 'OWNER_CANCEL',
+     v_old_status, 'CANCELLED', coalesce(v_order.total,0), trim(p_reason), auth.uid(), now());
+  RETURN jsonb_build_object('id', v_order.ticket_id, 'table', v_table_number,
+    'status', v_order.status, 'cancelledAt', v_order.updated_at);
+END
+$;
+
 CREATE OR REPLACE FUNCTION public.mm_admin_preview_table_cleanup(p_table_number text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -718,45 +771,49 @@ DECLARE
   v_table_id uuid;
   v_result jsonb;
 BEGIN
-  IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN
-    RAISE EXCEPTION 'Owner/Admin access required';
-  END IF;
-  IF p_table_number IS NULL OR trim(p_table_number) !~ '^[0-9]{1,2}$' THEN
-    RAISE EXCEPTION 'Choose a valid table number';
-  END IF;
+  IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN RAISE EXCEPTION 'Owner/Admin access required'; END IF;
+  IF p_table_number IS NULL OR trim(p_table_number) !~ '^[0-9]{1,2}$' THEN RAISE EXCEPTION 'Choose a valid table number'; END IF;
   v_table_number := lpad(trim(p_table_number), 2, '0');
   SELECT t.id INTO v_table_id FROM public.restaurant_tables t
   WHERE t.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
-    AND lpad(t.table_number::text, 2, '0') = v_table_number AND t.is_active = true
-  LIMIT 1;
+    AND lpad(t.table_number::text, 2, '0') = v_table_number AND t.is_active = true LIMIT 1;
   IF v_table_id IS NULL THEN RAISE EXCEPTION 'Active table not found'; END IF;
-
   SELECT jsonb_build_object(
     'table', v_table_number,
     'candidate_count', count(*)::integer,
     'active_count', count(*) FILTER (WHERE upper(o.status) IN ('NEW','PREPARING','READY'))::integer,
     'candidate_value', coalesce(sum(o.total), 0),
-    'recorded_payment_value', coalesce(sum(coalesce(p.paid, 0)), 0)
+    'recorded_payment_value', coalesce(sum(coalesce(p.paid, 0)), 0),
+    'fingerprint', coalesce(md5(string_agg(
+      o.id::text || ':' || upper(coalesce(o.status,'')) || ':' || coalesce(o.updated_at::text,'') || ':' ||
+      coalesce(o.total,0)::text || ':' || coalesce(o.is_test_order,false)::text || ':' ||
+      coalesce(o.is_complimentary,false)::text || ':' || coalesce(p.paid,0)::text,
+      '|' ORDER BY o.id::text)), md5('')),
+    'orders', coalesce(jsonb_agg(jsonb_build_object(
+      'ticket_id', coalesce(o.ticket_id, o.order_number::text), 'status', upper(coalesce(o.status,'')),
+      'created_at', o.created_at, 'total', coalesce(o.total,0), 'paid', coalesce(p.paid,0),
+      'is_test_order', coalesce(o.is_test_order,false), 'is_complimentary', coalesce(o.is_complimentary,false),
+      'items', coalesce(i.items, '[]'::jsonb)
+    ) ORDER BY o.created_at DESC), '[]'::jsonb)
   ) INTO v_result
   FROM public.orders o
+  LEFT JOIN (SELECT order_id, sum(amount) AS paid FROM public.order_payments GROUP BY order_id) p ON p.order_id = o.id
   LEFT JOIN (
-    SELECT order_id, sum(amount) AS paid
-    FROM public.order_payments
-    GROUP BY order_id
-  ) p ON p.order_id = o.id
+    SELECT order_id, jsonb_agg(jsonb_build_object('name', item_name, 'quantity', quantity)
+      ORDER BY created_at, item_name) AS items
+    FROM public.order_items GROUP BY order_id
+  ) i ON i.order_id = o.id
   WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
-    AND o.table_id = v_table_id
-    AND o.archived_at IS NULL;
+    AND o.table_id = v_table_id AND o.archived_at IS NULL;
   RETURN v_result;
 END
 $$;
 
 -- Owner cleanup is archival, not deletion. The expected count ensures the table preview
 -- has not gone stale between confirmation and execution.
+DROP FUNCTION IF EXISTS public.mm_admin_clear_table_orders(text, text, integer, text);
 CREATE OR REPLACE FUNCTION public.mm_admin_clear_table_orders(
-  p_table_number text,
-  p_reason text,
-  p_expected_count integer
+  p_table_number text, p_reason text, p_expected_count integer, p_expected_fingerprint text
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -771,81 +828,65 @@ DECLARE
   v_count integer := 0;
   v_cancelled integer := 0;
   v_excluded_value numeric(12,2) := 0;
+  v_fingerprint text;
 BEGIN
-  IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN
-    RAISE EXCEPTION 'Owner/Admin access required';
-  END IF;
-  IF p_table_number IS NULL OR trim(p_table_number) !~ '^[0-9]{1,2}$' THEN
-    RAISE EXCEPTION 'Choose a valid table number';
-  END IF;
+  IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN RAISE EXCEPTION 'Owner/Admin access required'; END IF;
+  IF p_table_number IS NULL OR trim(p_table_number) !~ '^[0-9]{1,2}$' THEN RAISE EXCEPTION 'Choose a valid table number'; END IF;
   IF p_reason IS NULL OR length(trim(p_reason)) < 3 OR length(trim(p_reason)) > 240 THEN
     RAISE EXCEPTION 'Enter a cleanup reason between 3 and 240 characters';
   END IF;
-  IF p_expected_count IS NULL OR p_expected_count < 0 THEN
+  IF p_expected_count IS NULL OR p_expected_count < 0 OR p_expected_fingerprint IS NULL OR p_expected_fingerprint !~ '^[0-9a-f]{32}$' THEN
     RAISE EXCEPTION 'Preview the table before cleanup';
   END IF;
   v_table_number := lpad(trim(p_table_number), 2, '0');
   SELECT t.id INTO v_table_id FROM public.restaurant_tables t
   WHERE t.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
-    AND lpad(t.table_number::text, 2, '0') = v_table_number AND t.is_active = true
-  LIMIT 1;
+    AND lpad(t.table_number::text, 2, '0') = v_table_number AND t.is_active = true LIMIT 1;
   IF v_table_id IS NULL THEN RAISE EXCEPTION 'Active table not found'; END IF;
 
+  LOCK TABLE public.order_payments IN SHARE ROW EXCLUSIVE MODE;
   LOCK TABLE public.orders IN SHARE ROW EXCLUSIVE MODE;
-  SELECT count(*)::integer INTO v_count FROM public.orders o
+  SELECT count(*)::integer,
+    coalesce(md5(string_agg(
+      o.id::text || ':' || upper(coalesce(o.status,'')) || ':' || coalesce(o.updated_at::text,'') || ':' ||
+      coalesce(o.total,0)::text || ':' || coalesce(o.is_test_order,false)::text || ':' ||
+      coalesce(o.is_complimentary,false)::text || ':' || coalesce(p.paid,0)::text,
+      '|' ORDER BY o.id::text)), md5(''))
+  INTO v_count, v_fingerprint
+  FROM public.orders o
+  LEFT JOIN (SELECT order_id, sum(amount) AS paid FROM public.order_payments GROUP BY order_id) p ON p.order_id = o.id
   WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
     AND o.table_id = v_table_id AND o.archived_at IS NULL;
-  IF v_count <> p_expected_count THEN
+  IF v_count <> p_expected_count OR v_fingerprint IS DISTINCT FROM p_expected_fingerprint THEN
     RAISE EXCEPTION 'Table data changed after preview. Preview again before cleaning.';
   END IF;
-
-  v_count := 0;
-  -- Only this confirmed owner cleanup operation may archive/cancel test tickets with old receipts.
   PERFORM pg_catalog.set_config('app.mm_owner_table_cleanup', 'on', true);
   FOR v_order IN
     SELECT o.* FROM public.orders o
     WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
       AND o.table_id = v_table_id AND o.archived_at IS NULL
-    ORDER BY o.created_at, o.id
-    FOR UPDATE
+    ORDER BY o.created_at, o.id FOR UPDATE
   LOOP
     v_next_status := CASE WHEN upper(v_order.status) IN ('NEW','PREPARING','READY')
                           THEN 'CANCELLED' ELSE upper(v_order.status) END;
     INSERT INTO public.order_management_audit
       (restaurant_id, order_id, ticket_id, table_number, action, from_status, to_status,
        amount, reason, actor_user_id, created_at)
-    VALUES
-      (v_order.restaurant_id, v_order.id, v_order.ticket_id, v_table_number,
-       'TABLE_CLEANUP', upper(v_order.status), v_next_status, coalesce(v_order.total, 0),
-       trim(p_reason), auth.uid(), now());
-
+    VALUES (v_order.restaurant_id, v_order.id, v_order.ticket_id, v_table_number,
+      'TABLE_CLEANUP', upper(v_order.status), v_next_status, coalesce(v_order.total,0),
+      trim(p_reason), auth.uid(), now());
     UPDATE public.orders o
-    SET is_test_order = true,
-        is_complimentary = false,
-        complimentary_reason = NULL,
-        archived_at = now(),
-        archived_by = auth.uid(),
-        status = v_next_status,
-        cancel_reason = CASE
-          WHEN upper(v_order.status) IN ('NEW','PREPARING','READY') THEN 'OWNER_TABLE_CLEANUP'
-          ELSE o.cancel_reason
-        END
+    SET is_test_order = true, is_complimentary = false, complimentary_reason = NULL,
+      archived_at = now(), archived_by = auth.uid(), status = v_next_status,
+      cancel_reason = CASE WHEN upper(v_order.status) IN ('NEW','PREPARING','READY')
+        THEN 'OWNER_TABLE_CLEANUP' ELSE o.cancel_reason END
     WHERE o.id = v_order.id;
-
     v_count := v_count + 1;
-    v_excluded_value := v_excluded_value + coalesce(v_order.total, 0);
-    IF upper(v_order.status) IN ('NEW','PREPARING','READY') THEN
-      v_cancelled := v_cancelled + 1;
-    END IF;
+    v_excluded_value := v_excluded_value + coalesce(v_order.total,0);
+    IF upper(v_order.status) IN ('NEW','PREPARING','READY') THEN v_cancelled := v_cancelled + 1; END IF;
   END LOOP;
-
-  RETURN jsonb_build_object(
-    'table', v_table_number,
-    'archived_count', v_count,
-    'cancelled_active_count', v_cancelled,
-    'excluded_order_value', v_excluded_value,
-    'reason', trim(p_reason)
-  );
+  RETURN jsonb_build_object('table', v_table_number, 'archived_count', v_count,
+    'cancelled_active_count', v_cancelled, 'excluded_order_value', v_excluded_value, 'reason', trim(p_reason));
 END
 $$;
 
@@ -1153,8 +1194,17 @@ BEGIN
     'paid_count', count(*) FILTER (WHERE NOT is_test_order AND NOT is_complimentary
       AND status NOT IN ('CANCELLED','PAID') AND paid >= total - 0.01)
       + count(*) FILTER (WHERE NOT is_test_order AND NOT is_complimentary AND status = 'PAID'),
-    'paid_sales', coalesce(sum(paid) FILTER (WHERE NOT is_test_order AND NOT is_complimentary
-      AND status <> 'CANCELLED'),0),
+    'paid_sales', coalesce((
+      SELECT sum(p.amount)
+      FROM public.order_payments p
+      JOIN public.orders receipt_order ON receipt_order.id = p.order_id
+      WHERE p.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+        AND (p.created_at AT TIME ZONE 'Asia/Kolkata')::date = v_day
+        AND NOT coalesce(receipt_order.is_test_order,false)
+        AND NOT coalesce(receipt_order.is_complimentary,false)
+        AND receipt_order.archived_at IS NULL
+        AND upper(coalesce(receipt_order.status,'')) <> 'CANCELLED'
+    ),0),
     'pending_count', count(*) FILTER (WHERE NOT is_test_order AND NOT is_complimentary
       AND status NOT IN ('CANCELLED','PAID') AND paid < total - 0.01),
     'pending_value', coalesce(sum(greatest(total-paid,0)) FILTER (WHERE NOT is_test_order
@@ -1163,6 +1213,8 @@ BEGIN
     'cancelled_value', coalesce(sum(total) FILTER (WHERE NOT is_test_order AND status = 'CANCELLED'),0),
     'customer_cancel_count', count(*) FILTER (WHERE NOT is_test_order AND status = 'CANCELLED'
       AND cancel_reason = 'CUSTOMER_REQUEST'),
+    'owner_cancel_count', count(*) FILTER (WHERE NOT is_test_order AND status = 'CANCELLED'
+      AND cancel_reason = 'OWNER_CANCELLED'),
     'complimentary_count', count(*) FILTER (WHERE NOT is_test_order AND is_complimentary
       AND status <> 'CANCELLED'),
     'complimentary_value', coalesce(sum(total) FILTER (WHERE NOT is_test_order AND is_complimentary
@@ -1190,13 +1242,15 @@ END
 $$;
 
 -- Owner/waiter can read recent payments via RLS; the UI still checks owner role for accounts.
+REVOKE ALL ON FUNCTION public.mm_admin_cancel_order(text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mm_admin_cancel_order(text, text) TO authenticated;
 REVOKE ALL ON FUNCTION public.mm_admin_preview_table_cleanup(text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.mm_admin_clear_table_orders(text, text, integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.mm_admin_clear_table_orders(text, text, integer, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.mm_admin_set_complimentary(text, boolean, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.mm_staff_record_table_payment(text, numeric, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.mm_admin_accounts_summary(date) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mm_admin_preview_table_cleanup(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.mm_admin_clear_table_orders(text, text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.mm_admin_clear_table_orders(text, text, integer, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mm_admin_set_complimentary(text, boolean, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mm_staff_record_table_payment(text, numeric, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mm_admin_accounts_summary(date) TO authenticated;
