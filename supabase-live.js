@@ -82,6 +82,32 @@
     return data;
   }
 
+  async function requestVisitPaymentVerification(tableNumber, visitId, customerSessionId, method) {
+    if (!client || !window.MM_SUPABASE_ENABLED) {
+      throw new Error('The shared payment verification service is not connected yet.');
+    }
+    var result = await client.rpc('mm_guest_request_visit_payment_check', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_table_number: String(tableNumber || '').padStart(2, '0'),
+      p_visit_id: String(visitId || ''),
+      p_customer_session_id: String(customerSessionId || ''),
+      p_method: String(method || 'upi').toLowerCase()
+    });
+    if (result.error) {
+      var code = String(result.error.code || '');
+      var detail = String(result.error.message || '');
+      console.error('[Mirch Masaala visit payment verification]', { code: code, message: detail });
+      if (code === 'PGRST202' || code === '42883' || /mm_guest_request_visit_payment_check/i.test(detail)) {
+        throw new Error('Visit-aware payment verification is not activated yet. Please show your payment receipt to the waiter.');
+      }
+      throw new Error(detail || 'We could not notify staff just now. Please show your payment receipt to the waiter.');
+    }
+    var data = rpcPayload(result.data) || {};
+    if (data && data.ok === false) throw new Error('We could not send the verification request. Please ask your waiter.');
+    dispatchStaffPushForGuestRequest(data);
+    return data;
+  }
+
   async function requestPaymentVerification(tableNumber, method) {
     if (!client || !window.MM_SUPABASE_ENABLED) {
       throw new Error('The shared payment verification service is not connected yet.');
@@ -962,6 +988,15 @@
       throw new Error('Supabase did not confirm the new order and its table visit. Please refresh and check the order before trying again.');
     }
     storePublicToken(created.id, created.publicToken);
+    if (!actorRole && created.visitId && customerSessionId) {
+      try {
+        localStorage.setItem('mm_customer_active_visit_id', String(created.visitId));
+        localStorage.setItem('mm_customer_active_session_id', String(customerSessionId));
+        localStorage.setItem('mm_customer_active_table', String(created.table || tableNumber).padStart(2, '0'));
+      } catch (storageError) {
+        console.info('[Mirch Masaala] The active table session could not be saved on this phone.');
+      }
+    }
     return {
       id: created.id,
       dbId: created.dbId,
@@ -1128,7 +1163,65 @@
     return rpcPayload(result.data);
   }
 
+  async function getPublicVisitBill(tableNumber, visitId, customerSessionId) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    if (!visitId || !customerSessionId) throw new Error('This phone is not linked to an active table visit. Please ask staff for the bill.');
+    var result = await client.rpc('mm_guest_get_visit_bill', {
+      p_table_number: String(tableNumber || '').padStart(2, '0'),
+      p_visit_id: String(visitId),
+      p_customer_session_id: String(customerSessionId)
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not calculate this visit’s balance.');
+    return rpcPayload(result.data);
+  }
 
+  async function getStaffVisitBill(visitId) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) throw new Error('Sign in as owner or counter staff first.');
+    var result = await client.rpc('mm_staff_get_visit_bill', { p_visit_id: String(visitId || '') });
+    if (result.error) throw new Error(result.error.message || 'Could not load the bill for that visit.');
+    return rpcPayload(result.data);
+  }
+
+  async function requestCashCounterRelease(tableNumber, visitId, customerSessionId) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    var result = await client.rpc('mm_guest_cash_counter_release', {
+      p_table_number: String(tableNumber || '').padStart(2, '0'),
+      p_visit_id: String(visitId || ''),
+      p_customer_session_id: String(customerSessionId || '')
+    });
+    if (result.error) {
+      var detail = String(result.error.message || '');
+      if (result.error.code === 'PGRST202' || result.error.code === '42883' || /mm_guest_cash_counter_release/i.test(detail)) {
+        throw new Error('Cash checkout is not activated on the restaurant system yet. Please tell the waiter you will pay at the counter.');
+      }
+      throw new Error(detail || 'Could not release the table just now. Please ask the waiter.');
+    }
+    var data = rpcPayload(result.data) || {};
+    dispatchStaffPushForGuestRequest(data);
+    return data;
+  }
+
+
+
+  async function recordVisitPayment(visitId, amount, method, note) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) {
+      throw new Error('Only signed-in owner or counter staff can confirm that payment was received.');
+    }
+    var result = await client.rpc('mm_staff_record_visit_payment', {
+      p_visit_id: String(visitId || ''),
+      p_amount: Number(amount),
+      p_method: String(method || 'other'),
+      p_note: String(note || '').slice(0, 500)
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not record the payment for this visit.');
+    var data = rpcPayload(result.data);
+    await refreshStaffOrders();
+    await refreshRoleNotifications();
+    if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    return data;
+  }
 
   async function recordTablePayment(tableNumber, amount, method, note) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
@@ -1926,6 +2019,11 @@
     window.MM_SET_ORDER_COMPLIMENTARY = setOrderComplimentary;
     window.MM_RECORD_TABLE_PAYMENT = recordTablePayment;
     window.MM_GET_PUBLIC_TABLE_BILL = getPublicTableBill;
+    window.MM_GET_PUBLIC_VISIT_BILL = getPublicVisitBill;
+    window.MM_GET_STAFF_VISIT_BILL = getStaffVisitBill;
+    window.MM_REQUEST_CASH_COUNTER_RELEASE = requestCashCounterRelease;
+    window.MM_REQUEST_VISIT_PAYMENT_VERIFICATION = requestVisitPaymentVerification;
+    window.MM_RECORD_VISIT_PAYMENT = recordVisitPayment;
     window.MM_LOAD_ADMIN_ACCOUNTS_SUMMARY = loadAdminAccountsSummary;
     window.MM_ADMIN_GET_ORDER_DETAILS = getAdminOrderDetails;
     window.MM_LOAD_ADMIN_PAYMENTS = loadAdminPayments;
