@@ -90,6 +90,48 @@ requireText(publicBoard, 'o.archived_at IS NULL', 'Public board filters archived
   [setup, 'p_expected_fingerprint text', 'Fresh setup checks cleanup snapshots']
 ].forEach(([source, needle, label]) => requireText(source, needle, label));
 
+
+function checkSqlDollarQuotes(source, label) {
+  if (/^\s*AS\s+\$\s*$/m.test(source) || /^\s*\$;\s*$/m.test(source)) {
+    fail(label + ' contains an invalid bare dollar-quote delimiter');
+    return;
+  }
+  const openings = [...source.matchAll(/^\s*AS\s+(\$[A-Za-z0-9_]*\$)\s*$/gm)].map((m) => m[1]);
+  const closings = [...source.matchAll(/^\s*(\$[A-Za-z0-9_]*\$);?\s*$/gm)].map((m) => m[1]);
+  const counts = (items) => items.reduce((all, item) => {
+    all[item] = (all[item] || 0) + 1;
+    return all;
+  }, Object.create(null));
+  const openCounts = counts(openings);
+  const closeCounts = counts(closings);
+  const tags = new Set([...Object.keys(openCounts), ...Object.keys(closeCounts)]);
+  for (const tag of tags) {
+    if ((openCounts[tag] || 0) !== (closeCounts[tag] || 0)) {
+      fail(label + ' has unmatched SQL function delimiter ' + tag);
+      return;
+    }
+  }
+  console.log('✓ ' + label + ' dollar-quoted function bodies are balanced');
+}
+function checkCleanupCounterReset(source, label) {
+  const start = source.indexOf('CREATE OR REPLACE FUNCTION public.mm_admin_clear_table_orders(');
+  const comparison = source.indexOf('IF v_count <> p_expected_count', start);
+  const reset = source.indexOf('v_count := 0;', comparison);
+  const loop = source.indexOf('FOR v_order IN', comparison);
+  if (start < 0 || comparison < start || reset <= comparison || loop <= reset) {
+    fail(label + ' must reset the preview count before counting archived orders');
+  } else {
+    console.log('✓ ' + label + ' resets the archived-ticket counter after preview validation');
+  }
+}
+checkSqlDollarQuotes(migration, 'Accounting migration');
+checkSqlDollarQuotes(setup, 'Fresh setup SQL');
+checkCleanupCounterReset(migration, 'Accounting migration');
+checkCleanupCounterReset(setup, 'Fresh setup SQL');
+if (/DELETE\s+FROM\s+public\.orders/i.test(migration)) {
+  fail('Table cleanup must preserve order records rather than delete order history');
+}
+
 const kitchenStart = html.indexOf('function drawK()');
 const kitchenDeclaration = html.indexOf('var operationalOrders =', kitchenStart);
 const kitchenUse = html.indexOf('operationalOrders.filter', kitchenStart);
