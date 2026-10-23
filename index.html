@@ -2762,6 +2762,10 @@ function updateStaffPaymentControls() {
   if (cashLeave) cashLeave.style.display = staffCanConfirm ? 'none' : 'block';
   var cashStatus = document.getElementById('pay-cash-leave-status');
   if (cashStatus) cashStatus.style.display = staffCanConfirm ? 'none' : 'block';
+  var verifyButton = document.getElementById('pay-verify-upi-btn');
+  var verifyStatus = document.getElementById('pay-verify-upi-status');
+  if (verifyButton) verifyButton.style.display = staffCanConfirm ? 'none' : 'inline-flex';
+  if (verifyStatus) verifyStatus.style.display = staffCanConfirm ? 'none' : 'block';
   var hint = document.getElementById('pay-staff-confirm-hint');
   if (hint) hint.style.display = staffCanConfirm ? 'none' : 'block';
 }
@@ -4362,7 +4366,7 @@ function renderRoleNotifications(rows) {
       var isCashCounter = type === 'CASH_AT_COUNTER';
       var visitPaymentAlert = (isCashCounter || isPaymentCheck) && isVisitUuid(n.ticket_id);
       var title = isCashCounter ? 'CASH AT COUNTER' : isPaymentCheck ? 'PAYMENT VERIFICATION' : isParty ? 'PARTY BOOKING REQUEST' : isCall ? window.mmI18n('WAITER CALLED','वेटरला बोलावले') : type === 'BILL_REQUEST' ? window.mmI18n('BILL REQUEST','बिलाची विनंती') :
-        type === 'NEW_ORDER' ? window.mmI18n('NEW ORDER','नवीन ऑर्डER') : type === 'ORDER_READY' ? window.mmI18n('ORDER READY','ऑर्डर तयार') : type === 'ITEM_SOLD_OUT' ? window.mmI18n('SOLD OUT','संपला') : window.mmI18n('ALERT','सूचना');
+        type === 'NEW_ORDER' ? window.mmI18n('NEW ORDER','नवीन ऑर्डर') : type === 'ORDER_READY' ? window.mmI18n('ORDER READY','ऑर्डर तयार') : type === 'ITEM_SOLD_OUT' ? window.mmI18n('SOLD OUT','संपला') : window.mmI18n('ALERT','सूचना');
       var line = (isPaymentCheck || isCashCounter) ? (n.message || (isCashCounter ? 'Guest is leaving and will pay at the counter.' : 'The customer says they paid. Please verify the transaction before recording payment.')) : isParty ? (n.message || 'A new party booking request needs your attention.') : isCall ? window.mmI18n('Please go to the guest now.','कृपया लगेच ग्राहकाकडे जा.') :
         type === 'BILL_REQUEST' ? window.mmI18n('A guest needs help with the bill.','ग्राहकाला बिलासाठी मदत हवी आहे.') :
         type === 'NEW_ORDER' ? window.mmI18n('A new ticket is waiting in the kitchen queue.','किचनमध्ये नवीन ऑर्डर आली आहे.') :
