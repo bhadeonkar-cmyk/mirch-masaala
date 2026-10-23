@@ -45,7 +45,11 @@ try {
   ['MM_RECORD_TABLE_PAYMENT', 'Payments are confirmed through the server'],
   ['MM_GET_PUBLIC_TABLE_BILL', 'Customer bill uses the shared balance API'],
   ['MM_LOAD_ADMIN_ACCOUNTS_SUMMARY', 'Stats use authoritative shared accounts'],
-  ['MM_LOAD_ADMIN_PAYMENTS', 'Payment log reads shared receipts']
+  ['MM_LOAD_ADMIN_PAYMENTS', 'Payment log reads shared receipts'],
+  ['for (var i = 0; i < tokens.length; i++)', 'Every retained customer ticket gets status refresh'],
+  [".select('ticket_id,status').maybeSingle()", 'Staff status change confirms a database row was updated'],
+  [".select('id,price').maybeSingle()", 'Owner price update confirms a database row was updated'],
+  [".select('id,is_available').maybeSingle()", 'Menu availability update confirms a database row was updated']
 ].forEach(([needle, label]) => requireText(live, needle, label));
 
 [
