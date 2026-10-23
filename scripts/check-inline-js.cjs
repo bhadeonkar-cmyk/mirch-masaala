@@ -71,6 +71,7 @@ try {
   ["set_config('app.mm_payment_status', 'on', true)", 'Final payment closes a fully paid ticket'],
   ['ORDER_FULLY_PAID', 'Fully-paid tickets create an audit event'],
   ['CREATE OR REPLACE FUNCTION public.mm_admin_accounts_summary', 'Database-wide account summary exists'],
+  ['CREATE OR REPLACE FUNCTION public.mm_admin_get_order_details', 'Owner lookup returns order history and line items'],
   ['CREATE TABLE IF NOT EXISTS public.order_management_audit', 'Accounting audit table exists'],
   ['CREATE TABLE IF NOT EXISTS public.order_payments', 'Shared payment table exists'],
   ['coalesce(public.get_my_staff_role(), \'\') NOT IN (\'admin\', \'waiter\')', 'Payment RPC rejects non-staff identities'],
@@ -101,6 +102,7 @@ requireText(publicBoard, 'o.archived_at IS NULL', 'Public board filters archived
   [migration, 'owner_cancel_count', 'Owner cancellations appear in accounts stats'],
   [migration, "(p.created_at AT TIME ZONE 'Asia/Kolkata')::date = v_day", 'Daily received money follows payment date'],
   [setup, 'CREATE OR REPLACE FUNCTION public.mm_admin_cancel_order', 'Fresh setup includes audited owner cancellation'],
+  [setup, 'CREATE OR REPLACE FUNCTION public.mm_admin_get_order_details', 'Fresh setup includes owner ticket lookup'],
   [setup, 'p_expected_fingerprint text', 'Fresh setup checks cleanup snapshots']
 ].forEach(([source, needle, label]) => requireText(source, needle, label));
 
