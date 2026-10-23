@@ -719,7 +719,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = 'pg_catalog, public, pg_temp'
-AS $
+AS $$
 DECLARE
   v_order public.orders%ROWTYPE;
   v_table_number text;
@@ -758,7 +758,7 @@ BEGIN
   RETURN jsonb_build_object('id', v_order.ticket_id, 'table', v_table_number,
     'status', v_order.status, 'cancelledAt', v_order.updated_at);
 END
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.mm_admin_preview_table_cleanup(p_table_number text)
 RETURNS jsonb
@@ -860,6 +860,8 @@ BEGIN
   IF v_count <> p_expected_count OR v_fingerprint IS DISTINCT FROM p_expected_fingerprint THEN
     RAISE EXCEPTION 'Table data changed after preview. Preview again before cleaning.';
   END IF;
+  -- The previous v_count is the preview size; reset it to count processed records.
+  v_count := 0;
   PERFORM pg_catalog.set_config('app.mm_owner_table_cleanup', 'on', true);
   FOR v_order IN
     SELECT o.* FROM public.orders o
