@@ -24,7 +24,7 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 - **Waiter:** select a table, add items, and send a ticket. The table selection is visibly highlighted and the confirmation shows the ticket number.
 - **Kitchen:** each ticket is shown with its table number and ticket reference. On mobile, New / Cooking / Ready lanes stack vertically for easier reading.
 - **Owner/Admin:** everyday tools are Orders, Alerts, Menu, QR, and Settings. Reports, party bookings, reviews, and payment log are in **More tools**.
-- **After placing an order:** the customer sees the ticket/progress and three clear actions: Order more, Track my orders, and Request bill / Pay. Home now keeps a small recent-order receipt on the same device, with the ticket number, table, items, and total; **View items & status** opens the full ticket list again after leaving the confirmation screen. The same-device list is not an account-based cross-device history.
+- **After placing an order:** the customer sees the ticket/progress and three actions: Order more, Track my orders, and Request bill / Pay. Back on Home, a small **Recheck order** control opens the full ticket list only when tapped; order details no longer occupy the landing screen. Ticket-specific access tokens are stored on the originating browser, so this is not an account-based cross-device order history.
 
 ## Publish with GitHub Pages
 
@@ -35,9 +35,10 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 
 ## Important limitations before real service
 
-- The live app uses Supabase for the shared menu, order creation/status, customer cancellation, staff roles, notifications, and—after applying the accounts migration—payment and accounting actions. A few convenience preferences and customer details remain device-local.
+- The live app uses Supabase for the shared menu, orders/status, customer cancellation, staff roles, notifications, and—after applying the migrations—payment, accounting and persistent table-visit status. Customer order access tokens remain on the browser that created each ticket; a generated device ID alone would not identify the same person.
 - Staff access uses Supabase Auth and database roles. Keep the Supabase publishable key in the browser only; never expose a service-role/secret key. Keep staff credentials private and review database permissions before production use.
 - Apply `supabase/order-management-accounting.sql` once in Supabase SQL Editor to enable owner table cleanup, complimentary/free meal tracking, the shared payment ledger, database-wide stats, cancellation audit records, and role-checked order status transitions. Cleanup preserves records rather than deleting history.
+- Apply `supabase/table-visits.sql` once in Supabase SQL Editor to enable Start visit / Finish visit on the waiter pad. It keeps a shared table in service until the waiter confirms the guests have left and the table is reset; finishing is blocked while kitchen tickets are active or the bill is unpaid.
 - Owner price and availability edits are saved to Supabase and sync across devices. Other preferences and drafts may remain device-local.
 - UPI requires the owner to enter a real merchant VPA (UPI ID) in Admin → Settings. A missing UPI ID disables the UPI launch path and asks the customer to contact staff.
 - Payment completion is not verified automatically by this static frontend. Even if an app reports that a payment was submitted, staff must verify the money was received before marking an order paid.
@@ -46,13 +47,15 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 ## Main files
 
 - `index.html` — application UI and prototype logic.
+- `supabase-live.js` — shared Supabase data and order workflow.
+- `supabase/table-visits.sql` — guarded table visit lifecycle migration.
 - `manifest.webmanifest` — install metadata for supported browsers.
 - `icon.svg` — app icon.
 
 
 ## Owner accounting and table cleanup
 
-Run `supabase/order-management-accounting.sql` once in Supabase SQL Editor after deploying the current app. The migration adds an audit trail, confirmed-payment ledger, complimentary reasons, and test/archive flags. It is designed to be safely re-run. The earlier `supabase/customer-cancel-order.sql` is deprecated and intentionally contains no executable SQL; do not use it to update an installation after this accounting migration.
+Run `supabase/order-management-accounting.sql` once in Supabase SQL Editor after deploying the current app. The migration adds an audit trail, confirmed-payment ledger, complimentary reasons, and test/archive flags. It is designed to be safely re-run. Then run `supabase/table-visits.sql` once to activate persistent Start visit / Finish visit controls. The table-visit migration carries forward recent table activity during installation and only lets staff finish a visit when every active ticket is served/cancelled and no bill balance remains. The earlier `supabase/customer-cancel-order.sql` is deprecated and intentionally contains no executable SQL; do not use it to update an installation after this accounting migration.
 
 In **Owner → Orders**, use **Verify an order** and enter the ticket number shown by the customer to check its recorded item names, quantities, item prices, total, payments, balance, status, and any test/archive/cancellation/complimentary flags. The lookup includes completed, cancelled, and archived history, and only the owner account can run it. Cancel an unserved ticket with a reason; cancellation is saved to the shared order status and audit log. In **Owner → Stats**, use **Complimentary / free food** to classify an unpaid ticket with a reason; its value is tracked separately from money received. Use **Clean test orders for a table** only after reviewing the full ticket list and confirming every unarchived ticket at that table is test data. The app previews order count, active count, total order value and recorded payments before asking for confirmation; active tickets are cancelled and all selected records remain in history marked as test. Do not run cleanup on a table with real service unless every ticket has been reviewed.
 
