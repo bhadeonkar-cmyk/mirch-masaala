@@ -90,6 +90,11 @@ requireText(setup, 'Staff must use the staff workflow', 'Fresh setup protects cu
 requireText(publicBoard, 'o.archived_at IS NULL', 'Public board filters archived orders');
 [
   [live, 'window.MM_CANCEL_ADMIN_ORDER = cancelAdminOrder;', 'Owner ticket cancellation export exists'],
+  [live, 'window.MM_ADMIN_GET_ORDER_DETAILS = getAdminOrderDetails;', 'Owner can retrieve full ticket history by ticket number'],
+  [live, 'window.MM_REFRESH_CUSTOMER_ORDERS = refreshCustomerOrders;', 'Customer can manually refresh saved ticket statuses'],
+  [html, 'function lookupAdminTicket()', 'Owner ticket lookup UI exists'],
+  [html, 'id="home-my-orders"', 'Customer Home shows saved recent order history'],
+  [html, 'View items & status', 'Customer can reopen receipt and order status from Home'],
   [html, 'accounts-clean-confirm', 'Cleanup requires explicit owner confirmation'],
   [html, 'async function executeTableCleanup()', 'Cleanup confirmation has a separate handler'],
   [migration, 'p_expected_fingerprint text', 'Cleanup rejects stale table previews'],
