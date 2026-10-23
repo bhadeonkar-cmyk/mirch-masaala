@@ -65,6 +65,9 @@ try {
 
 [
   ['function cancelOrder(id)', 'Customer cancellation UI exists'],
+  ['class="customer-explore-shortcut"', 'Customer has a Places to Visit shortcut on the ordering screen'],
+  ['function openExploreFromCustomer()', 'Customer explore shortcut preserves the selected table context'],
+  ['function backFromExplore()', 'Explore view returns to the screen the customer came from'],
   ['id="customer-bill-pay-btn"', 'Customer has a persistent bill and payment action'],
   ['customerHasActiveOrdersForTable(tableNumber)', 'Customer table focus is limited to their active table'],
   ['id="customer-table-lock"', 'Customer sees a fixed current-table label after ordering'],
