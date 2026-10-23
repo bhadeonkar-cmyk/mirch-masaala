@@ -25,7 +25,10 @@ function makeMessage(row: Record<string, unknown>, role: string) {
   const pathRole = ["waiter", "kitchen", "admin"].includes(role) ? role : "waiter";
   let title = "Mirch Masaala";
   let body = String(row.message || "A restaurant update needs your attention.");
-  if (type === "PARTY_BOOKING") {
+  if (type === "PAYMENT_CHECK") {
+    title = "PAYMENT VERIFICATION · TABLE " + table;
+    body = String(row.message || "A guest says they paid. Please verify the transaction before recording payment.");
+  } else if (type === "PARTY_BOOKING") {
     title = "NEW PARTY BOOKING REQUEST";
     body = String(row.message || "A new party booking request needs your attention.");
   } else if (type === "WAITER_CALL") {
@@ -50,7 +53,7 @@ function makeMessage(row: Record<string, unknown>, role: string) {
     role: pathRole,
     url: SITE_ROOT + "?staff=" + encodeURIComponent(pathRole),
     tag: "mm-alert-" + String(row.id || "") + "-" + pathRole,
-    requireInteraction: type === "WAITER_CALL" || type === "BILL_REQUEST"
+    requireInteraction: type === "WAITER_CALL" || type === "BILL_REQUEST" || type === "PAYMENT_CHECK"
   };
 }
 
@@ -91,7 +94,7 @@ Deno.serve(async (req: Request) => {
     .select("id, target_role, notification_type, table_number, ticket_id, item_name, message, push_dispatch_token")
     .eq("restaurant_id", RESTAURANT_ID)
     .in("id", ids)
-    .in("notification_type", ["WAITER_CALL", "BILL_REQUEST", "PARTY_BOOKING"])
+    .in("notification_type", ["WAITER_CALL", "BILL_REQUEST", "PARTY_BOOKING", "PAYMENT_CHECK"])
     .is("push_sent_at", null)
     .is("resolved_at", null)
     .gt("created_at", recentCutoff);
