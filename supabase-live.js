@@ -515,7 +515,8 @@
       if (!Array.isArray(tokens) || !tokens.length) return;
       var savedOrders = [];
       try { savedOrders = JSON.parse(localStorage.getItem('mm_o') || '[]') || []; } catch (e) {}
-      for (var i = Math.max(0, tokens.length - 10); i < tokens.length; i++) {
+      // The token list is capped at 15, so refresh every ticket we still show in Track my orders.
+      for (var i = 0; i < tokens.length; i++) {
         var saved = tokens[i];
         if (!saved || !saved.id || !saved.token) continue;
         var result = await client.rpc('mm_get_public_order', {
@@ -969,9 +970,14 @@
       var result = await client.from('orders')
         .update({ status: nextStatus })
         .eq('restaurant_id', RESTAURANT_ID)
-        .eq('ticket_id', ticketId);
+        .eq('ticket_id', ticketId)
+        .select('ticket_id,status').maybeSingle();
       if (result.error) throw result.error;
+      if (!result.data || String(result.data.status || '').toUpperCase() !== nextStatus) {
+        throw new Error('The order was not updated. It may have changed or been archived; refresh the queue.');
+      }
       await refreshStaffOrders();
+      await refreshPublicOrderBoard();
       if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
       notifySuccess('Order marked ' + nextStatus.toLowerCase() + '.');
     } catch (e) {
@@ -1148,9 +1154,13 @@
     if (!Number.isFinite(price) || price < 0 || price > 999999) { notifyError('Enter a valid price.'); input.focus(); return; }
     try {
       var result = await client.from('menu_items').update({ price: Math.round(price) })
-        .eq('restaurant_id', RESTAURANT_ID).eq('id', item.db_id);
+        .eq('restaurant_id', RESTAURANT_ID).eq('id', item.db_id)
+        .select('id,price').maybeSingle();
       if (result.error) throw result.error;
-      item.price = Math.round(price);
+      if (!result.data || Number(result.data.price) !== Math.round(price)) {
+        throw new Error('No menu row was updated. Refresh the menu and try again.');
+      }
+      item.price = Math.round(result.data.price);
       (window.cart || []).forEach(function (c) { var m = window.MENU.menu_items.find(function (x) { return String(x.id) === String(c.id); }); if (m) c.price = m.price; });
       (window.wCart || []).forEach(function (c) { var m = window.MENU.menu_items.find(function (x) { return String(x.id) === String(c.id); }); if (m) c.price = m.price; });
       if (typeof window.updCart === 'function') window.updCart();
@@ -1170,9 +1180,13 @@
     var next = !item.is_available;
     try {
       var result = await client.from('menu_items').update({ is_available: next })
-        .eq('restaurant_id', RESTAURANT_ID).eq('id', item.db_id);
+        .eq('restaurant_id', RESTAURANT_ID).eq('id', item.db_id)
+        .select('id,is_available').maybeSingle();
       if (result.error) throw result.error;
-      item.is_available = next;
+      if (!result.data || result.data.is_available !== next) {
+        throw new Error('No menu row was updated. Refresh the menu and try again.');
+      }
+      item.is_available = result.data.is_available;
       if (typeof window.drawAdminMenu === 'function' && document.getElementById('a-menu') && document.getElementById('a-menu').style.display !== 'none') window.drawAdminMenu();
       if (typeof window.drawKMenu === 'function' && document.getElementById('kitchen') && document.getElementById('kitchen').classList.contains('on')) window.drawKMenu();
       if (typeof window.drawMenu === 'function' && document.getElementById('customer') && document.getElementById('customer').classList.contains('on')) window.drawMenu();
