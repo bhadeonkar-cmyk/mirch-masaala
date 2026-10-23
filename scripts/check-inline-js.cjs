@@ -132,6 +132,18 @@ if (/DELETE\s+FROM\s+public\.orders/i.test(migration)) {
   fail('Table cleanup must preserve order records rather than delete order history');
 }
 
+
+requireText(html, 'id="accounts-day-filter"', 'Owner stats can select a historical date');
+requireText(html, 'requestVersion !== adminStatsRequestVersion', 'Stale account-stat responses cannot overwrite a newer date selection');
+const waiterStart = html.indexOf('function drawWaiterOrders()');
+const waiterEnd = html.indexOf('/* Kitchen */', waiterStart);
+const waiterQueue = html.slice(waiterStart, waiterEnd > waiterStart ? waiterEnd : undefined);
+if (!waiterQueue.includes('!o.is_test_order && !o.archived_at')) {
+  fail('Waiter recent-ticket view must exclude archived/test orders after table cleanup');
+} else {
+  console.log('✓ Waiter recent-ticket view excludes archived/test orders');
+}
+
 const kitchenStart = html.indexOf('function drawK()');
 const kitchenDeclaration = html.indexOf('var operationalOrders =', kitchenStart);
 const kitchenUse = html.indexOf('operationalOrders.filter', kitchenStart);
