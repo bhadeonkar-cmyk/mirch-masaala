@@ -3736,7 +3736,8 @@ function renderRoleNotifications(rows) {
       var type = String(n.notification_type || '').toUpperCase();
       var tableNo = String(n.table_number || '').padStart(2,'0');
       var isCall = type === 'WAITER_CALL';
-      var title = isCall ? window.mmI18n('WAITER CALLED','वेटरला बोलावले') : type === 'BILL_REQUEST' ? window.mmI18n('BILL REQUEST','बिलाची विनंती') :
+      var isParty = type === 'PARTY_BOOKING';
+      var title = isParty ? 'PARTY BOOKING REQUEST' : isCall ? window.mmI18n('WAITER CALLED','वेटरला बोलावले') : type === 'BILL_REQUEST' ? window.mmI18n('BILL REQUEST','बिलाची विनंती') :
         type === 'NEW_ORDER' ? window.mmI18n('NEW ORDER','नवीन ऑर्डर') : type === 'ORDER_READY' ? window.mmI18n('ORDER READY','ऑर्डर तयार') : type === 'ITEM_SOLD_OUT' ? window.mmI18n('SOLD OUT','संपला') : window.mmI18n('ALERT','सूचना');
       var line = isCall ? window.mmI18n('Please go to the guest now.','कृपया लगेच ग्राहकाकडे जा.') :
         type === 'BILL_REQUEST' ? window.mmI18n('A guest needs help with the bill.','ग्राहकाला बिलासाठी मदत हवी आहे.') :
@@ -3744,12 +3745,12 @@ function renderRoleNotifications(rows) {
         type === 'ORDER_READY' ? window.mmI18n('Please check the ready ticket.','तयार ऑर्डर तपासा.') : (n.item_name ? window.mmDishName(n.item_name) : (n.message || window.mmI18n('A menu item is unavailable.','हा पदार्थ सध्या उपलब्ध नाही.')));
       var bigTable = isCall ? '<div class="urgent-table-number">' + esc(tableNo) + '</div><div class="urgent-table-caption">' + window.mmI18n('TABLE · GO NOW','टेबल · लगेच जा') + '</div>' :
         (tableNo && ['NEW_ORDER','ORDER_READY','BILL_REQUEST'].indexOf(type)>=0 ? '<div class="role-alert-table-small">' + window.mmI18n('TABLE','टेबल') + ' ' + esc(tableNo) + '</div>' : '');
-      var details = type === 'ITEM_SOLD_OUT' ? '' : (n.ticket_id ? 'Ticket #' + esc(n.ticket_id) : '');
+      var details = type === 'ITEM_SOLD_OUT' ? '' : (n.ticket_id ? (isParty ? 'Booking ' : 'Ticket #') + esc(n.ticket_id) : '');
       return '<article class="role-alert-card ' + (isCall ? 'role-alert-call' : 'role-alert-' + type.toLowerCase()) + '">' +
-        '<div class="role-alert-title"><span>' + (isCall ? '🔔' : type==='BILL_REQUEST' ? '💳' : type==='NEW_ORDER' ? '🍳' : type==='ORDER_READY' ? '✅' : '⚠️') + ' ' + title + '</span><button type="button" class="role-alert-dismiss" aria-label="' + window.mmI18n('Mark alert handled','सूचना पूर्ण करा') + '" onclick="handleStaffNotification(' + Number(n.id) + ')">' + window.mmI18n('Done','झाले') + '</button></div>' +
-        bigTable + '<p class="role-alert-message">' + line + '</p>' +
+        '<div class="role-alert-title"><span>' + (isParty ? '🎉' : isCall ? '🔔' : type==='BILL_REQUEST' ? '💳' : type==='NEW_ORDER' ? '🍳' : type==='ORDER_READY' ? '✅' : '⚠️') + ' ' + title + '</span><button type="button" class="role-alert-dismiss" aria-label="' + window.mmI18n('Mark alert handled','सूचना पूर्ण करा') + '" onclick="handleStaffNotification(' + Number(n.id) + ')">' + window.mmI18n('Done','झाले') + '</button></div>' +
+        bigTable + '<p class="role-alert-message">' + esc(line) + '</p>' +
         (details ? '<p class="role-alert-details">' + details + '</p>' : '') +
-        (isCall ? '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">I AM GOING · MARK HANDLED</button>' : '') +
+        (isParty ? '<button type="button" class="role-alert-action" onclick="openPartyFromAlert()">VIEW PARTY BOOKINGS</button>' : isCall ? '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">I AM GOING · MARK HANDLED</button>' : '') +
         '</article>';
     }).join('');
   }
@@ -3758,7 +3759,7 @@ function renderRoleNotifications(rows) {
   // Routine bill and ready-food alerts stay below the table picker, so they do not obscure table selection.
   renderRows('w-secondary-alert', currentRole === 'waiter' ? rows.filter(function(n){return ['BILL_REQUEST','ORDER_READY'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'waiter');
   renderRows('k-urgent-alert', currentRole === 'kitchen' ? rows.filter(function(n){return String(n.notification_type).toUpperCase()==='NEW_ORDER';}) : [], 'kitchen');
-  renderRows('a-urgent-alert', currentRole === 'admin' ? rows.filter(function(n){return ['ITEM_SOLD_OUT','BILL_REQUEST'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'admin');
+  renderRows('a-urgent-alert', currentRole === 'admin' ? rows.filter(function(n){return ['ITEM_SOLD_OUT','BILL_REQUEST','PARTY_BOOKING'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'admin');
   var alertTab = document.getElementById('a-alerts');
   if (alertTab && currentRole === 'admin' && alertTab.style.display !== 'none' && typeof drawAlerts === 'function') drawAlerts();
 }
@@ -3766,14 +3767,17 @@ window.renderRoleNotifications = renderRoleNotifications;
 function drawAlerts() {
   var host = document.getElementById('a-alerts'); if (!host) return;
   var localOpen = notifs.filter(function(n){ return !n.done; });
-  var shared = (window.MM_ROLE_NOTIFICATIONS || []).filter(function(n){ return ['ITEM_SOLD_OUT','BILL_REQUEST','ORDER_READY'].indexOf(String(n.notification_type || '').toUpperCase()) >= 0; });
+  var shared = (window.MM_ROLE_NOTIFICATIONS || []).filter(function(n){ return ['ITEM_SOLD_OUT','BILL_REQUEST','ORDER_READY','PARTY_BOOKING'].indexOf(String(n.notification_type || '').toUpperCase()) >= 0; });
   var localHtml = localOpen.map(function(n) {
     return '<div class="card" style="justify-content:space-between"><div><b>' + esc(n.message) + '</b><div class="muted">' + new Date(n.at).toLocaleTimeString() + '</div></div><button type="button" class="btn btn-ok btn-sm" onclick="doneNotif(' + n.id + ')">Done</button></div>';
   }).join('');
   var sharedHtml = shared.map(function(n) {
     var type = String(n.notification_type || '').toUpperCase();
-    var name = type === 'ITEM_SOLD_OUT' ? 'SOLD OUT' : type === 'BILL_REQUEST' ? 'BILL REQUEST' : 'ORDER READY';
-    return '<div class="card shared-admin-alert" style="justify-content:space-between"><div><b>' + name + (n.table_number ? ' · TABLE ' + esc(n.table_number) : '') + '</b><div>' + esc(n.item_name || n.message || '') + '</div><div class="muted">' + new Date(n.created_at).toLocaleTimeString() + '</div></div><button type="button" class="btn btn-ok btn-sm" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button></div>';
+    var name = type === 'PARTY_BOOKING' ? 'NEW PARTY BOOKING' : type === 'ITEM_SOLD_OUT' ? 'SOLD OUT' : type === 'BILL_REQUEST' ? 'BILL REQUEST' : 'ORDER READY';
+    var action = type === 'PARTY_BOOKING'
+      ? '<button type="button" class="btn btn-soft btn-sm" onclick="openPartyFromAlert()">View bookings</button><button type="button" class="btn btn-ok btn-sm" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button>'
+      : '<button type="button" class="btn btn-ok btn-sm" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button>';
+    return '<div class="card shared-admin-alert" style="justify-content:space-between"><div><b>' + name + (n.table_number ? ' · TABLE ' + esc(n.table_number) : '') + '</b><div>' + esc(n.item_name || n.message || '') + '</div><div class="muted">' + new Date(n.created_at).toLocaleTimeString() + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">' + action + '</div></div>';
   }).join('');
   host.innerHTML = '<div class="admin-alert-group"><h3>Important alerts</h3>' + (sharedHtml || '<p class="muted">No open shared alerts.</p>') + '</div>' + (localHtml ? '<div class="admin-alert-group"><h3>Device alerts</h3>' + localHtml + '</div>' : '');
 }
