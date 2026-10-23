@@ -25,7 +25,10 @@ function makeMessage(row: Record<string, unknown>, role: string) {
   const pathRole = ["waiter", "kitchen", "admin"].includes(role) ? role : "waiter";
   let title = "Mirch Masaala";
   let body = String(row.message || "A restaurant update needs your attention.");
-  if (type === "PAYMENT_CHECK") {
+  if (type === "CASH_AT_COUNTER") {
+    title = "CASH AT COUNTER · TABLE " + table;
+    body = String(row.message || "A guest has left the table and will pay cash at the counter. Please collect the outstanding balance.");
+  } else if (type === "PAYMENT_CHECK") {
     title = "PAYMENT VERIFICATION · TABLE " + table;
     body = String(row.message || "A guest says they paid. Please verify the transaction before recording payment.");
   } else if (type === "PARTY_BOOKING") {
@@ -53,7 +56,7 @@ function makeMessage(row: Record<string, unknown>, role: string) {
     role: pathRole,
     url: SITE_ROOT + "?staff=" + encodeURIComponent(pathRole),
     tag: "mm-alert-" + String(row.id || "") + "-" + pathRole,
-    requireInteraction: type === "WAITER_CALL" || type === "BILL_REQUEST" || type === "PAYMENT_CHECK"
+    requireInteraction: type === "WAITER_CALL" || type === "BILL_REQUEST" || type === "PAYMENT_CHECK" || type === "CASH_AT_COUNTER"
   };
 }
 
