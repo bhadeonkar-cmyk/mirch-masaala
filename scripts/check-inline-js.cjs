@@ -221,6 +221,8 @@ requireText(partyBookingsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_
 requireText(partyBookingsMigration, "'PARTY_BOOKING'", 'Party request creates an owner alert');
 requireText(staffPushEdge, '"PARTY_BOOKING"', 'Background push sender supports party booking alerts');
 requireText(staffPushEdge, '"PAYMENT_CHECK"', 'Background push sender supports payment verification alerts');
+requireText(staffPushEdge, '"CASH_AT_COUNTER"', 'Background push sender supports urgent cash collection alerts');
+requireText(staffPushEdge, '|| type === "CASH_AT_COUNTER"', 'Cash collection pushes remain visible until staff attends');
 checkCleanupCounterReset(migration, 'Accounting migration');
 checkCleanupCounterReset(setup, 'Fresh setup SQL');
 if (/DELETE\s+FROM\s+public\.orders/i.test(migration)) {
