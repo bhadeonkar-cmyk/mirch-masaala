@@ -4119,7 +4119,9 @@ function renderRoleNotifications(rows) {
         '<div class="role-alert-title"><span>' + (isPaymentCheck ? '💸' : isParty ? '🎉' : isCall ? '🔔' : type==='BILL_REQUEST' ? '💳' : type==='NEW_ORDER' ? '🍳' : type==='ORDER_READY' ? '✅' : '⚠️') + ' ' + title + '</span><button type="button" class="role-alert-dismiss" aria-label="' + window.mmI18n('Mark alert handled','सूचना पूर्ण करा') + '" onclick="handleStaffNotification(' + Number(n.id) + ')">' + window.mmI18n('Done','झाले') + '</button></div>' +
         bigTable + '<p class="role-alert-message">' + esc(line) + '</p>' +
         (details ? '<p class="role-alert-details">' + details + '</p>' : '') +
-        (isPaymentCheck ? '<button type="button" class="role-alert-action" onclick="openPaymentsFromAlert()">OPEN PAYMENT LOG</button>' : isParty ? '<button type="button" class="role-alert-action" onclick="openPartyFromAlert()">VIEW PARTY BOOKINGS</button>' : isCall ? '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">I AM GOING · MARK HANDLED</button>' : '') +
+        (isPaymentCheck ? (roleKind === 'admin'
+          ? '<button type="button" class="role-alert-action" onclick="openPaymentsFromAlert()">OPEN PAYMENT LOG</button>'
+          : '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">ACKNOWLEDGE AFTER CHECKING</button>') : isParty ? '<button type="button" class="role-alert-action" onclick="openPartyFromAlert()">VIEW PARTY BOOKINGS</button>' : isCall ? '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">I AM GOING · MARK HANDLED</button>' : '') +
         '</article>';
     }).join('');
   }
