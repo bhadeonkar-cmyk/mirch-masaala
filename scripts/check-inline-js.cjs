@@ -6,6 +6,7 @@ const live = fs.readFileSync('supabase-live.js', 'utf8');
 const migration = fs.readFileSync('supabase/order-management-accounting.sql', 'utf8');
 const setup = fs.readFileSync('supabase/setup-live.sql', 'utf8');
 const publicBoard = fs.readFileSync('supabase/public-table-status-circles.sql', 'utf8');
+const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
 
 function fail(message) {
@@ -75,6 +76,10 @@ try {
   ['Staff must use the staff workflow', 'Staff cannot use the customer cancellation endpoint']
 ].forEach(([needle, label]) => requireText(migration, needle, label));
 
+requireText(legacyCancellation, 'DEPRECATED', 'Legacy customer cancellation migration is marked deprecated');
+if (legacyCancellation.includes('CREATE OR REPLACE FUNCTION public.mm_guard_order_update')) {
+  fail('Deprecated cancellation migration must not overwrite the accounting/order-status guard');
+}
 requireText(setup, 'CREATE OR REPLACE FUNCTION public.mm_admin_clear_table_orders', 'Fresh setup includes owner cleanup');
 requireText(setup, 'CREATE OR REPLACE FUNCTION public.mm_staff_record_table_payment', 'Fresh setup includes payment ledger');
 requireText(setup, 'Staff must use the staff workflow', 'Fresh setup protects customer cancellation RPC');
