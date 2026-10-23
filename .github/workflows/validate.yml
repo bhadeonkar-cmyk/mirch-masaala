@@ -61,3 +61,14 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/order-management-accounting.sql
       - name: Exercise cancellation, cleanup, payments and stats
         run: psql -v ON_ERROR_STOP=1 -f scripts/check-accounting-behavior.sql
+      - name: Verify accounting migration is safe to re-run
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/order-management-accounting.sql
+          psql -v ON_ERROR_STOP=1 -c "DO \$qa\$ BEGIN
+            IF (SELECT count(*) FROM public.order_payments WHERE ticket_id = 'MM-T2-PAID') <> 1 THEN
+              RAISE EXCEPTION 'QA failed: re-running migration duplicated a recorded payment';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM public.orders WHERE ticket_id = 'MM-T2-NEW' AND is_test_order AND archived_at IS NOT NULL AND status = 'CANCELLED') THEN
+              RAISE EXCEPTION 'QA failed: re-running migration changed archived test cleanup';
+            END IF;
+          END \$qa\$;"
