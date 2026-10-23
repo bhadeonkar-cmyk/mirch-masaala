@@ -6,6 +6,7 @@ const live = fs.readFileSync('supabase-live.js', 'utf8');
 const migration = fs.readFileSync('supabase/order-management-accounting.sql', 'utf8');
 const setup = fs.readFileSync('supabase/setup-live.sql', 'utf8');
 const publicBoard = fs.readFileSync('supabase/public-table-status-circles.sql', 'utf8');
+const tableVisitsMigration = fs.readFileSync('supabase/table-visits.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
 
@@ -93,9 +94,19 @@ requireText(publicBoard, 'o.archived_at IS NULL', 'Public board filters archived
   [live, 'window.MM_CANCEL_ADMIN_ORDER = cancelAdminOrder;', 'Owner ticket cancellation export exists'],
   [live, 'window.MM_ADMIN_GET_ORDER_DETAILS = getAdminOrderDetails;', 'Owner can retrieve full ticket history by ticket number'],
   [live, 'window.MM_REFRESH_CUSTOMER_ORDERS = refreshCustomerOrders;', 'Customer can manually refresh saved ticket statuses'],
+  [live, 'window.MM_SET_TABLE_VISIT_STATUS = setTableVisitStatus;', 'Table visit transitions use the shared database'],
+  [live, 'await ensurePublicTableVisit(tableNumber);', 'New orders open a table visit when the migration is installed'],
+  [tableVisitsMigration, 'CREATE TABLE IF NOT EXISTS public.restaurant_table_visits', 'Persistent table visits are recorded in the shared database'],
+  [tableVisitsMigration, 'mm_staff_get_table_visits', 'Staff can load shared table availability'],
+  [tableVisitsMigration, 'mm_staff_set_table_visit_status', 'Table visit transitions use guarded server-side RPCs'],
+  [tableVisitsMigration, "upper(coalesce(o.status, '')) IN ('NEW', 'PREPARING', 'READY')", 'Table cannot finish while a kitchen ticket is active'],
+  [tableVisitsMigration, 'v_due,', 'Table finish checks unpaid bills'],
   [html, 'function lookupAdminTicket()', 'Owner ticket lookup UI exists'],
-  [html, 'id="home-my-orders"', 'Customer Home shows saved recent order history'],
-  [html, 'View items & status', 'Customer can reopen receipt and order status from Home'],
+  [html, 'id="home-my-orders"', 'Customer Home has a discreet saved-order control'],
+  [html, 'Recheck order', 'Customer can reopen saved orders from Home with one small button'],
+  [html, 'w-secondary-alert', 'Routine waiter alerts have a lower-priority host below the table picker'],
+  [html, 'function finishTableVisit()', 'Waiter has an explicit table-visit completion action'],
+  [html, 'id="w-visit-control"', 'Waiter can review table visit state from the selected table'],
   [html, 'accounts-clean-confirm', 'Cleanup requires explicit owner confirmation'],
   [html, 'async function executeTableCleanup()', 'Cleanup confirmation has a separate handler'],
   [migration, 'p_expected_fingerprint text', 'Cleanup rejects stale table previews'],
@@ -142,6 +153,7 @@ function checkCleanupCounterReset(source, label) {
 }
 checkSqlDollarQuotes(migration, 'Accounting migration');
 checkSqlDollarQuotes(setup, 'Fresh setup SQL');
+checkSqlDollarQuotes(tableVisitsMigration, 'Table visits migration');
 checkCleanupCounterReset(migration, 'Accounting migration');
 checkCleanupCounterReset(setup, 'Fresh setup SQL');
 if (/DELETE\s+FROM\s+public\.orders/i.test(migration)) {
