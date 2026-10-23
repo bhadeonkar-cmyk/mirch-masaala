@@ -4443,7 +4443,7 @@ async function sendParty() {
     toast('Your party request has been saved. We will contact you to confirm availability.');
   } catch (err) {
     console.error('[Mirch Masaala party booking]', err);
-    toast(err && err.message ? err.message : 'We could not save your request. Please try again.');
+    toast('We could not submit your request just now. Please try again in a moment or contact the restaurant.');
   } finally {
     partySubmissionBusy = false;
     if (button && !lastPartySubmission) { button.disabled = false; button.textContent = 'Send party request'; }
