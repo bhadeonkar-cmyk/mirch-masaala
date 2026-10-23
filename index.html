@@ -2795,7 +2795,7 @@ function addCustomerClosedVisit(visitId, tableNumber) {
   try { localStorage.setItem('mm_customer_closed_visit_ids', JSON.stringify(closedVisits.slice(-100))); } catch (e) {}
   var closedTickets = readIdList('mm_customer_released_ticket_ids');
   customerOrdersAtTable(tableNo).forEach(function(order) {
-    if (order && String(order.visitId || '') === visit && order.id && closedTickets.indexOf(String(order.id)) < 0) closedTickets.push(String(order.id));
+    if (order && order.id && (String(order.visitId || '') === visit || !order.visitId) && closedTickets.indexOf(String(order.id)) < 0) closedTickets.push(String(order.id));
   });
   try { localStorage.setItem('mm_customer_released_ticket_ids', JSON.stringify(closedTickets.slice(-300))); } catch (e) {}
   try {
@@ -2819,13 +2819,19 @@ async function syncCustomerVisitCheckoutStatus() {
   if (!ctx) return;
   try {
     var bill = await window.MM_GET_PUBLIC_VISIT_BILL(tableNo, ctx.visitId, ctx.customerSessionId);
-    if (Number(bill && bill.amount) <= 0.01 && String(bill && bill.visit_status || '').toUpperCase() === 'CLOSED') {
+    if (String(bill && bill.visit_status || '').toUpperCase() === 'CLOSED') {
+      var remaining = Number(bill && bill.amount) || 0;
+      var paymentSettled = remaining <= 0.01;
+      var payModalOpen = !!(document.getElementById('pay-modal') && document.getElementById('pay-modal').classList.contains('on'));
       addCustomerClosedVisit(ctx.visitId, tableNo);
-      if (document.getElementById('pay-modal') && document.getElementById('pay-modal').classList.contains('on')) closePayQR();
+      if (payModalOpen) closePayQR();
       updateCustomerBottomActions();
       syncCustomerHomeTablePicker();
-      toast('Payment confirmed by staff. Table ' + tableNo + ' is now available.');
-      if ((document.getElementById('customer') && document.getElementById('customer').classList.contains('on')) ||
+      toast(paymentSettled
+        ? 'Payment confirmed by staff. Table ' + tableNo + ' is now available.'
+        : 'Table ' + tableNo + ' has been released. ₹' + remaining.toFixed(2) + ' remains due at the counter.');
+      if (payModalOpen ||
+          (document.getElementById('customer') && document.getElementById('customer').classList.contains('on')) ||
           (document.getElementById('home') && document.getElementById('home').classList.contains('on'))) go('home');
     }
   } catch (e) {
@@ -2917,7 +2923,10 @@ async function releaseTableForCash() {
     updateCustomerBottomActions();
     if (typeof renderHomeTables === 'function') renderHomeTables();
     go('home');
-    toast('Table ' + tableNo + ' released. Owner and counter staff alerted about ₹' + (Number(result && result.amount) || 0).toFixed(2) + ' due at the counter.');
+    var counterDue = Number(result && result.amount) || 0;
+    toast(counterDue > 0.01
+      ? 'Table ' + tableNo + ' released. Owner and counter staff alerted about ₹' + counterDue.toFixed(2) + ' due at the counter.'
+      : 'Table ' + tableNo + ' released. No unpaid balance remains.');
   } catch (err) {
     console.error('[Mirch Masaala cash counter release]', err);
     if (button) { button.disabled = false; button.textContent = 'I’ll pay cash at the counter & leave the table'; }
