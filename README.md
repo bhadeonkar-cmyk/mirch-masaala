@@ -39,6 +39,7 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 - Staff access uses Supabase Auth and database roles. Keep the Supabase publishable key in the browser only; never expose a service-role/secret key. Keep staff credentials private and review database permissions before production use.
 - Apply `supabase/order-management-accounting.sql` once in Supabase SQL Editor to enable owner table cleanup, complimentary/free meal tracking, the shared payment ledger, database-wide stats, cancellation audit records, and role-checked order status transitions. Cleanup preserves records rather than deleting history.
 - Apply `supabase/table-visits.sql` once in Supabase SQL Editor to enable Start visit / Finish visit on the waiter pad. It keeps a shared table in service until the waiter confirms the guests have left and the table is reset; finishing is blocked while kitchen tickets are active or the bill is unpaid.
+- Apply `supabase/visit-billing-upgrade.sql` after the three base SQL files above to link each new order to the exact active table visit and to a per-browser customer session ID. This migration replaces the public order RPC with a backward-compatible optional-argument version, returns the active visit ID, and records visit activity. It preserves existing tickets/payments and does not enable automatic stale-visit closure yet; that will be added and tested as a separate step. Do not enable the new frontend for live ordering until this migration has been run successfully in Supabase.
 - Owner price and availability edits are saved to Supabase and sync across devices. Other preferences and drafts may remain device-local.
 - UPI requires the owner to enter a real merchant VPA (UPI ID) in Admin → Settings. A missing UPI ID disables the UPI launch path and asks the customer to contact staff.
 - Payment completion is not verified automatically by this static frontend. Even if an app reports that a payment was submitted, staff must verify the money was received before marking an order paid.
@@ -49,6 +50,7 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 - `index.html` — application UI and prototype logic.
 - `supabase-live.js` — shared Supabase data and order workflow.
 - `supabase/table-visits.sql` — guarded table visit lifecycle migration.
+- `supabase/visit-billing-upgrade.sql` — order-to-visit and customer-session linkage.
 - `manifest.webmanifest` — install metadata for supported browsers.
 - `icon.svg` — app icon.
 
