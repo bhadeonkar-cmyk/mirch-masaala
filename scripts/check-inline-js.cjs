@@ -222,6 +222,7 @@ requireText(partyBookingsMigration, "'PARTY_BOOKING'", 'Party request creates an
 requireText(staffPushEdge, '"PARTY_BOOKING"', 'Background push sender supports party booking alerts');
 requireText(staffPushEdge, '"PAYMENT_CHECK"', 'Background push sender supports payment verification alerts');
 requireText(staffPushEdge, '"CASH_AT_COUNTER"', 'Background push sender supports urgent cash collection alerts');
+requireText(staffPushEdge, '"PAYMENT_CHECK", "CASH_AT_COUNTER"', 'Cash collection is included in the push dispatch allowlist');
 requireText(staffPushEdge, '|| type === "CASH_AT_COUNTER"', 'Cash collection pushes remain visible until staff attends');
 checkCleanupCounterReset(migration, 'Accounting migration');
 checkCleanupCounterReset(setup, 'Fresh setup SQL');
