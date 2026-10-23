@@ -36,6 +36,23 @@ button, input, select, textarea { font: inherit; }
 .screen { display: none; min-height: 100vh; }
 .screen.on { display: block; animation: fade .28s ease; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes partyRing {
+  0% { transform: scale(.94); opacity: .62; }
+  78%,100% { transform: scale(1.28); opacity: 0; }
+}
+@keyframes partyIconBounce {
+  0%,100% { transform: translateY(0) rotate(0deg); }
+  45% { transform: translateY(-2px) rotate(-5deg); }
+  65% { transform: translateY(-1px) rotate(5deg); }
+}
+@keyframes partyGlow {
+  0%,100% { box-shadow: 0 5px 14px rgba(0,0,0,.2), inset 0 0 0 3px rgba(212,168,75,.06); }
+  50% { box-shadow: 0 0 0 2px rgba(240,215,140,.12), 0 0 18px rgba(212,168,75,.32), inset 0 0 0 3px rgba(212,168,75,.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-icon-btn.party-booking-btn, .home-icon-btn.party-booking-btn::before,
+  .home-icon-btn.party-booking-btn span { animation: none !important; }
+}
 @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
 @keyframes stir {
   0%,100%{ transform: rotate(-8deg) translateY(0); }
@@ -537,10 +554,14 @@ body{line-height:1.5}
 /* Small friendly icon shortcuts: each icon itself is the clickable control. */
 .home-shortcuts{display:flex;align-items:flex-start;justify-content:center;gap:clamp(18px,6vw,30px);margin:13px auto 4px;padding:2px 0;flex-wrap:wrap}
 .home-shortcut{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:64px}
-.home-icon-btn{width:50px;height:50px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(240,215,140,.4);border-radius:50%;background:radial-gradient(circle at 32% 24%,rgba(240,215,140,.22),rgba(38,28,24,.96) 72%);color:var(--gold2);font-size:25px;line-height:1;box-shadow:0 5px 14px rgba(0,0,0,.2),inset 0 0 0 3px rgba(212,168,75,.06);cursor:pointer;transition:transform .16s,border-color .16s,box-shadow .16s}
+.home-icon-btn{width:50px;height:50px;position:relative;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(240,215,140,.4);border-radius:50%;background:radial-gradient(circle at 32% 24%,rgba(240,215,140,.22),rgba(38,28,24,.96) 72%);color:var(--gold2);font-size:25px;line-height:1;box-shadow:0 5px 14px rgba(0,0,0,.2),inset 0 0 0 3px rgba(212,168,75,.06);cursor:pointer;transition:transform .16s,border-color .16s,box-shadow .16s}
 .home-icon-btn:active{transform:scale(.92);border-color:var(--gold2);box-shadow:0 0 0 4px rgba(212,168,75,.1)}
 .home-icon-btn:focus-visible{outline:2px solid var(--gold2);outline-offset:4px}
 .home-icon-btn span{display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
+.home-icon-btn.party-booking-btn{border-color:rgba(240,215,140,.8);animation:partyGlow 2.8s ease-in-out infinite}
+.home-icon-btn.party-booking-btn::before{content:"";position:absolute;inset:-5px;border:1px solid rgba(240,215,140,.62);border-radius:50%;pointer-events:none;animation:partyRing 2.8s ease-out infinite}
+.home-icon-btn.party-booking-btn span{animation:partyIconBounce 2.8s ease-in-out infinite}
+
 .home-shortcut-label{font-size:10px;font-weight:700;color:var(--muted);text-align:center;max-width:86px;line-height:1.25}
 #home-visit-shortcut{display:flex}
 #home .table-swipe-guide{font-size:10px;gap:6px;padding:3px 7px;margin:2px auto 5px;min-height:20px}
@@ -941,6 +962,10 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
         <span class="home-shortcut-label" id="home-how-to-use">How to use</span>
       </div>
       <div class="home-shortcut">
+        <button type="button" class="home-icon-btn party-booking-btn" id="home-party-link" aria-label="Party booking" title="Party booking" onclick="openParty()"><span aria-hidden="true">🎉</span></button>
+        <span class="home-shortcut-label" id="home-party-booking">Party booking</span>
+      </div>
+      <div class="home-shortcut">
         <button type="button" class="home-icon-btn" id="home-explore-link" aria-label="Places to visit" title="Places to visit" onclick="go('explore')"><span aria-hidden="true">🗺️</span></button>
         <span class="home-shortcut-label" id="home-places-to-visit">Places to visit</span>
       </div>
@@ -1224,26 +1249,45 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   </div>
 </div>
 <div class="modal" id="party-modal">
-  <div class="box">
-    <h3 class="gold center">🎉 Party booking</h3>
-    <p class="muted center" style="margin-bottom:10px">We will call you</p>
-    <label class="muted" style="font-size:12px">Your name</label>
-    <input id="p-name" placeholder="Name">
-    <label class="muted" style="font-size:12px">Phone</label>
-    <input id="p-phone" placeholder="Phone" type="tel">
-    <label class="muted" style="font-size:12px">Event</label>
-    <select id="p-type"><option>Birthday</option><option>Anniversary</option><option>Family</option><option>Office</option><option>Other</option></select>
-    <label class="muted" style="font-size:12px">Date</label>
-    <input id="p-date" type="date">
-    <label class="muted" style="font-size:12px">Guests</label>
-    <input id="p-guests" type="number" placeholder="e.g. 15">
-    <label class="muted" style="font-size:12px">Notes</label>
-    <textarea id="p-notes" placeholder="Cake, time…"></textarea>
-    <p class="muted" style="font-size:12px">Restaurant WhatsApp: <b class="gold" id="party-admin-contact">+91 9657076450</b></p>
-    <button type="button" class="btn btn-main" onclick="sendParty()">Send request</button>
-    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeParty()">Close</button>
+  <div class="box" id="party-modal-box">
+    <div id="party-request-fields">
+      <h3 class="gold center">🎉 Plan your celebration</h3>
+      <p class="muted center" style="margin-bottom:10px">Share your details and our team will contact you to confirm availability. This is a request, not a confirmed booking.</p>
+      <label class="muted" style="font-size:12px" for="p-name">Your name *</label>
+      <input id="p-name" placeholder="Enter your name" autocomplete="name" maxlength="120" required>
+      <label class="muted" style="font-size:12px" for="p-phone">Mobile number *</label>
+      <input id="p-phone" placeholder="10-digit mobile number" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" required>
+      <label class="muted" style="font-size:12px" for="p-type">Occasion *</label>
+      <select id="p-type" required><option>Birthday</option><option>Anniversary</option><option>Family gathering</option><option>Office party</option><option>Other celebration</option></select>
+      <label class="muted" style="font-size:12px" for="p-date">Preferred date *</label>
+      <input id="p-date" type="date" required>
+      <label class="muted" style="font-size:12px" for="p-time">Preferred time *</label>
+      <select id="p-time" required>
+        <option value="">Choose a time</option><option value="12:00">12:00 PM</option><option value="13:00">1:00 PM</option>
+        <option value="16:00">4:00 PM</option><option value="18:00">6:00 PM</option><option value="19:00">7:00 PM</option><option value="20:00">8:00 PM</option>
+      </select>
+      <label class="muted" style="font-size:12px" for="p-guests">Number of guests *</label>
+      <input id="p-guests" type="number" min="1" max="500" step="1" inputmode="numeric" placeholder="e.g. 15" required>
+      <label class="muted" style="font-size:12px" for="p-notes">Special requests (optional)</label>
+      <textarea id="p-notes" maxlength="1000" placeholder="Menu preferences, cake, decorations or other requests…"></textarea>
+      <p class="muted" style="font-size:12px;margin-top:8px">Restaurant WhatsApp: <b class="gold" id="party-admin-contact">+91 9657076450</b></p>
+      <button type="button" class="btn btn-main" id="party-submit-btn" onclick="sendParty()">Send party request</button>
+      <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeParty()">Close</button>
+    </div>
+    <div id="party-confirmation" style="display:none">
+      <h3 class="gold center">Thank you for your request! 🎉</h3>
+      <p class="muted center" style="margin:8px 0 14px">Your request has been received. Our team will contact you to confirm availability. Your booking is not confirmed yet.</p>
+      <div class="card" style="flex-direction:column;align-items:flex-start;gap:6px">
+        <b class="gold" id="party-confirm-ref"></b>
+        <div id="party-confirm-details"></div>
+      </div>
+      <p class="muted" style="font-size:12px;margin-top:10px">You can open WhatsApp to send these details to the restaurant and continue the conversation.</p>
+      <button type="button" class="btn btn-main" style="margin-top:8px" onclick="sendPartyWhatsApp()">Message restaurant on WhatsApp</button>
+      <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeParty()">Close</button>
+    </div>
   </div>
 </div>
+<div class="modal" id="review-modal"></div>
 <div class="modal" id="review-modal">
   <div class="box center">
     <h3 class="gold">How was your meal?</h3>
@@ -1436,6 +1480,9 @@ var orders = load('mm_o', []);
 var notifs = load('mm_n', []);
 var reviews = load('mm_r', []);
 var bookings = load('mm_b', []);
+var partyBookingsFromServer = [];
+var partySubmissionBusy = false;
+var lastPartySubmission = null;
 var isOpen = localStorage.getItem('mm_open') !== 'false';
 var stars = 0, scanner = null, lastN = orders.length;
 var wTable = null, wCart = [], wCat = 'all';
