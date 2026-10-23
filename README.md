@@ -20,7 +20,7 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 ## Simplified role workflows
 
 - **Customer:** scan the table QR with the phone camera, add dishes, use the cart to submit one ticket, and use the single **Help & orders** menu for calling a waiter, billing, tracking, or instructions.
-- **Groups at one table:** the QR is a table identifier, not a lock or customer identity. Each submission gets a distinct ticket number so one customer's submission does not intentionally replace another ticket. The tickets are not yet shared across phones; this becomes operational only after database sync is connected.
+- **Groups at one table:** the QR is a table identifier, not a lock or customer identity. Each submission gets its own ticket. Supabase shares the live tickets with staff screens, while each customer device tracks the tickets created on that device.
 - **Waiter:** select a table, add items, and send a ticket. The table selection is visibly highlighted and the confirmation shows the ticket number.
 - **Kitchen:** each ticket is shown with its table number and ticket reference. On mobile, New / Cooking / Ready lanes stack vertically for easier reading.
 - **Owner/Admin:** everyday tools are Orders, Alerts, Menu, QR, and Settings. Reports, party bookings, reviews, and payment log are in **More tools**.
@@ -38,7 +38,7 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 - The live app uses Supabase for the shared menu, order creation/status, customer cancellation, staff roles, notifications, and—after applying the accounts migration—payment and accounting actions. A few convenience preferences and customer details remain device-local.
 - Staff access uses Supabase Auth and database roles. Keep the Supabase publishable key in the browser only; never expose a service-role/secret key. Keep staff credentials private and review database permissions before production use.
 - Apply `supabase/order-management-accounting.sql` once in Supabase SQL Editor to enable owner table cleanup, complimentary/free meal tracking, the shared payment ledger, database-wide stats, cancellation audit records, and role-checked order status transitions. Cleanup preserves records rather than deleting history.
-- Local owner price changes only affect the browser where they are saved until shared database persistence is implemented.
+- Owner price and availability edits are saved to Supabase and sync across devices. Other preferences and drafts may remain device-local.
 - UPI requires the owner to enter a real merchant VPA (UPI ID) in Admin → Settings. A missing UPI ID disables the UPI launch path and asks the customer to contact staff.
 - Payment completion is not verified automatically by this static frontend. Even if an app reports that a payment was submitted, staff must verify the money was received before marking an order paid.
 - QR generation uses public CDN sources with a backup QR-image service, so internet access is required for both normal and fallback generation.
