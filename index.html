@@ -2952,7 +2952,8 @@ function updateWaiterTableIndicators() {
     var num = String(b.getAttribute('data-table-number') || '').padStart(2, '0');
     var draftCount = (wDrafts[num] || []).reduce(function (sum, item) { return sum + (Number(item.qty) || 0); }, 0);
     var tableOrders = (orders || []).filter(function(o) {
-      return String(o.table || '').padStart(2, '0') === num &&
+      return o && !o.is_test_order && !o.archived_at &&
+        String(o.table || '').padStart(2, '0') === num &&
         ['NEW','PREPARING','READY'].indexOf(String(o.status || '').toUpperCase()) >= 0;
     }).sort(function(a,b){ return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); });
     var active = tableOrders.length ? String(tableOrders[0].status || 'NEW').toUpperCase() : '';
@@ -3164,14 +3165,14 @@ function setStatus(id, st) {
 function drawK() {
   var time = document.getElementById('k-time');
   if (time) time.textContent = new Date().toLocaleTimeString();
-  var qTitle = document.querySelector('.k-queue-title');
-  if (qTitle) {
-    var live = operationalOrders.filter(function(o){ return o.status==='NEW'||o.status==='PREPARING'||o.status==='READY'; }).length;
-    qTitle.textContent = 'LIVE ORDER QUEUE · ' + live + ' active · auto-updates';
-  }
   var operationalOrders = (Array.isArray(orders) ? orders : []).filter(function(o) {
     return o && !o.is_test_order && !o.archived_at;
   });
+  var qTitle = document.querySelector('.k-queue-title');
+  if (qTitle) {
+    var live = operationalOrders.filter(function(o){ return ['NEW','PREPARING','READY'].indexOf(String(o.status || '').toUpperCase()) >= 0; }).length;
+    qTitle.textContent = 'LIVE ORDER QUEUE · ' + live + ' active · auto-updates';
+  }
   var N = operationalOrders.filter(function(o){ return o.status === 'NEW'; });
   var P = operationalOrders.filter(function(o){ return o.status === 'PREPARING'; });
   var R = operationalOrders.filter(function(o){ return o.status === 'READY'; });
@@ -3422,9 +3423,10 @@ function drawAdminOrders() {
   function sec(title, list) {
     if (!list.length) return '';
     return '<h3 class="gold" style="font-size:12px;padding:8px 12px">' + title + '</h3>' + list.map(function(o) {
-      return '<div class="card" style="margin:8px 12px;flex-direction:column"><div style="display:flex;justify-content:space-between"><b class="gold">Table ' + o.table + '</b><span class="muted">' + o.status + '</span></div><div class="muted" style="font-size:11px">Ticket ' + o.id + '</div>' +
-        o.items.map(function(i){ return '<div style="font-size:13px">' + i.qty + '× ' + i.name + '</div>'; }).join('') +
-        '<b class="gold">₹' + o.total + '</b></div>';
+      var safeTicket = String(o.id || '').replace(/'/g, '');
+      return '<div class="card" style="margin:8px 12px;flex-direction:column"><div style="display:flex;justify-content:space-between"><b class="gold">Table ' + esc(o.table || '--') + '</b><span class="muted">' + esc(o.status || '') + '</span></div><div class="muted" style="font-size:11px">Ticket ' + esc(o.id || '') + '</div>' +
+        (o.items || []).map(function(i){ return '<div style="font-size:13px">' + (Number(i.qty)||1) + '× ' + esc(i.name || '') + '</div>'; }).join('') +
+        '<b class="gold">' + money(o.total) + '</b><button type="button" class="btn btn-bad btn-sm" onclick="cancelAdminOrder(\'' + safeTicket + '\')">Cancel ticket</button></div>';
     }).join('');
   }
   html += sec('New', N) + sec('Cooking', P) + sec('Ready', R);
@@ -3644,6 +3646,7 @@ function renderAdminAccountsSummary(summary, version) {
       accountMetric('Pending tickets', summary.pending_count || 0) +
       accountMetric('Cancelled tickets', (summary.cancelled_count || 0) + ' · ' + money(summary.cancelled_value)) +
       accountMetric('Customer cancellations', summary.customer_cancel_count || 0) +
+      accountMetric('Owner cancellations', summary.owner_cancel_count || 0) +
       accountMetric('Complimentary meals', (summary.complimentary_count || 0) + ' · ' + money(summary.complimentary_value)) +
       accountMetric('Test orders excluded', (summary.test_count || 0) + ' · ' + money(summary.test_value)) +
     '</div>';
@@ -3685,9 +3688,9 @@ function drawStats() {
       (o.is_complimentary ? ' · FREE MEAL' : '');
     return '<option value="' + esc(o.id) + '">' + esc(label) + '</option>';
   }).join('');
-  var tableOptions = Array.from({length:20},function(_,n) {
+  var tableOptions = '<option value="" selected disabled>Choose table</option>' + Array.from({length:20},function(_,n) {
     var tableNo=String(n+1).padStart(2,'0');
-    return '<option value="' + tableNo + '"' + (tableNo === '02' ? ' selected' : '') + '>Table ' + tableNo + '</option>';
+    return '<option value="' + tableNo + '">Table ' + tableNo + '</option>';
   }).join('');
   document.getElementById('a-stats').innerHTML =
     '<div id="accounts-live-summary"><div class="setup"><b>Loading official accounts…</b><p>Connecting to the shared order/payment ledger.</p></div></div>' +
@@ -3698,9 +3701,33 @@ function drawStats() {
     '<div class="setup" style="margin-top:14px"><h3>Clean test orders for a table</h3><p>This preserves the records and line items. Active tickets are cancelled, all unarchived tickets for the chosen table are marked TEST and excluded from revenue reports. Use only for a table containing test orders, not a real service table.</p>' +
     '<label for="accounts-clean-table" class="muted">Table</label><select id="accounts-clean-table" style="width:100%;padding:12px;border-radius:10px;margin:6px 0;background:#211815;color:#fff;border:1px solid var(--line)">' + tableOptions + '</select>' +
     '<button type="button" class="btn btn-bad" onclick="previewAndCleanTable()">Preview & clean test orders</button></div>' +
-    '<div id="accounts-audit"></div>';
+    '<div id="accounts-cleanup-preview"></div><div id="accounts-audit"></div>';
   refreshAdminAccountsSummary();
 }
+async function cancelAdminOrder(ticketId) {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
+  var order = (Array.isArray(orders) ? orders : []).find(function(o) { return o && String(o.id) === String(ticketId); });
+  if (!order || ['NEW','PREPARING','READY'].indexOf(String(order.status || '').toUpperCase()) < 0) {
+    toast('Only a new, cooking or ready ticket can be cancelled here.');
+    return;
+  }
+  var reason = window.prompt('Reason for cancelling ticket ' + ticketId + ' (saved in accounts audit):', 'Customer requested cancellation');
+  if (reason === null) return;
+  reason = reason.trim();
+  if (reason.length < 3 || reason.length > 240) { toast('Enter a reason between 3 and 240 characters'); return; }
+  if (!window.confirm('Cancel ticket ' + ticketId + ' for Table ' + order.table + '? This cannot be undone.')) return;
+  try {
+    if (typeof window.MM_CANCEL_ADMIN_ORDER !== 'function') throw new Error('Run the updated accounts SQL migration first.');
+    await window.MM_CANCEL_ADMIN_ORDER(ticketId, reason);
+    toast('Ticket cancelled and saved to accounts audit');
+    drawStats();
+    drawAdminOrders();
+  } catch (e) {
+    console.error('[Mirch Masaala owner cancellation]', e);
+    toast(e && e.message ? e.message : 'Could not cancel ticket.');
+  }
+}
+
 async function toggleSelectedOrderComplimentary() {
   if (role !== 'admin') { toast('Owner/Admin access required'); return; }
   var select = document.getElementById('accounts-ticket-select');
@@ -3727,38 +3754,78 @@ async function toggleSelectedOrderComplimentary() {
     toast(e && e.message ? e.message : 'Could not update the accounts record.');
   }
 }
+var pendingTableCleanup = null;
+function renderTableCleanupPreview() {
+  var host = document.getElementById('accounts-cleanup-preview');
+  if (!host) return;
+  if (!pendingTableCleanup) { host.innerHTML = ''; return; }
+  var state = pendingTableCleanup, p = state.preview || {};
+  var rows = Array.isArray(p.orders) ? p.orders : [];
+  host.innerHTML = '<div class="setup" style="margin-top:14px;border:1px solid var(--warn)"><h3>Review Table ' + esc(state.table) + ' before cleanup</h3>' +
+    '<p>' + rows.length + ' unarchived tickets will be marked TEST. ' + Number(p.active_count || 0) + ' active tickets will be cancelled. Existing records and line items remain in history.</p>' +
+    '<div style="max-height:310px;overflow:auto;margin:10px 0;padding:8px;border:1px solid var(--line);border-radius:10px">' +
+    (rows.length ? rows.map(function(o) {
+      var dishes = Array.isArray(o.items) ? o.items.map(function(i) { return (Number(i.quantity)||1) + '× ' + esc(i.name || 'Dish'); }).join(', ') : '';
+      return '<div style="padding:8px 2px;border-bottom:1px solid var(--line)"><b>' + esc(o.ticket_id || 'Ticket') + ' · ' + esc(o.status || '') + '</b>' +
+        '<div class="muted" style="font-size:11px">' + esc(o.created_at ? new Date(o.created_at).toLocaleString() : '') + '</div>' +
+        '<div style="font-size:12px">' + dishes + '</div><div class="gold" style="font-size:12px">' + money(o.total) +
+        ' · paid ' + money(o.paid) + (o.is_test_order ? ' · already test' : '') + (o.is_complimentary ? ' · FREE MEAL' : '') + '</div></div>';
+    }).join('') : '<p class="muted">No tickets found.</p>') + '</div>' +
+    '<p><b>Ticket value:</b> ' + money(p.candidate_value) + ' · <b>Recorded payments:</b> ' + money(p.recorded_payment_value) + '</p>' +
+    (Number(p.recorded_payment_value || 0) > 0 ? '<p style="color:var(--bad);font-weight:700">Warning: recorded payments are included. Those amounts will be excluded from official sales after cleanup.</p>' : '') +
+    '<label for="accounts-clean-reason" class="muted">Cleanup reason (saved in audit)</label><input id="accounts-clean-reason" maxlength="240" value="Test orders cleanup" style="width:100%;padding:11px;border-radius:10px;margin:6px 0;background:#211815;color:#fff;border:1px solid var(--line)">' +
+    '<label style="display:flex;gap:8px;align-items:flex-start;margin:10px 0"><input id="accounts-clean-confirm" type="checkbox" style="margin-top:3px"><span>I reviewed every ticket above and confirm every listed ticket is test data, not a real customer order.</span></label>' +
+    '<button type="button" class="btn btn-bad" onclick="executeTableCleanup()">Confirm & archive test tickets</button> ' +
+    '<button type="button" class="btn btn-soft" onclick="cancelTableCleanupPreview()">Go back</button></div>';
+}
+function cancelTableCleanupPreview() {
+  pendingTableCleanup = null;
+  renderTableCleanupPreview();
+}
 async function previewAndCleanTable() {
   if (role !== 'admin') { toast('Owner/Admin access required'); return; }
   var select = document.getElementById('accounts-clean-table');
   var tableNo = select ? select.value : '';
+  if (!tableNo) { toast('Choose a table first'); return; }
   if (typeof window.MM_PREVIEW_TABLE_CLEANUP !== 'function' || typeof window.MM_CLEAR_TABLE_ORDERS !== 'function') {
-    toast('Run the accounts SQL migration in Supabase, then refresh.');
+    toast('Run the updated accounts SQL migration in Supabase, then refresh.');
     return;
   }
   try {
     var preview = await window.MM_PREVIEW_TABLE_CLEANUP(tableNo);
     var count = Number(preview && preview.candidate_count || 0);
-    var active = Number(preview && preview.active_count || 0);
-    var paid = Number(preview && preview.recorded_payment_value || 0);
     if (!count) { toast('Table ' + tableNo + ' has no unarchived orders to clean.'); return; }
-    var warning = 'Table ' + tableNo + ' cleanup preview\n\n' + count + ' order(s) will be marked as TEST and excluded from sales stats.\n' +
-      active + ' active order(s) will be cancelled.\nTicket value excluded: ' + money(preview.candidate_value) +
-      '\nPayments already recorded against these tickets: ' + money(paid) +
-      '\n\nRecords will remain in history. Continue only if these are test orders.';
-    if (!window.confirm(warning)) return;
-    if (paid > 0 && !window.confirm('This table has recorded payments. Their orders will be classed as test and those amounts excluded from official sales stats. Are you absolutely sure this table contains only test data?')) return;
-    var reason = window.prompt('Reason for cleanup (saved to audit log):', 'Test orders cleanup');
-    if (reason === null) return;
-    reason = reason.trim();
-    if (reason.length < 3 || reason.length > 240) { toast('Enter a reason between 3 and 240 characters'); return; }
-    var result = await window.MM_CLEAR_TABLE_ORDERS(tableNo, reason, count);
-    toast('Table ' + tableNo + ' cleaned · ' + result.archived_count + ' tickets retained as test records');
+    if (!preview.fingerprint || !Array.isArray(preview.orders)) throw new Error('The server preview is incomplete. Run the updated accounts SQL migration and retry.');
+    pendingTableCleanup = { table: tableNo, preview: preview };
+    renderTableCleanupPreview();
+    var host = document.getElementById('accounts-cleanup-preview');
+    if (host) host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    console.error('[Mirch Masaala table cleanup preview]',e);
+    toast(e && e.message ? e.message : 'Could not preview table. Check connection and retry.');
+  }
+}
+async function executeTableCleanup() {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
+  var state = pendingTableCleanup;
+  if (!state || !state.preview) { toast('Preview a table before cleanup'); return; }
+  var confirmBox = document.getElementById('accounts-clean-confirm');
+  if (!confirmBox || !confirmBox.checked) { toast('Review and confirm every listed ticket is test data'); return; }
+  var reasonInput = document.getElementById('accounts-clean-reason');
+  var reason = reasonInput ? reasonInput.value.trim() : '';
+  if (reason.length < 3 || reason.length > 240) { toast('Enter a reason between 3 and 240 characters'); return; }
+  try {
+    var p = state.preview;
+    var result = await window.MM_CLEAR_TABLE_ORDERS(state.table, reason, Number(p.candidate_count), String(p.fingerprint));
+    pendingTableCleanup = null;
+    renderTableCleanupPreview();
+    toast('Table ' + state.table + ' cleaned · ' + result.archived_count + ' tickets retained as test records');
     drawStats();
     drawAdminOrders();
     if (typeof drawAdminPayments === 'function' && document.getElementById('a-payments').style.display !== 'none') drawAdminPayments();
   } catch (e) {
     console.error('[Mirch Masaala table cleanup]',e);
-    toast(e && e.message ? e.message : 'Cleanup failed. Refresh the preview and try again.');
+    toast(e && e.message ? e.message : 'Cleanup failed. Preview again and retry.');
   }
 }
 
