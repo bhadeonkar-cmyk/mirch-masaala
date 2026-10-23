@@ -3739,7 +3739,7 @@ function renderRoleNotifications(rows) {
       var isParty = type === 'PARTY_BOOKING';
       var title = isParty ? 'PARTY BOOKING REQUEST' : isCall ? window.mmI18n('WAITER CALLED','वेटरला बोलावले') : type === 'BILL_REQUEST' ? window.mmI18n('BILL REQUEST','बिलाची विनंती') :
         type === 'NEW_ORDER' ? window.mmI18n('NEW ORDER','नवीन ऑर्डर') : type === 'ORDER_READY' ? window.mmI18n('ORDER READY','ऑर्डर तयार') : type === 'ITEM_SOLD_OUT' ? window.mmI18n('SOLD OUT','संपला') : window.mmI18n('ALERT','सूचना');
-      var line = isCall ? window.mmI18n('Please go to the guest now.','कृपया लगेच ग्राहकाकडे जा.') :
+      var line = isParty ? (n.message || 'A new party booking request needs your attention.') : isCall ? window.mmI18n('Please go to the guest now.','कृपया लगेच ग्राहकाकडे जा.') :
         type === 'BILL_REQUEST' ? window.mmI18n('A guest needs help with the bill.','ग्राहकाला बिलासाठी मदत हवी आहे.') :
         type === 'NEW_ORDER' ? window.mmI18n('A new ticket is waiting in the kitchen queue.','किचनमध्ये नवीन ऑर्डर आली आहे.') :
         type === 'ORDER_READY' ? window.mmI18n('Please check the ready ticket.','तयार ऑर्डर तपासा.') : (n.item_name ? window.mmDishName(n.item_name) : (n.message || window.mmI18n('A menu item is unavailable.','हा पदार्थ सध्या उपलब्ध नाही.')));
@@ -3777,7 +3777,7 @@ function drawAlerts() {
     var action = type === 'PARTY_BOOKING'
       ? '<button type="button" class="btn btn-soft btn-sm" onclick="openPartyFromAlert()">View bookings</button><button type="button" class="btn btn-ok btn-sm" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button>'
       : '<button type="button" class="btn btn-ok btn-sm" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button>';
-    return '<div class="card shared-admin-alert" style="justify-content:space-between"><div><b>' + name + (n.table_number ? ' · TABLE ' + esc(n.table_number) : '') + '</b><div>' + esc(n.item_name || n.message || '') + '</div><div class="muted">' + new Date(n.created_at).toLocaleTimeString() + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">' + action + '</div></div>';
+    return '<div class="card shared-admin-alert" style="justify-content:space-between"><div><b>' + name + (n.table_number ? ' · TABLE ' + esc(n.table_number) : '') + '</b><div>' + esc(type === 'PARTY_BOOKING' ? (n.message || n.item_name || '') : (n.item_name || n.message || '')) + '</div><div class="muted">' + new Date(n.created_at).toLocaleTimeString() + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">' + action + '</div></div>';
   }).join('');
   host.innerHTML = '<div class="admin-alert-group"><h3>Important alerts</h3>' + (sharedHtml || '<p class="muted">No open shared alerts.</p>') + '</div>' + (localHtml ? '<div class="admin-alert-group"><h3>Device alerts</h3>' + localHtml + '</div>' : '');
 }
