@@ -228,6 +228,13 @@ requireText(cashCounterMigration, "IF public.get_my_staff_role() IS DISTINCT FRO
 requireText(html, 'DIRECT GUEST TO COUNTER · ACKNOWLEDGE', 'Waiter is told to direct the guest to counter instead of approving payment');
 requireText(visitServiceControlsMigration, 'CREATE OR REPLACE FUNCTION public.mm_staff_release_abandoned_visit', 'Staff can release a table after guests leave');
 requireText(visitServiceControlsMigration, 'p_guest_order_code text DEFAULT NULL', 'Secure order RPC validates the table PIN');
+requireText(visitServiceControlsMigration, "ADD COLUMN IF NOT EXISTS approval_status text NOT NULL DEFAULT 'APPROVED'", 'Order approval status is stored in the shared database');
+requireText(visitServiceControlsMigration, "WHEN 'PENDING'", 'Guest orders can wait for owner approval');
+requireText(visitServiceControlsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_review_customer_order', 'Only owner/admin can approve or reject customer orders');
+requireText(visitServiceControlsMigration, "'ORDER_APPROVAL'", 'Pending customer orders create owner alerts');
+requireText(html, 'Needs your approval', 'Owner Orders tab shows pending approval tickets');
+requireText(live, 'window.MM_ADMIN_REVIEW_CUSTOMER_ORDER = reviewCustomerOrder', 'Owner approval buttons call the shared database');
+requireText(staffPushEdge, '"ORDER_APPROVAL"', 'Background push sender supports owner order approval alerts');
 requireText(html, 'id="customer-order-code"', 'Customer table code is entered visibly at checkout');
 requireText(html, 'function cycleDishSpice', 'Customer can choose spice per dish');
 requireText(html, 'dishImageMarkup(item', 'Menu cards and specials use available dish photos');
