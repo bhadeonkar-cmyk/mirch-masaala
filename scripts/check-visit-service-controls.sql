@@ -158,6 +158,7 @@ BEGIN
   END IF;
 
   -- Settling the old visit closes its old alert, and never charges a later visit.
+  PERFORM set_config('app.qa_role','admin',false);
   v_result := public.mm_staff_record_visit_payment(v_visit8,45,'cash','QA settle old visit');
   IF (v_result->>'remaining_due')::numeric > 0.01 THEN
     RAISE EXCEPTION 'QA failed: old unpaid visit could not be settled independently';
