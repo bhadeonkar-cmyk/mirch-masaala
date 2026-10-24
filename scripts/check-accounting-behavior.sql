@@ -136,8 +136,21 @@ BEGIN
   END;
   IF NOT v_rejected THEN RAISE EXCEPTION 'QA failed: direct PAID status update was allowed'; END IF;
 
-  -- Staff payment function should settle only the actual table bill.
+  -- Waiters can handle service, but only Owner/Counter (Admin login) records money received.
   PERFORM set_config('app.qa_role','waiter',false);
+  v_rejected := false;
+  BEGIN
+    PERFORM public.mm_staff_record_table_payment('04',60,'cash','QA waiter cash attempt');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'Only the Owner/Counter (Admin login) can confirm and record payments%' THEN
+      v_rejected := true;
+    ELSE
+      RAISE;
+    END IF;
+  END;
+  IF NOT v_rejected THEN RAISE EXCEPTION 'QA failed: waiter was allowed to record payment'; END IF;
+
+  PERFORM set_config('app.qa_role','admin',false);
   v_payment := public.mm_staff_record_table_payment('04',60,'cash','QA payment');
   IF v_payment->>'status' <> 'RECORDED' OR (v_payment->>'fully_paid_tickets')::integer <> 1 THEN
     RAISE EXCEPTION 'QA failed: payment was not allocated/settled';
