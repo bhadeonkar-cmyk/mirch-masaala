@@ -135,12 +135,14 @@ BEGIN
   ) THEN RAISE EXCEPTION 'QA failed: unpaid alert was not assigned to waiter W08'; END IF;
 
   -- Shared waiters' login can be the same, but the typed staff ID scopes actionable alerts.
-  v_rows := public.mm_staff_notifications(50,'W09');
-  IF EXISTS (SELECT 1 FROM jsonb_array_elements(v_rows) a WHERE a->>'ticket_id'=v_visit8::text) THEN
+  SELECT count(*) INTO v_count FROM public.mm_staff_notifications(50,'W09') n
+  WHERE n.ticket_id=v_visit8::text;
+  IF v_count <> 0 THEN
     RAISE EXCEPTION 'QA failed: waiter W09 can see waiter W08''s assigned alert';
   END IF;
-  v_rows := public.mm_staff_notifications(50,'W08');
-  IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(v_rows) a WHERE a->>'ticket_id'=v_visit8::text) THEN
+  SELECT count(*) INTO v_count FROM public.mm_staff_notifications(50,'W08') n
+  WHERE n.ticket_id=v_visit8::text;
+  IF v_count <> 1 THEN
     RAISE EXCEPTION 'QA failed: assigned waiter W08 cannot see their alert';
   END IF;
   IF public.mm_resolve_staff_notification(v_alert_id,'W09') THEN
