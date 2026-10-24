@@ -3595,6 +3595,7 @@ function enterWaiter() {
     if (role === 'admin' || role === 'kitchen') { toast('This screen is for waiter accounts only.'); go(role); return; }
     openLogin('waiter'); return;
   }
+  if (typeof getWaiterStaffCode === 'function' && !getWaiterStaffCode(false)) return;
   go('waiter'); rebuildTables(); renderWaiterTables();
   wTable = ''; wCart = [];
   var area = document.getElementById('w-area'); if (area) area.style.display = 'none';
