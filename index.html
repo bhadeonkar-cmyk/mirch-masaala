@@ -2745,7 +2745,7 @@ function selectPayMethod(method) {
   }
 }
 function updateStaffPaymentControls() {
-  var staffCanConfirm = role === 'admin' || role === 'waiter';
+  var staffCanConfirm = role === 'admin';
   var visitPayment = !!payContext.visitId;
   ['pay-cash-confirm-btn','pay-card-confirm-btn'].forEach(function(id) {
     var button = document.getElementById(id);
@@ -2842,8 +2842,8 @@ if (!window.MM_CUSTOMER_VISIT_CHECK_TIMER) {
   window.MM_CUSTOMER_VISIT_CHECK_TIMER = setInterval(syncCustomerVisitCheckoutStatus, 8000);
 }
 async function markPaidMethod(method) {
-  if (['admin','waiter'].indexOf(role) < 0) {
-    toast('Only signed-in owner/waiter staff can confirm receipt of payment.');
+  if (role !== 'admin') {
+    toast('Please direct the guest to the counter. Only the Owner/Counter using the Admin login can confirm receipt of payment.');
     return;
   }
   var amount = Number(payContext.amount || 0);
@@ -4368,8 +4368,8 @@ function isVisitUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 }
 async function openCashCounterCollection(visitId, tableNumber, notificationId, method) {
-  if (['admin','waiter'].indexOf(String(role || '')) < 0) {
-    toast('Sign in as owner or counter staff to collect this payment.');
+  if (role !== 'admin') {
+    toast('Please direct the guest to the counter. Only the Owner/Counter using the Admin login can confirm receipt of payment.');
     return;
   }
   if (!isVisitUuid(visitId) || typeof window.MM_GET_STAFF_VISIT_BILL !== 'function') {
@@ -4434,7 +4434,9 @@ function renderRoleNotifications(rows) {
         '<div class="role-alert-title"><span>' + ((isGuestLeftUnpaid || isCashCounter) ? '💵' : isPaymentCheck ? '💸' : isParty ? '🎉' : isCall ? '🔔' : type==='BILL_REQUEST' ? '💳' : type==='NEW_ORDER' ? '🍳' : type==='ORDER_READY' ? '✅' : '⚠️') + ' ' + title + '</span>' + (visitPaymentAlert ? '' : '<button type="button" class="role-alert-dismiss" aria-label="' + window.mmI18n('Mark alert handled','सूचना पूर्ण करा') + '" onclick="handleStaffNotification(' + Number(n.id) + ')">' + window.mmI18n('Done','झाले') + '</button>') + '</div>' +
         bigTable + '<p class="role-alert-message">' + esc(line) + '</p>' +
         (details ? '<p class="role-alert-details">' + details + '</p>' : '') +
-        (visitPaymentAlert ? '<button type="button" class="role-alert-action" onclick="openCashCounterCollection(\'' + esc(n.ticket_id) + '\',\'' + esc(tableNo) + '\',' + Number(n.id) + ',\'' + ((isCashCounter || isGuestLeftUnpaid) ? 'cash' : 'upi') + '\')">' + (isGuestLeftUnpaid ? 'COLLECT OUTSTANDING BALANCE' : isCashCounter ? 'COLLECT CASH' : 'VERIFY & RECORD PAYMENT') + '</button>'
+        (visitPaymentAlert ? (roleKind === 'waiter'
+          ? '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">' + (isCashCounter ? 'DIRECT GUEST TO COUNTER · ACKNOWLEDGE' : isGuestLeftUnpaid ? 'COUNTER ALERTED · ACKNOWLEDGE' : 'ASK OWNER/COUNTER TO VERIFY · ACKNOWLEDGE') + '</button>'
+          : '<button type="button" class="role-alert-action" onclick="openCashCounterCollection(\'' + esc(n.ticket_id) + '\',\'' + esc(tableNo) + '\',' + Number(n.id) + ',\'' + ((isCashCounter || isGuestLeftUnpaid) ? 'cash' : 'upi') + '\')">' + (isGuestLeftUnpaid ? 'COLLECT OUTSTANDING BALANCE' : isCashCounter ? 'COLLECT CASH' : 'VERIFY & RECORD PAYMENT') + '</button>')
           : isPaymentCheck ? (roleKind === 'admin'
             ? '<button type="button" class="role-alert-action" onclick="openPaymentsFromAlert()">OPEN PAYMENT LOG</button>'
             : '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">ACKNOWLEDGE AFTER CHECKING</button>') : isCashCounter ? '<span class="role-alert-action">Please check the table balance</span>' : isParty ? '<button type="button" class="role-alert-action" onclick="openPartyFromAlert()">VIEW PARTY BOOKINGS</button>' : isCall ? '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">I AM GOING · MARK HANDLED</button>' : '') +
