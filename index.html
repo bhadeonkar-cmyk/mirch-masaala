@@ -3252,22 +3252,19 @@ async function requestPaymentVerification() {
     toast('Staff should verify the transaction and record it from the payment controls.');
     return;
   }
-  if (typeof window.MM_REQUEST_PAYMENT_VERIFICATION !== 'function') {
-    toast('Payment verification setup is not active yet. Please show your payment receipt to the waiter.');
+  if (!payContext.visitId || !payContext.customerSessionId) {
+    toast('This phone is not linked to the current table visit. Please ask the waiter for help with payment.');
+    return;
+  }
+  if (typeof window.MM_REQUEST_VISIT_PAYMENT_VERIFICATION !== 'function') {
+    toast('Visit-specific payment alerts are not active yet. Please show your payment receipt to the waiter.');
     return;
   }
   paymentVerificationBusy = true;
   if (button) { button.disabled = true; button.textContent = 'Sending request…'; }
   if (status) status.textContent = 'Notifying the owner and waiter…';
   try {
-    if (payContext.visitId && payContext.customerSessionId) {
-      if (typeof window.MM_REQUEST_VISIT_PAYMENT_VERIFICATION !== 'function') {
-        throw new Error('Visit-specific payment alerts are not active yet. Please show your receipt to the waiter.');
-      }
-      await window.MM_REQUEST_VISIT_PAYMENT_VERIFICATION(tableNumber, payContext.visitId, payContext.customerSessionId, payContext.method || 'upi');
-    } else {
-      await window.MM_REQUEST_PAYMENT_VERIFICATION(tableNumber, payContext.method || 'upi');
-    }
+    await window.MM_REQUEST_VISIT_PAYMENT_VERIFICATION(tableNumber, payContext.visitId, payContext.customerSessionId, payContext.method || 'upi');
     if (button) button.textContent = '✓ Verification requested';
     if (status) status.textContent = 'The owner and counter staff have been notified. Please wait for staff to check the transaction. Your bill is not paid until they confirm receipt.';
     toast('Payment verification requested. Please wait for staff confirmation.');
@@ -3283,6 +3280,10 @@ async function requestPaymentVerification() {
 function reqBill() {
   var tableNumber = String(table || '').padStart(2, '0');
   var visitContext = customerVisitContextForTable(tableNumber);
+  if (!visitContext) {
+    toast('This phone is not linked to an active table visit. Please ask your waiter to confirm your table and bill.');
+    return;
+  }
   var notifyPromise = typeof window.MM_CREATE_GUEST_NOTIFICATION === 'function'
     ? window.MM_CREATE_GUEST_NOTIFICATION('BILL_REQUEST', tableNumber)
     : Promise.reject(new Error('Live alerts are not configured.'));
@@ -3296,13 +3297,9 @@ function reqBill() {
   // Never calculate a table bill from a customer's local copy of orders: other
   // guests and partial payments may live on different devices. Get the balance
   // from the shared database so a paid or complimentary ticket is not charged twice.
-  var billRequest = visitContext
-    ? (typeof window.MM_GET_PUBLIC_VISIT_BILL === 'function'
-        ? window.MM_GET_PUBLIC_VISIT_BILL(tableNumber, visitContext.visitId, visitContext.customerSessionId)
-        : Promise.reject(new Error('Visit-specific billing is not activated yet. Please ask the waiter for your balance.')))
-    : (typeof window.MM_GET_PUBLIC_TABLE_BILL === 'function'
-        ? window.MM_GET_PUBLIC_TABLE_BILL(tableNumber)
-        : Promise.reject(new Error('Shared bill calculation is not ready. Please ask the waiter for your balance.')));
+  var billRequest = typeof window.MM_GET_PUBLIC_VISIT_BILL === 'function'
+    ? window.MM_GET_PUBLIC_VISIT_BILL(tableNumber, visitContext.visitId, visitContext.customerSessionId)
+    : Promise.reject(new Error('Visit-specific billing is not activated yet. Please ask the waiter for your balance.'));
   billRequest.then(function (bill) {
     var total = Number(bill && bill.amount) || 0;
     if (!(total > 0)) {
