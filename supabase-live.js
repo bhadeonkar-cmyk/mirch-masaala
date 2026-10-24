@@ -585,18 +585,26 @@
     if (['admin', 'waiter', 'kitchen'].indexOf(window.role) < 0) return;
     staffRefreshBusy = true;
     try {
-      var orderColumns = 'id,ticket_id,table_id,status,notes,total,created_at,public_token,order_number,is_test_order,is_complimentary,complimentary_reason,cancel_reason,archived_at,updated_at';
-      // Always fetch every active kitchen ticket even if more than 100 newer history rows exist.
-      var fetches = await Promise.all([
-        client.from('orders').select(orderColumns)
-          .eq('restaurant_id', RESTAURANT_ID)
-          .order('created_at', { ascending: false }).limit(100),
-        client.from('orders').select(orderColumns)
-          .eq('restaurant_id', RESTAURANT_ID)
-          .in('status', ['NEW','PREPARING','READY'])
-          .is('archived_at', null)
-          .order('created_at', { ascending: false })
-      ]);
+      var orderColumns = 'id,ticket_id,table_id,status,approval_status,notes,total,created_at,public_token,order_number,is_test_order,is_complimentary,complimentary_reason,cancel_reason,archived_at,updated_at';
+      async function fetchOrderRows(columns) {
+        // Always fetch every active kitchen ticket even if more than 100 newer history rows exist.
+        return await Promise.all([
+          client.from('orders').select(columns)
+            .eq('restaurant_id', RESTAURANT_ID)
+            .order('created_at', { ascending: false }).limit(100),
+          client.from('orders').select(columns)
+            .eq('restaurant_id', RESTAURANT_ID)
+            .in('status', ['NEW','PREPARING','READY'])
+            .is('archived_at', null)
+            .order('created_at', { ascending: false })
+        ]);
+      }
+      var fetches = await fetchOrderRows(orderColumns);
+      if (fetches.some(function (q) { return q.error && /approval_status|column/i.test(String(q.error.message || '')); })) {
+        // Keep existing staff views usable until the approval migration has been applied.
+        orderColumns = orderColumns.replace(',approval_status', '');
+        fetches = await fetchOrderRows(orderColumns);
+      }
       if (fetches[0].error) throw fetches[0].error;
       if (fetches[1].error) throw fetches[1].error;
       var rowsById = Object.create(null);
@@ -646,6 +654,7 @@
           items: itemsByOrder[row.id] || [],
           total: Number(row.total) || 0,
           status: String(row.status || 'NEW').toUpperCase(),
+          approvalStatus: String(row.approval_status || 'APPROVED').toUpperCase(),
           notes: row.notes || '',
           createdAt: row.created_at,
           orderNumber: row.order_number,
@@ -712,6 +721,7 @@
         } catch (e) {}
         var current = (savedOrders || []).find(function (o) { return o && String(o.id) === String(saved.id); });
         var remoteStatus = String(remote.status || 'NEW').toUpperCase();
+        var remoteApprovalStatus = String(remote.approvalStatus || remote.approval_status || (current && current.approvalStatus) || 'APPROVED').toUpperCase();
         var customerCancelConfirmed = !!(current && current.customerCancelConfirmed);
         if (customerCancelConfirmed && remoteStatus !== 'CANCELLED') remoteStatus = 'CANCELLED';
         var updated = {
@@ -720,13 +730,16 @@
           items: remote.items || (current && current.items) || [],
           total: Number(remote.total) || 0,
           status: remoteStatus,
+          approvalStatus: remoteApprovalStatus,
           notes: remote.notes || '',
           createdAt: remote.createdAt || (current && current.createdAt) || new Date().toISOString(),
           cancelUntil: current && current.cancelUntil,
           publicToken: saved.token,
           customerCancelConfirmed: customerCancelConfirmed
         };
-        if (current && String(current.status || '').toUpperCase() !== updated.status &&
+        if (current &&
+            (String(current.status || '').toUpperCase() !== updated.status ||
+             String(current.approvalStatus || 'APPROVED').toUpperCase() !== updated.approvalStatus) &&
             typeof window.notifyCustomerOrderStatus === 'function') {
           window.notifyCustomerOrderStatus(updated, current);
         }
@@ -1103,6 +1116,7 @@
     if (!created || !created.id || !created.publicToken || !created.visitId) {
       throw new Error('Supabase did not confirm the new order and table visit. Please refresh and check My Orders before trying again.');
     }
+    if (!actorRole) dispatchStaffPushForGuestRequest(created);
     if (!actorRole) {
       try {
         localStorage.setItem(guestOrderCodeKey, guestOrderCode);
@@ -1124,6 +1138,7 @@
       items: created.items || [],
       total: Number(created.total) || 0,
       status: String(created.status || 'NEW').toUpperCase(),
+      approvalStatus: String(created.approvalStatus || created.approval_status || 'APPROVED').toUpperCase(),
       notes: created.notes || '',
       createdAt: created.createdAt || new Date().toISOString(),
       orderNumber: created.orderNumber,
@@ -1395,6 +1410,28 @@
       .limit(100);
     if (result.error) throw new Error(result.error.message || 'Could not load the shared payment log.');
     return result.data || [];
+  }
+
+
+  async function reviewCustomerOrder(ticketId, decision) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared order approval is not connected. Apply supabase/visit-service-controls.sql in Supabase, then refresh.');
+    if (String(window.role || '') !== 'admin') throw new Error('Only the Owner/Admin can approve or reject customer orders.');
+    var choice = String(decision || '').toUpperCase();
+    if (choice !== 'APPROVE' && choice !== 'REJECT') throw new Error('Choose Approve or Reject.');
+    var result = await client.rpc('mm_admin_review_customer_order', {
+      p_ticket_id: String(ticketId || ''),
+      p_decision: choice,
+      p_reason: ''
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not update the order approval.');
+    var saved = rpcPayload(result.data);
+    if (!saved || !saved.id || !saved.approvalStatus) throw new Error('The server did not confirm the approval. Refresh and check the order.');
+    await refreshStaffOrders();
+    await refreshRoleNotifications(true);
+    await refreshPublicOrderBoard();
+    if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    notifySuccess(choice === 'APPROVE' ? 'Order approved · kitchen notified.' : 'Order rejected · customer status updated.');
+    return saved;
   }
 
   async function setSharedOrderStatus(ticketId, status) {
@@ -2157,6 +2194,7 @@
     window.MM_ADMIN_GET_ORDER_DETAILS = getAdminOrderDetails;
     window.MM_LOAD_ADMIN_PAYMENTS = loadAdminPayments;
     window.MM_REFRESH_STAFF_ORDERS = refreshStaffOrders;
+    window.MM_ADMIN_REVIEW_CUSTOMER_ORDER = reviewCustomerOrder;
     window.wSend = sendWaiterOrder;
     window.setStatus = setSharedOrderStatus;
     window.saveItemPrice = saveSharedPrice;
