@@ -12,6 +12,7 @@ const partyBookingsMigration = fs.readFileSync('supabase/party-bookings.sql', 'u
 const paymentConfirmationMigration = fs.readFileSync('supabase/customer-payment-confirmation.sql', 'utf8');
 const cashCounterMigration = fs.readFileSync('supabase/customer-cash-counter.sql', 'utf8');
 const visitServiceControlsMigration = fs.readFileSync('supabase/visit-service-controls.sql', 'utf8');
+const menuOptionsMigration = fs.readFileSync('supabase/menu-item-options-and-table-capacity.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
 const staffPushEdge = fs.readFileSync('supabase/functions/send-staff-push/index.ts', 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
@@ -216,6 +217,7 @@ checkSqlDollarQuotes(partyBookingsMigration, 'Party bookings migration');
 checkSqlDollarQuotes(paymentConfirmationMigration, 'Customer payment verification migration');
 checkSqlDollarQuotes(cashCounterMigration, 'Customer cash-at-counter migration');
 checkSqlDollarQuotes(visitServiceControlsMigration, 'Waiter assignment and secure ordering migration');
+checkSqlDollarQuotes(menuOptionsMigration, 'Per-dish options and seating capacity migration');
 checkSqlDollarQuotes(fs.readFileSync('scripts/check-cash-counter-release.sql', 'utf8'), 'Cash counter checkout QA script');
 requireText(paymentConfirmationMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_request_payment_check', 'Customer payment verification RPC exists');
 requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_cash_counter_release', 'Cash checkout is authorized and committed server-side');
@@ -225,6 +227,22 @@ requireText(cashCounterMigration, "IF public.get_my_staff_role() IS DISTINCT FRO
 requireText(html, 'DIRECT GUEST TO COUNTER · ACKNOWLEDGE', 'Waiter is told to direct the guest to counter instead of approving payment');
 requireText(visitServiceControlsMigration, 'CREATE OR REPLACE FUNCTION public.mm_staff_release_abandoned_visit', 'Staff can release a table after guests leave');
 requireText(visitServiceControlsMigration, 'p_guest_order_code text DEFAULT NULL', 'Secure order RPC validates the table PIN');
+requireText(html, 'id="customer-order-code"', 'Customer table code is entered visibly at checkout');
+requireText(html, 'function cycleDishSpice', 'Customer can choose spice per dish');
+requireText(html, 'dishImageMarkup(item', 'Menu cards and specials use available dish photos');
+requireText(html, 'function saveTableCapacity()', 'Owner can manage table seating capacity');
+requireText(live, 'MM_SET_TABLE_CAPACITY', 'Owner capacity action is connected to Supabase');
+requireText(menuOptionsMigration, "ADD COLUMN IF NOT EXISTS spice_level text NOT NULL DEFAULT 'normal'", 'Per-dish spice is persisted');
+requireText(menuOptionsMigration, 'ADD COLUMN IF NOT EXISTS seating_capacity smallint NOT NULL DEFAULT 4', 'Table seating capacity is persisted');
+requireText(menuOptionsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_set_table_capacity', 'Owner capacity RPC exists');
+requireText(menuOptionsMigration, "'spiceLevel', coalesce(oi.spice_level, 'normal')", 'Customer ticket returns saved spice');
+const sharedOrderStart = live.indexOf('async function createSharedOrder(');
+const sharedOrderEnd = live.indexOf('async function placeCustomerOrder(', sharedOrderStart);
+if (sharedOrderStart < 0 || sharedOrderEnd < 0 || live.slice(sharedOrderStart, sharedOrderEnd).includes('window.prompt(')) {
+  fail('Customer table code must not depend on a browser prompt');
+} else {
+  console.log('✓ Customer table-code entry is visible and mobile friendly');
+}
 requireText(visitServiceControlsMigration, 'ADD COLUMN IF NOT EXISTS target_staff_code', 'Alerts can target the assigned waiter ID');
 requireText(visitServiceControlsMigration, "'GUEST_LEFT_UNPAID'", 'Unpaid abandoned visits create a distinct alert');
 requireText(cashCounterMigration, "'CASH_AT_COUNTER'", 'Cash checkout creates a dedicated owner/waiter alert');
