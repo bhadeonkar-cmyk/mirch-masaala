@@ -399,19 +399,38 @@
   }
 
   function notifyCustomerOrderStatus(updated, previous) {
-    if (!updated || !previous || String(updated.status) === String(previous.status)) return;
+    if (!updated || !previous) return;
     var status = String(updated.status || '').toUpperCase();
-    if (status !== 'PREPARING' && status !== 'READY') return;
-    var key = 'mm_customer_status_notified_' + String(updated.id || '') + '_' + status;
+    var approval = String(updated.approvalStatus || 'APPROVED').toUpperCase();
+    var previousApproval = String(previous.approvalStatus || 'APPROVED').toUpperCase();
+    var approvalChanged = approval !== previousApproval;
+    if (!approvalChanged && String(updated.status) === String(previous.status)) return;
+
+    var title = '';
+    var message = '';
+    if (approvalChanged && approval === 'APPROVED') {
+      title = 'Your order was accepted';
+      message = 'The owner accepted your order. The kitchen can start preparing it now.';
+    } else if (approvalChanged && approval === 'REJECTED') {
+      title = 'Your order was not accepted';
+      message = 'The owner could not accept this order. Please ask your waiter for help.';
+    } else if (status === 'READY') {
+      title = 'Your order is ready';
+      message = 'Your food is ready. Please check with the restaurant team.';
+    } else if (status === 'PREPARING') {
+      title = 'Your order is being prepared';
+      message = 'The kitchen has started preparing your order.';
+    } else {
+      return;
+    }
+
+    var key = 'mm_customer_status_notified_' + String(updated.id || '') + '_' + approval + '_' + status;
     try { if (localStorage.getItem(key) === '1') return; localStorage.setItem(key, '1'); } catch (e) {}
-    var message = status === 'READY'
-      ? 'Your food is ready. Please check with the restaurant team.'
-      : 'The kitchen has started preparing your order.';
     if (typeof window.toast === 'function') window.toast('Table ' + updated.table + ' · ' + message);
     if (!isMobileBrowser() && 'Notification' in window && Notification.permission === 'granted') {
       try {
-        var n = new Notification(status === 'READY' ? 'Your order is ready' : 'Your order is being prepared', {
-          body: 'Table ' + updated.table + ' · Ticket ' + updated.id,
+        var n = new Notification(title, {
+          body: 'Table ' + updated.table + ' · Ticket ' + updated.id + ' · ' + message,
           tag: 'mm-customer-' + key,
           icon: './icon.svg'
         });
