@@ -670,8 +670,8 @@ DECLARE
   v_order_count integer := 0;
   v_paid_count integer := 0;
 BEGIN
-  IF coalesce(public.get_my_staff_role(), '') NOT IN ('admin', 'waiter') THEN
-    RAISE EXCEPTION 'Owner/Admin or signed-in waiter access required to confirm payment';
+  IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN
+    RAISE EXCEPTION 'Only the Owner/Counter (Admin login) can confirm and record payments';
   END IF;
   IF p_table_number IS NULL OR trim(p_table_number) !~ '^[0-9]{1,2}$' THEN
     RAISE EXCEPTION 'Choose a valid table number';
