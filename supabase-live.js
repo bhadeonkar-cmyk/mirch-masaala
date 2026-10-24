@@ -32,6 +32,8 @@
   var staffRefreshBusy = false;
   var customerRefreshBusy = false;
   var menuRefreshBusy = false;
+  var tableCapacitySetupMessageShown = false;
+  window.MM_TABLE_CAPACITIES = window.MM_TABLE_CAPACITIES || {};
   var lastShownError = '';
   var publicOrderBoardBusy = false;
   var publicOrderBoardWarningShown = false;
@@ -467,6 +469,33 @@
         .order('sort_order', { ascending: true });
       if (menuResult.error) throw menuResult.error;
 
+      // Seating capacity is an optional UI enhancement. If its migration is pending,
+      // keep the menu fully usable with the four-seat display default.
+      try {
+        var capacityResult = await client.from('restaurant_tables')
+          .select('table_number,seating_capacity')
+          .eq('restaurant_id', RESTAURANT_ID);
+        if (capacityResult.error) throw capacityResult.error;
+        var capacityMap = Object.create(null);
+        (capacityResult.data || []).forEach(function(row) {
+          if (!row || !row.table_number) return;
+          var capacity = Number(row.seating_capacity);
+          if (Number.isInteger(capacity) && capacity >= 1 && capacity <= 30) {
+            capacityMap[String(row.table_number).padStart(2, '0')] = capacity;
+          }
+        });
+        window.MM_TABLE_CAPACITIES = capacityMap;
+        if (typeof window.renderHomeTables === 'function' &&
+            document.getElementById('home') && document.getElementById('home').classList.contains('on')) {
+          window.renderHomeTables();
+        }
+      } catch (capacityError) {
+        if (!tableCapacitySetupMessageShown) {
+          tableCapacitySetupMessageShown = true;
+          console.info('[Mirch Masaala] Showing default four seats until the table capacity migration is applied.');
+        }
+      }
+
       var categoryById = {};
       var oldCategories = (window.MENU && window.MENU.categories) || [];
       var cats = (categoryResult.data || []).map(function (row, index) {
@@ -515,7 +544,8 @@
           is_bestseller: !!row.is_bestseller,
           is_available: !!row.is_available,
           spicy_level: Number(row.spicy_level) || 0,
-          image: row.image_url || null
+          image: row.image_url || null,
+          image_url: row.image_url || null
         };
       });
 
@@ -587,9 +617,12 @@
       var ids = rows.map(function (r) { return r.id; });
       var [tableResult, itemResult] = await Promise.all([
         client.from('restaurant_tables').select('id,table_number').eq('restaurant_id', RESTAURANT_ID),
-        client.from('order_items').select('order_id,item_name,quantity,price,notes').in('order_id', ids)
+        client.from('order_items').select('order_id,item_name,quantity,price,notes,spice_level').in('order_id', ids)
       ]);
       if (tableResult.error) throw tableResult.error;
+      if (itemResult.error && /spice_level|column/i.test(String(itemResult.error.message || ''))) {
+        itemResult = await client.from('order_items').select('order_id,item_name,quantity,price,notes').in('order_id', ids);
+      }
       if (itemResult.error) throw itemResult.error;
       var tableRows = tableResult.data || [];
       var itemsByOrder = {};
@@ -599,7 +632,8 @@
           name: item.item_name,
           price: Number(item.price) || 0,
           qty: Number(item.quantity) || 1,
-          notes: item.notes || ''
+          notes: item.notes || '',
+          spiceLevel: item.spice_level || 'normal'
         });
       });
 
@@ -870,7 +904,11 @@
             )
           : 'A dish in your cart no longer matches the current menu. Please re-add it from the menu.');
       }
-      return { menu_item_id: item.db_id, quantity: Number(cartItem.qty) || 1 };
+      var spice = String(cartItem.spiceLevel || 'normal').toLowerCase();
+      if (['normal','mild','medium','hot'].indexOf(spice) < 0) spice = 'normal';
+      var itemNotes = String(cartItem.notes || '').trim();
+      if (itemNotes.length > 300) throw new Error('Per-dish notes must be 300 characters or fewer.');
+      return { menu_item_id: item.db_id, quantity: Number(cartItem.qty) || 1, spice_level: spice, notes: itemNotes };
     });
   }
 
@@ -959,6 +997,17 @@
     return value;
   }
 
+  async function setTableCapacity(tableNumber, capacity) {
+    var result = await ownerRpc('mm_admin_set_table_capacity', {
+      p_table_number: String(tableNumber || ''),
+      p_capacity: Number(capacity)
+    });
+    window.MM_TABLE_CAPACITIES = window.MM_TABLE_CAPACITIES || {};
+    window.MM_TABLE_CAPACITIES[String(result.table_number || tableNumber).padStart(2, '0')] = Number(result.seating_capacity || capacity);
+    if (typeof window.renderHomeTables === 'function') window.renderHomeTables();
+    return result;
+  }
+
   async function setTableVisitStatus(tableNumber, action, waiterCode) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
     if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) {
@@ -997,8 +1046,8 @@
 
   async function createSharedOrder(tableNumber, cartItems, notes) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected yet. Please refresh and try again.');
-    var visit = await ensurePublicTableVisit(tableNumber);
     var actorRole = String(window.role || '');
+    var visit = await ensurePublicTableVisit(tableNumber);
     if (!visit || !visit.visit_id) {
       throw new Error('This table is not open for ordering yet. Please ask your waiter to start the visit.');
     }
@@ -1007,19 +1056,20 @@
     var guestOrderCode = null;
     var guestOrderCodeKey = 'mm_customer_order_code_' + String(visit.visit_id);
     if (!actorRole) {
-      try { guestOrderCode = String(localStorage.getItem(guestOrderCodeKey) || '').trim(); } catch (e) {}
+      var codeField = document.getElementById('customer-order-code');
+      try { guestOrderCode = String(codeField && codeField.value || '').trim(); } catch (e) {}
       if (!/^[0-9]{6}$/.test(guestOrderCode)) {
-        guestOrderCode = window.prompt(
-          'Enter the 6-digit table order code given by your waiter for Table ' +
-          String(tableNumber).padStart(2, '0') + ':',
-          ''
-        );
-        if (guestOrderCode === null) throw new Error('Order not sent. Please ask your waiter for the 6-digit table code.');
-        guestOrderCode = String(guestOrderCode || '').trim();
-        if (!/^[0-9]{6}$/.test(guestOrderCode)) {
-          throw new Error('Enter the 6-digit code shown by your waiter to place this order.');
-        }
+        try { guestOrderCode = String(localStorage.getItem(guestOrderCodeKey) || '').trim(); } catch (e) {}
       }
+      if (!/^[0-9]{6}$/.test(guestOrderCode)) {
+        throw new Error(window.mmI18n
+          ? window.mmI18n(
+              'Enter the 6-digit table code given by your waiter. Your dishes are still in the cart.',
+              'वेटरने दिलेला ६ अंकी टेबल कोड भरा. तुमचे पदार्थ अजूनही कार्टमध्ये सुरक्षित आहेत.'
+            )
+          : 'Enter the 6-digit table code given by your waiter. Your dishes are still in the cart.');
+      }
+      if (codeField) codeField.value = guestOrderCode;
     }
 
     var ticket = window.makeTicketId(tableNumber, new Date());
@@ -1040,6 +1090,8 @@
       var placeMessage = String(placeError.message || '');
       if (!actorRole && /6-digit table order code is incorrect/i.test(placeMessage)) {
         try { localStorage.removeItem(guestOrderCodeKey); } catch (e) {}
+        var wrongCodeField = document.getElementById('customer-order-code');
+        if (wrongCodeField) wrongCodeField.value = '';
       }
       if (!actorRole && /p_guest_order_code|mm_place_order/i.test(placeMessage) &&
           (placeError.code === 'PGRST202' || placeError.code === '42883')) {
@@ -1092,6 +1144,11 @@
     var originalCart = window.cart.slice();
     var notesEl = document.getElementById('notes');
     var noteText = notesEl ? notesEl.value.trim() : '';
+    var orderButton = document.getElementById('place-order-button');
+    if (orderButton) {
+      orderButton.disabled = true;
+      orderButton.textContent = window.mmI18n ? window.mmI18n('Sending order…','ऑर्डर पाठवत आहे…') : 'Sending order…';
+    }
     try {
       var order = await createSharedOrder(window.table || '01', originalCart, noteText);
       window.orders = window.orders || [];
@@ -1118,6 +1175,10 @@
       notifyError(e && e.message ? e.message : 'Could not send the order. Please ask your waiter.');
     } finally {
       window.MM_ORDER_SENDING = false;
+      if (orderButton) {
+        orderButton.disabled = false;
+        orderButton.textContent = window.mmI18n ? window.mmI18n('Place order','ऑर्डर द्या') : 'Place order';
+      }
     }
   }
 
@@ -2032,6 +2093,7 @@
     window.MM_REQUEST_PAYMENT_VERIFICATION = requestPaymentVerification;
     window.MM_REFRESH_TABLE_VISITS = refreshTableVisits;
     window.MM_SET_TABLE_VISIT_STATUS = setTableVisitStatus;
+    window.MM_SET_TABLE_CAPACITY = setTableCapacity;
     window.MM_RELEASE_ABANDONED_VISIT = releaseAbandonedVisit;
     window.MM_LOAD_STAFF_NOTIFICATIONS = loadStaffNotifications;
     window.MM_RESOLVE_STAFF_NOTIFICATION = resolveStaffNotification;
