@@ -995,7 +995,7 @@ BEGIN
     UPDATE public.orders
     SET approval_status = 'REJECTED',
         status = 'CANCELLED',
-        cancel_reason = 'OWNER_REJECTED'
+        cancel_reason = 'OWNER_CANCELLED'
     WHERE id = v_order.id;
   END IF;
 
