@@ -22,6 +22,32 @@ ALTER TABLE public.restaurant_table_visits
   ADD COLUMN IF NOT EXISTS assigned_waiter_code text NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS guest_order_code text NOT NULL DEFAULT '';
 
+-- Guest orders wait for explicit owner approval. Existing tickets remain approved.
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS approval_status text NOT NULL DEFAULT 'APPROVED';
+
+DO $
+DECLARE c record;
+BEGIN
+  FOR c IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'public.orders'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%approval_status%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.orders DROP CONSTRAINT %I', c.conname);
+  END LOOP;
+  ALTER TABLE public.orders
+    ADD CONSTRAINT orders_approval_status_check
+    CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED'));
+END
+$;
+
+-- Keep push-dispatch fields available even if the separate push migration is applied later.
+ALTER TABLE public.mm_restaurant_notifications
+  ADD COLUMN IF NOT EXISTS push_dispatch_token text,
+  ADD COLUMN IF NOT EXISTS push_sent_at timestamptz;
+
 -- Give already-open visits a usable code on migration; closed history is untouched.
 UPDATE public.restaurant_table_visits
 SET guest_order_code = lpad((floor(random()*900000)::integer + 100000)::text, 6, '0')
@@ -46,7 +72,7 @@ BEGIN
     ADD CONSTRAINT mm_restaurant_notifications_type_check
     CHECK (notification_type IN (
       'WAITER_CALL','BILL_REQUEST','NEW_ORDER','ORDER_READY','ITEM_SOLD_OUT',
-      'PARTY_BOOKING','PAYMENT_CHECK','CASH_AT_COUNTER','GUEST_LEFT_UNPAID'
+      'PARTY_BOOKING','PAYMENT_CHECK','CASH_AT_COUNTER','GUEST_LEFT_UNPAID','ORDER_APPROVAL'
     ));
 END
 $$;
@@ -655,10 +681,14 @@ BEGIN
 
   INSERT INTO public.orders
     (restaurant_id, table_id, table_visit_id, customer_session_id,
-     status, notes, total, ticket_id)
+     status, approval_status, notes, total, ticket_id)
   VALUES
     (p_restaurant_id, v_table_id, v_visit_id, p_customer_session_id,
-     'NEW', left(trim(coalesce(p_notes, '')), 1000), v_total, p_ticket_id)
+     'NEW',
+     CASE WHEN coalesce(public.get_my_staff_role(), '') = ''
+                   AND p_customer_session_id IS NOT NULL
+          THEN 'PENDING' ELSE 'APPROVED' END,
+     left(trim(coalesce(p_notes, '')), 1000), v_total, p_ticket_id)
   RETURNING * INTO v_order;
 
   FOR v_line IN SELECT value FROM jsonb_array_elements(p_items) AS x(value)
@@ -698,10 +728,30 @@ BEGIN
     'customerSessionId', p_customer_session_id,
     'total', v_order.total,
     'status', v_order.status,
+    'approvalStatus', v_order.approval_status,
     'notes', v_order.notes,
     'createdAt', v_order.created_at,
     'orderNumber', v_order.order_number,
-    'items', v_items
+    'items', v_items,
+    'notification_ids', coalesce((
+      SELECT jsonb_agg(n.id ORDER BY n.id)
+      FROM public.mm_restaurant_notifications n
+      WHERE n.restaurant_id = v_order.restaurant_id
+        AND n.target_role = 'admin'
+        AND n.notification_type = 'ORDER_APPROVAL'
+        AND n.ticket_id = v_order.ticket_id
+        AND n.resolved_at IS NULL
+    ), '[]'::jsonb),
+    'dispatch_tokens', coalesce((
+      SELECT jsonb_agg(jsonb_build_object('id', n.id, 'token', n.push_dispatch_token) ORDER BY n.id)
+      FROM public.mm_restaurant_notifications n
+      WHERE n.restaurant_id = v_order.restaurant_id
+        AND n.target_role = 'admin'
+        AND n.notification_type = 'ORDER_APPROVAL'
+        AND n.ticket_id = v_order.ticket_id
+        AND n.resolved_at IS NULL
+        AND n.push_dispatch_token IS NOT NULL
+    ), '[]'::jsonb)
   );
 END
 $$;
@@ -772,6 +822,204 @@ END
 $$;
 REVOKE ALL ON FUNCTION public.mm_resolve_staff_notification(bigint,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.mm_resolve_staff_notification(bigint,text) TO authenticated;
+
+
+-- A pending guest ticket notifies the owner and never enters the kitchen queue.
+CREATE OR REPLACE FUNCTION public.mm_notify_kitchen_new_order()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $
+DECLARE v_table text;
+BEGIN
+  IF upper(coalesce(NEW.approval_status, 'APPROVED')) <> 'APPROVED' THEN
+    RETURN NEW;
+  END IF;
+  SELECT lpad(t.table_number::text, 2, '0') INTO v_table
+  FROM public.restaurant_tables t WHERE t.id = NEW.table_id;
+  INSERT INTO public.mm_restaurant_notifications (
+    restaurant_id, target_role, notification_type, table_number, ticket_id, message
+  ) VALUES (
+    NEW.restaurant_id, 'kitchen', 'NEW_ORDER', coalesce(v_table, ''),
+    coalesce(NEW.ticket_id, ''), 'New approved order received'
+  );
+  RETURN NEW;
+END
+$;
+
+CREATE OR REPLACE FUNCTION public.mm_notify_owner_pending_order()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $
+DECLARE
+  v_table text;
+  v_token text;
+BEGIN
+  IF upper(coalesce(NEW.approval_status, 'APPROVED')) <> 'PENDING' THEN
+    RETURN NEW;
+  END IF;
+  SELECT lpad(t.table_number::text, 2, '0') INTO v_table
+  FROM public.restaurant_tables t WHERE t.id = NEW.table_id;
+  v_token := gen_random_uuid()::text;
+  INSERT INTO public.mm_restaurant_notifications (
+    restaurant_id, target_role, notification_type, table_number, ticket_id,
+    message, push_dispatch_token
+  ) VALUES (
+    NEW.restaurant_id, 'admin', 'ORDER_APPROVAL', coalesce(v_table, ''),
+    coalesce(NEW.ticket_id, ''),
+    'Customer order waiting for owner approval · Table ' || coalesce(v_table, '?'),
+    v_token
+  );
+  RETURN NEW;
+END
+$;
+
+DROP TRIGGER IF EXISTS mm_notify_owner_pending_order_trigger ON public.orders;
+CREATE TRIGGER mm_notify_owner_pending_order_trigger
+AFTER INSERT ON public.orders
+FOR EACH ROW
+EXECUTE FUNCTION public.mm_notify_owner_pending_order();
+
+CREATE OR REPLACE FUNCTION public.mm_notify_kitchen_after_owner_approval()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $
+DECLARE v_table text;
+BEGIN
+  IF upper(coalesce(NEW.approval_status, '')) <> 'APPROVED'
+     OR upper(coalesce(OLD.approval_status, '')) <> 'PENDING' THEN
+    RETURN NEW;
+  END IF;
+  SELECT lpad(t.table_number::text, 2, '0') INTO v_table
+  FROM public.restaurant_tables t WHERE t.id = NEW.table_id;
+  INSERT INTO public.mm_restaurant_notifications (
+    restaurant_id, target_role, notification_type, table_number, ticket_id, message
+  ) VALUES (
+    NEW.restaurant_id, 'kitchen', 'NEW_ORDER', coalesce(v_table, ''),
+    coalesce(NEW.ticket_id, ''), 'Owner approved order · ready for preparation'
+  );
+  RETURN NEW;
+END
+$;
+
+DROP TRIGGER IF EXISTS mm_notify_kitchen_after_owner_approval_trigger ON public.orders;
+CREATE TRIGGER mm_notify_kitchen_after_owner_approval_trigger
+AFTER UPDATE OF approval_status ON public.orders
+FOR EACH ROW
+WHEN (OLD.approval_status IS DISTINCT FROM NEW.approval_status)
+EXECUTE FUNCTION public.mm_notify_kitchen_after_owner_approval();
+
+-- A customer can read only their own status through the secret per-order token.
+CREATE OR REPLACE FUNCTION public.mm_get_public_order(
+  p_ticket_id text,
+  p_public_token uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $
+DECLARE
+  v_order public.orders%ROWTYPE;
+  v_table_number text;
+  v_items jsonb;
+BEGIN
+  IF p_ticket_id IS NULL OR p_public_token IS NULL THEN RETURN NULL; END IF;
+  SELECT o.* INTO v_order
+  FROM public.orders o
+  WHERE o.ticket_id = p_ticket_id
+    AND o.public_token = p_public_token
+    AND o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+  LIMIT 1;
+  IF NOT FOUND THEN RETURN NULL; END IF;
+  SELECT t.table_number INTO v_table_number
+  FROM public.restaurant_tables t WHERE t.id = v_order.table_id;
+  SELECT coalesce(
+    jsonb_agg(jsonb_build_object('name', oi.item_name, 'price', oi.price, 'qty', oi.quantity)
+              ORDER BY oi.created_at, oi.item_name), '[]'::jsonb
+  ) INTO v_items
+  FROM public.order_items oi WHERE oi.order_id = v_order.id;
+  RETURN jsonb_build_object(
+    'id', v_order.ticket_id, 'table', v_table_number, 'total', v_order.total,
+    'status', v_order.status, 'approvalStatus', v_order.approval_status,
+    'notes', v_order.notes, 'createdAt', v_order.created_at, 'items', v_items
+  );
+END
+$;
+REVOKE ALL ON FUNCTION public.mm_get_public_order(text,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mm_get_public_order(text,uuid) TO anon, authenticated;
+
+-- Only the owner/admin can accept or reject a customer's pending ticket.
+CREATE OR REPLACE FUNCTION public.mm_admin_review_customer_order(
+  p_ticket_id text,
+  p_decision text,
+  p_reason text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $
+DECLARE
+  v_order public.orders%ROWTYPE;
+  v_decision text := upper(trim(coalesce(p_decision, '')));
+  v_table text;
+BEGIN
+  IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN
+    RAISE EXCEPTION 'Only the Owner/Admin can approve or reject customer orders.';
+  END IF;
+  IF nullif(trim(coalesce(p_ticket_id, '')), '') IS NULL
+     OR v_decision NOT IN ('APPROVE', 'REJECT') THEN
+    RAISE EXCEPTION 'Choose an order and select Approve or Reject.';
+  END IF;
+  SELECT o.* INTO v_order
+  FROM public.orders o
+  WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+    AND o.ticket_id = trim(p_ticket_id)
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Order not found. Refresh the Orders tab.'; END IF;
+  IF upper(coalesce(v_order.approval_status, 'APPROVED')) <> 'PENDING' THEN
+    RAISE EXCEPTION 'This order has already been reviewed. Refresh the Orders tab.';
+  END IF;
+  SELECT lpad(t.table_number::text, 2, '0') INTO v_table
+  FROM public.restaurant_tables t WHERE t.id = v_order.table_id;
+
+  IF v_decision = 'APPROVE' THEN
+    UPDATE public.orders SET approval_status = 'APPROVED' WHERE id = v_order.id;
+  ELSE
+    UPDATE public.orders
+    SET approval_status = 'REJECTED',
+        status = 'CANCELLED',
+        cancel_reason = 'OWNER_REJECTED'
+    WHERE id = v_order.id;
+  END IF;
+
+  UPDATE public.mm_restaurant_notifications
+  SET resolved_at = now(), resolved_by = auth.uid(), push_dispatch_token = NULL
+  WHERE restaurant_id = v_order.restaurant_id
+    AND target_role = 'admin'
+    AND notification_type = 'ORDER_APPROVAL'
+    AND ticket_id = v_order.ticket_id
+    AND resolved_at IS NULL;
+
+  RETURN jsonb_build_object(
+    'id', v_order.ticket_id,
+    'table', coalesce(v_table, ''),
+    'decision', v_decision,
+    'approvalStatus', CASE WHEN v_decision = 'APPROVE' THEN 'APPROVED' ELSE 'REJECTED' END,
+    'status', CASE WHEN v_decision = 'APPROVE' THEN 'NEW' ELSE 'CANCELLED' END,
+    'reason', left(trim(coalesce(p_reason, '')), 250)
+  );
+END
+$;
+REVOKE ALL ON FUNCTION public.mm_admin_review_customer_order(text,text,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mm_admin_review_customer_order(text,text,text) TO authenticated;
+
 
 NOTIFY pgrst,'reload schema';
 COMMIT;
