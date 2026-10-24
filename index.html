@@ -1311,7 +1311,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
     <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
     <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 <span id="home-scan-label">Scan table QR</span></button>
-    <p class="muted" id="home-no-install" style="margin-top:10px;font-size:12px">No app install needed · Works on any phone</p>
+    <p class="muted" id="home-no-install" style="margin-top:10px;font-size:12px">Browse freely · To order, use the code from your waiter at an open table</p>
     <div class="home-shortcuts" aria-label="Helpful links">
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" aria-label="How to use this app" title="How to use this app" onclick="openGuide()"><span aria-hidden="true">📖</span></button>
@@ -1697,7 +1697,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <p class="muted" id="pay-verify-upi-status" style="font-size:12px;margin-top:8px" role="status" aria-live="polite">After paying, tap this button so the owner or waiter can verify the transaction.</p>
     </div>
     <div id="pay-cash-area" style="display:none;margin-top:14px;text-align:left">
-      <p class="muted" style="font-size:13px">Please pay cash at the counter. Staff will confirm when received.</p>
+      <p class="muted" style="font-size:13px">Please hand over the cash at the counter and ask counter staff to confirm it before leaving the restaurant. Your bill stays unpaid until staff records the cash.</p>
       <button type="button" class="btn btn-main" id="pay-cash-leave-btn" style="margin-top:8px" onclick="releaseTableForCash()">I’ll pay cash at the counter &amp; leave the table</button>
       <p class="muted" id="pay-cash-leave-status" style="font-size:11px;margin-top:6px" role="status" aria-live="polite">After your food is served, tap this to return Home and free the table. Your bill stays due until staff records the cash.</p>
       <button type="button" class="btn btn-ok" id="pay-cash-confirm-btn" style="margin-top:8px;display:none" onclick="markPaidMethod('cash')">Confirm cash received</button>
@@ -3799,59 +3799,81 @@ function wSend() {
   wDrawCart(); wMenu(); drawWaiterOrders(); toast(window.mmI18n('Ticket ','ऑर्डर ') + id + window.mmI18n(' sent · Table ',' पाठवली · टेबल ') + wTable);
 }
 
+function readWaiterStaffCode() {
+  try { return String(localStorage.getItem('mm_waiter_staff_code') || '').trim().toUpperCase(); } catch (e) { return ''; }
+}
+function getWaiterStaffCode(forcePrompt) {
+  var code = readWaiterStaffCode();
+  if (!forcePrompt && /^[A-Z0-9][A-Z0-9_-]{1,11}$/.test(code)) return code;
+  var entered = window.prompt(
+    'Enter your waiter ID (for example W01). This ID is attached to the table visit so the owner can identify who attended.',
+    code || ''
+  );
+  if (entered === null) return '';
+  entered = String(entered || '').trim().toUpperCase();
+  if (!/^[A-Z0-9][A-Z0-9_-]{1,11}$/.test(entered)) {
+    toast('Enter a waiter ID using 2–12 letters, numbers, - or _. Example: W01.');
+    return '';
+  }
+  try { localStorage.setItem('mm_waiter_staff_code', entered); } catch (e) {}
+  return entered;
+}
+function changeWaiterStaffCode() {
+  var code = getWaiterStaffCode(true);
+  if (code) {
+    toast('Waiter ID set to ' + code + ' on this device.');
+    renderWaiterVisitControl();
+  }
+}
+
 function renderWaiterVisitControl() {
   var host = document.getElementById('w-visit-control');
   if (!host) return;
-  if (!wTable) {
-    host.style.display = 'none';
-    host.innerHTML = '';
-    return;
-  }
+  if (!wTable) { host.style.display = 'none'; host.innerHTML = ''; return; }
   host.style.display = 'block';
-
   if (!window.MM_TABLE_VISITS_READY) {
-    host.innerHTML =
-      '<div class="waiter-visit-row"><div><b>' + window.mmI18n('Table visit status','टेबल भेट स्थिती') + '</b>' +
-      '<small>' + window.mmI18n('One-time setup is required to track when this table is ready for the next guest.','टेबल पुढील ग्राहकासाठी कधी तयार आहे हे पाहण्यासाठी एकदाच सेटअप आवश्यक आहे.') + '</small></div>' +
-      '<button type="button" class="btn btn-soft btn-sm" disabled style="width:auto">' + window.mmI18n('Setup pending','सेटअप बाकी') + '</button></div>';
+    host.innerHTML = '<div class="waiter-visit-row"><div><b>Table visit setup needed</b><small>Ask the owner to apply the secure table-order setup SQL.</small></div><button type="button" class="btn btn-soft btn-sm" disabled style="width:auto">Setup pending</button></div>';
     return;
   }
-
   var num = String(wTable).padStart(2, '0');
   var visit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[num];
   var isOpen = !!(visit && String(visit.status || '').toUpperCase() === 'OPEN');
+  var deviceWaiterId = readWaiterStaffCode() || 'not set';
   if (!isOpen) {
-    host.innerHTML =
-      '<div class="waiter-visit-row"><div><b>' + window.mmI18n('Ready for next guest','पुढील ग्राहकासाठी तयार') + '</b>' +
-      '<small>' + window.mmI18n('Start the visit when guests are seated.','ग्राहक बसल्यावर भेट सुरू करा.') + '</small></div>' +
-      '<button type="button" class="btn btn-soft btn-sm" onclick="startTableVisit()" style="width:auto">' + window.mmI18n('Start visit','भेट सुरू करा') + '</button></div>';
+    host.innerHTML = '<div class="waiter-visit-row"><div><b>Ready for next guest</b><small>Start only after guests are seated. Waiter ID on this device: <b>' + esc(deviceWaiterId) + '</b>.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button type="button" class="btn btn-soft btn-sm" onclick="changeWaiterStaffCode()" style="width:auto">Change ID</button><button type="button" class="btn btn-main btn-sm" onclick="startTableVisit()" style="width:auto">Start visit</button></div></div>';
     return;
   }
-
   var hasActiveTickets = (orders || []).some(function (o) {
     return o && !o.is_test_order && !o.archived_at &&
       String(o.table || '').padStart(2, '0') === num &&
       ['NEW','PREPARING','READY'].indexOf(String(o.status || '').toUpperCase()) >= 0;
   });
   var startedAt = visit.started_at ? new Date(visit.started_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
-  host.innerHTML =
-    '<div class="waiter-visit-row"><div><b>' + window.mmI18n('Visit in progress','टेबल भेट सुरू आहे') + '</b>' +
-    '<small>' + (startedAt ? window.mmI18n('Started at ','सुरू वेळ ') + esc(startedAt) + ' · ' : '') +
-    window.mmI18n('Finish only after guests leave, tickets are complete and the bill is paid.','ग्राहक गेल्यावर, सर्व ऑर्डर पूर्ण झाल्यावर आणि बिल भरल्यावरच बंद करा.') + '</small></div>' +
-    '<button type="button" class="btn btn-soft btn-sm" onclick="finishTableVisit()" ' +
+  var assignedId = String(visit.assigned_waiter_code || 'not assigned');
+  var guestCode = String(visit.guest_order_code || '');
+  host.innerHTML = '<div class="waiter-visit-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><b>Visit in progress</b><small>' +
+    (startedAt ? 'Started at ' + esc(startedAt) + ' · ' : '') +
+    'Assigned waiter: <b>' + esc(assignedId) + '</b><br>Guest order code: <b style="font-size:15px;letter-spacing:1.5px">' + esc(guestCode) + '</b><br>Share this code only with guests seated at this table.</small></div><button type="button" class="btn btn-soft btn-sm" onclick="changeWaiterStaffCode()" style="width:auto">Change ID</button></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px"><button type="button" class="btn btn-soft btn-sm" onclick="finishTableVisit()" ' +
     (hasActiveTickets ? 'disabled title="Serve or cancel all active tickets first" ' : '') +
-    'style="width:auto">' + window.mmI18n('Finish visit','भेट पूर्ण करा') + '</button></div>';
+    'style="width:auto">Finish &amp; settle</button><button type="button" class="btn btn-main btn-sm" onclick="releaseAbandonedTableVisit()" ' +
+    (hasActiveTickets ? 'disabled title="Serve or cancel all active tickets first" ' : '') +
+    'style="width:auto">Guest left · free table</button></div>';
 }
 
 async function startTableVisit() {
   if (!wTable) return;
   if (typeof window.MM_SET_TABLE_VISIT_STATUS !== 'function') {
-    toast(window.mmI18n('Table visit setup is not connected yet. Ask the owner to run supabase/table-visits.sql.','टेबल भेट सेटअप जोडलेले नाही. मालकाने Supabase मध्ये table-visits.sql चालवावे.'));
+    toast('Table visit setup is not active yet. Ask the owner to apply supabase/visit-service-controls.sql.');
     return;
   }
+  var waiterCode = getWaiterStaffCode(false);
+  if (!waiterCode) return;
   try {
-    await window.MM_SET_TABLE_VISIT_STATUS(wTable, 'START');
-    toast(window.mmI18n('Table ','टेबल ') + wTable + window.mmI18n(' marked in service.',' सुरू केले.'));
+    var result = await window.MM_SET_TABLE_VISIT_STATUS(wTable, 'START', waiterCode);
+    var code = result && result.guest_order_code ? String(result.guest_order_code) : '';
+    var assigned = result && result.assigned_waiter_code ? String(result.assigned_waiter_code) : waiterCode;
+    toast('Table ' + wTable + ' is open · Waiter ' + assigned + (code ? ' · Guest order code ' + code : ''));
     renderWaiterVisitControl();
   } catch (e) {
     toast(e && e.message ? e.message : 'Could not start the table visit.');
@@ -3885,6 +3907,32 @@ async function finishTableVisit() {
     renderWaiterVisitControl();
   } catch (e) {
     toast(e && e.message ? e.message : window.mmI18n('Could not finish the visit. Check active tickets and the bill.','भेट पूर्ण झाली नाही. ऑर्डर व बिल तपासा.'));
+  }
+}
+
+async function releaseAbandonedTableVisit() {
+  if (!wTable) return;
+  var num = String(wTable).padStart(2, '0');
+  var active = (orders || []).some(function (o) {
+    return o && !o.is_test_order && !o.archived_at &&
+      String(o.table || '').padStart(2, '0') === num &&
+      ['NEW','PREPARING','READY'].indexOf(String(o.status || '').toUpperCase()) >= 0;
+  });
+  if (active) { toast('Serve or cancel all active food tickets before freeing the table.'); return; }
+  if (typeof window.MM_RELEASE_ABANDONED_VISIT !== 'function') {
+    toast('Guest-left checkout is not active yet. Ask the owner to apply supabase/visit-service-controls.sql.');
+    return;
+  }
+  if (!confirm('Release Table ' + num + ' for the next guest? Use only after guests have left. Any unpaid balance stays on the old visit and alerts the owner/counter; the next guests get a separate bill.')) return;
+  try {
+    var result = await window.MM_RELEASE_ABANDONED_VISIT(num, 'Guest left before checkout');
+    renderWaiterVisitControl();
+    var due = Number(result && result.amount) || 0;
+    toast(due > 0.01
+      ? 'Table ' + num + ' released. Owner/counter alerted: ₹' + due.toFixed(2) + ' is still due.'
+      : 'Table ' + num + ' released and ready for the next guest.');
+  } catch (e) {
+    toast(e && e.message ? e.message : 'Could not release this table. Check the active tickets.');
   }
 }
 
