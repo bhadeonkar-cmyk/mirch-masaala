@@ -11,6 +11,7 @@ const visitBillingMigration = fs.readFileSync('supabase/visit-billing-upgrade.sq
 const partyBookingsMigration = fs.readFileSync('supabase/party-bookings.sql', 'utf8');
 const paymentConfirmationMigration = fs.readFileSync('supabase/customer-payment-confirmation.sql', 'utf8');
 const cashCounterMigration = fs.readFileSync('supabase/customer-cash-counter.sql', 'utf8');
+const visitServiceControlsMigration = fs.readFileSync('supabase/visit-service-controls.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
 const staffPushEdge = fs.readFileSync('supabase/functions/send-staff-push/index.ts', 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
@@ -63,6 +64,9 @@ try {
   ['MM_GET_STAFF_VISIT_BILL', 'Counter staff can load the exact visit balance'],
   ['MM_RECORD_VISIT_PAYMENT', 'Counter payments are allocated to one table visit'],
   ['MM_REQUEST_VISIT_PAYMENT_VERIFICATION', 'UPI verification requests are scoped to the active visit'],
+  ['MM_RELEASE_ABANDONED_VISIT', 'Staff can release an abandoned table visit without mixing balances'],
+  ['p_guest_order_code: guestOrderCode', 'Customer ordering requires the active visit PIN'],
+  ['p_staff_code: String(window.role) === 'waiter' ? staffCode : null', 'Staff alerts are filtered by the assigned waiter ID'],
   ['for (var i = 0; i < tokens.length; i++)', 'Every retained customer ticket gets status refresh'],
   [".select('ticket_id,status').maybeSingle()", 'Staff status change confirms a database row was updated'],
   [".select('id,price').maybeSingle()", 'Owner price update confirms a database row was updated'],
@@ -81,6 +85,11 @@ try {
   ['function requestPaymentVerification()', 'Payment verification button never self-confirms a payment'],
   ['id="pay-cash-leave-btn"', 'Customer can release the table after choosing cash at counter'],
   ['function releaseTableForCash()', 'Cash checkout notifies staff and returns the customer Home'],
+  ['function getWaiterStaffCode(forcePrompt)', 'Waiters can set their traceable staff ID'],
+  ['function releaseAbandonedTableVisit()', 'Waiters can release a table after guests leave'],
+  ['Guest left · free table', 'Waiter sees an explicit abandoned-table action'],
+  ['guestCode', 'Waiter can show a six-digit guest ordering code'],
+  ['This phone is not linked to the current table visit', 'Customer payment verification requires a verified visit'],
   ['function customerVisitContextForTable(tableNumber)', 'Customer checkout retains a verified visit/session pair'],
   ['function openCashCounterCollection(visitId, tableNumber, notificationId, method)', 'Staff cash alert opens the correct visit balance'],
   ['CASH_AT_COUNTER', 'Cash-at-counter alert appears to owner and waiter'],
@@ -205,11 +214,16 @@ checkSqlDollarQuotes(visitBillingMigration, 'Visit billing upgrade migration');
 checkSqlDollarQuotes(partyBookingsMigration, 'Party bookings migration');
 checkSqlDollarQuotes(paymentConfirmationMigration, 'Customer payment verification migration');
 checkSqlDollarQuotes(cashCounterMigration, 'Customer cash-at-counter migration');
+checkSqlDollarQuotes(visitServiceControlsMigration, 'Waiter assignment and secure ordering migration');
 checkSqlDollarQuotes(fs.readFileSync('scripts/check-cash-counter-release.sql', 'utf8'), 'Cash counter checkout QA script');
 requireText(paymentConfirmationMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_request_payment_check', 'Customer payment verification RPC exists');
 requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_cash_counter_release', 'Cash checkout is authorized and committed server-side');
 requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_get_visit_bill', 'Customer bill lookup is visit-scoped');
 requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_staff_record_visit_payment', 'Staff settlement is scoped to the original visit');
+requireText(visitServiceControlsMigration, 'CREATE OR REPLACE FUNCTION public.mm_staff_release_abandoned_visit', 'Staff can release a table after guests leave');
+requireText(visitServiceControlsMigration, 'p_guest_order_code text DEFAULT NULL', 'Secure order RPC validates the table PIN');
+requireText(visitServiceControlsMigration, 'ADD COLUMN IF NOT EXISTS target_staff_code', 'Alerts can target the assigned waiter ID');
+requireText(visitServiceControlsMigration, "'GUEST_LEFT_UNPAID'", 'Unpaid abandoned visits create a distinct alert');
 requireText(cashCounterMigration, "'CASH_AT_COUNTER'", 'Cash checkout creates a dedicated owner/waiter alert');
 requireText(cashCounterMigration, 'o.table_visit_id=v_visit.id', 'Old unpaid balances never spill into a new table visit');
 requireText(paymentConfirmationMigration, "'PAYMENT_CHECK'", 'Payment verification notifications have a distinct type');
@@ -222,6 +236,7 @@ requireText(partyBookingsMigration, "'PARTY_BOOKING'", 'Party request creates an
 requireText(staffPushEdge, '"PARTY_BOOKING"', 'Background push sender supports party booking alerts');
 requireText(staffPushEdge, '"PAYMENT_CHECK"', 'Background push sender supports payment verification alerts');
 requireText(staffPushEdge, '"CASH_AT_COUNTER"', 'Background push sender supports urgent cash collection alerts');
+requireText(staffPushEdge, 'GUEST_LEFT_UNPAID', 'Background push sender supports abandoned-visit collection alerts');
 requireText(staffPushEdge, '"PAYMENT_CHECK", "CASH_AT_COUNTER"', 'Cash collection is included in the push dispatch allowlist');
 requireText(staffPushEdge, '|| type === "CASH_AT_COUNTER"', 'Cash collection pushes remain visible until staff attends');
 checkCleanupCounterReset(migration, 'Accounting migration');
