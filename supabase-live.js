@@ -879,7 +879,10 @@
         map[number] = {
           table_number: number,
           status: String(row.status || 'AVAILABLE').toUpperCase(),
-          started_at: row.started_at || null
+          started_at: row.started_at || null,
+          visit_id: row.visit_id || null,
+          assigned_waiter_code: String(row.assigned_waiter_code || ''),
+          guest_order_code: String(row.guest_order_code || '')
         };
       });
       window.MM_TABLE_VISITS = map;
@@ -898,31 +901,29 @@
   }
 
   async function ensurePublicTableVisit(tableNumber) {
-    if (!client || !window.MM_SUPABASE_ENABLED) return null;
-    try {
-      var result = await client.rpc('mm_ensure_public_table_visit', {
-        p_table_number: String(tableNumber || '').padStart(2, '0')
-      });
-      if (result.error) throw result.error;
-      var visit = rpcPayload(result.data);
-      if (['admin', 'waiter'].indexOf(String(window.role || '')) >= 0) await refreshTableVisits();
-      if (visit && visit.visit_id) return visit;
-      // Compatibility during rollout: the older table-visits.sql returns no visit_id.
-      // Continue using the old RPC shape until visit-billing-upgrade.sql is applied.
-      if (!tableVisitSetupMessageShown) {
-        tableVisitSetupMessageShown = true;
-        console.info('[Mirch Masaala table visits] Order-to-visit linkage is pending. Apply supabase/visit-billing-upgrade.sql in Supabase SQL Editor.');
-      }
-      return null;
-    } catch (e) {
-      // Preserve existing ordering if the optional visit migration has not yet been applied.
-      // The new visit-linked behavior activates after visit-billing-upgrade.sql is installed.
-      if (!tableVisitSetupMessageShown) {
-        tableVisitSetupMessageShown = true;
-        console.info('[Mirch Masaala table visits] Shared visit linkage is not active yet. Apply supabase/table-visits.sql and supabase/visit-billing-upgrade.sql.', e && e.message ? e.message : e);
-      }
-      return null;
+    if (!client || !window.MM_SUPABASE_ENABLED) {
+      throw new Error('Online table ordering is not connected. Please ask staff for help.');
     }
+    var result = await client.rpc('mm_ensure_public_table_visit', {
+      p_table_number: String(tableNumber || '').padStart(2, '0')
+    });
+    if (result.error) {
+      var detail = String(result.error.message || '');
+      if (result.error.code === 'PGRST202' || result.error.code === '42883' ||
+          /mm_ensure_public_table_visit/i.test(detail)) {
+        throw new Error('Table-order protection is not activated yet. Please ask the owner to finish the table visit setup.');
+      }
+      if (/not open for online orders/i.test(detail)) {
+        throw new Error('This table is not open for ordering yet. Please ask your waiter to start the visit.');
+      }
+      throw new Error(detail || 'Could not verify that this table is open. Please ask your waiter.');
+    }
+    var visit = rpcPayload(result.data);
+    if (!visit || !visit.visit_id) {
+      throw new Error('This table is not open for online ordering yet. Please ask your waiter to start the visit.');
+    }
+    if (['admin', 'waiter'].indexOf(String(window.role || '')) >= 0) await refreshTableVisits();
+    return visit;
   }
 
   function customerSessionIdForVisit(visitId) {
@@ -945,14 +946,15 @@
     return value;
   }
 
-  async function setTableVisitStatus(tableNumber, action) {
+  async function setTableVisitStatus(tableNumber, action, waiterCode) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
     if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) {
       throw new Error('Sign in as the owner or waiter to manage table visits.');
     }
     var result = await client.rpc('mm_staff_set_table_visit_status', {
       p_table_number: String(tableNumber || '').padStart(2, '0'),
-      p_action: String(action || '').toUpperCase()
+      p_action: String(action || '').toUpperCase(),
+      p_waiter_code: waiterCode ? String(waiterCode).trim().toUpperCase() : null
     });
     if (result.error) throw new Error(result.error.message || 'Could not update the table visit.');
     await refreshTableVisits();
@@ -960,14 +962,53 @@
     return result.data;
   }
 
+  async function releaseAbandonedVisit(tableNumber, reason) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
+    if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) {
+      throw new Error('Only signed-in owner or waiter staff can release a table.');
+    }
+    var result = await client.rpc('mm_staff_release_abandoned_visit', {
+      p_table_number: String(tableNumber || '').padStart(2, '0'),
+      p_reason: String(reason || 'Guest left before checkout').slice(0, 200)
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not release this table.');
+    var data = rpcPayload(result.data) || {};
+    dispatchStaffPushForGuestRequest(data);
+    await refreshTableVisits();
+    await refreshStaffOrders();
+    if (typeof window.MM_REFRESH_ROLE_NOTIFICATIONS === 'function') {
+      window.MM_REFRESH_ROLE_NOTIFICATIONS(true);
+    }
+    return data;
+  }
+
   async function createSharedOrder(tableNumber, cartItems, notes) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected yet. Please refresh and try again.');
     var visit = await ensurePublicTableVisit(tableNumber);
     var actorRole = String(window.role || '');
-    // A separate browser gets a separate session ID for the same active visit.
-    // Staff-originated tickets are linked to the visit but are not labelled as a guest session.
-    var customerSessionId = visit && visit.visit_id && !actorRole
-      ? customerSessionIdForVisit(visit.visit_id) : null;
+    if (!visit || !visit.visit_id) {
+      throw new Error('This table is not open for ordering yet. Please ask your waiter to start the visit.');
+    }
+    // Each guest phone has a separate session ID tied to the current visit.
+    var customerSessionId = !actorRole ? customerSessionIdForVisit(visit.visit_id) : null;
+    var guestOrderCode = null;
+    var guestOrderCodeKey = 'mm_customer_order_code_' + String(visit.visit_id);
+    if (!actorRole) {
+      try { guestOrderCode = String(localStorage.getItem(guestOrderCodeKey) || '').trim(); } catch (e) {}
+      if (!/^[0-9]{6}$/.test(guestOrderCode)) {
+        guestOrderCode = window.prompt(
+          'Enter the 6-digit table order code given by your waiter for Table ' +
+          String(tableNumber).padStart(2, '0') + ':',
+          ''
+        );
+        if (guestOrderCode === null) throw new Error('Order not sent. Please ask your waiter for the 6-digit table code.');
+        guestOrderCode = String(guestOrderCode || '').trim();
+        if (!/^[0-9]{6}$/.test(guestOrderCode)) {
+          throw new Error('Enter the 6-digit code shown by your waiter to place this order.');
+        }
+      }
+    }
+
     var ticket = window.makeTicketId(tableNumber, new Date());
     var payload = buildOrderItems(cartItems);
     var orderArgs = {
@@ -975,21 +1016,31 @@
       p_table_number: String(tableNumber).padStart(2, '0'),
       p_ticket_id: ticket,
       p_notes: String(notes || '').slice(0, 1000),
-      p_items: payload
+      p_items: payload,
+      p_table_visit_id: visit.visit_id,
+      p_customer_session_id: customerSessionId,
+      p_guest_order_code: guestOrderCode
     };
-    if (visit && visit.visit_id) {
-      orderArgs.p_table_visit_id = visit.visit_id;
-      orderArgs.p_customer_session_id = customerSessionId;
-    }
     var result = await client.rpc('mm_place_order', orderArgs);
-    if (result.error) throw result.error;
-    var created = rpcPayload(result.data);
-    if (!created || !created.id || !created.publicToken || (visit && visit.visit_id && !created.visitId)) {
-      throw new Error('Supabase did not confirm the new order and its table visit. Please refresh and check the order before trying again.');
+    if (result.error) {
+      var placeError = result.error;
+      var placeMessage = String(placeError.message || '');
+      if (!actorRole && /6-digit table order code is incorrect/i.test(placeMessage)) {
+        try { localStorage.removeItem(guestOrderCodeKey); } catch (e) {}
+      }
+      if (!actorRole && /p_guest_order_code|mm_place_order/i.test(placeMessage) &&
+          (placeError.code === 'PGRST202' || placeError.code === '42883')) {
+        throw new Error('Secure table ordering is not activated yet. Please ask the owner to finish the table setup.');
+      }
+      throw placeError;
     }
-    storePublicToken(created.id, created.publicToken);
-    if (!actorRole && created.visitId && customerSessionId) {
+    var created = rpcPayload(result.data);
+    if (!created || !created.id || !created.publicToken || !created.visitId) {
+      throw new Error('Supabase did not confirm the new order and table visit. Please refresh and check My Orders before trying again.');
+    }
+    if (!actorRole) {
       try {
+        localStorage.setItem(guestOrderCodeKey, guestOrderCode);
         localStorage.setItem('mm_customer_active_visit_id', String(created.visitId));
         localStorage.setItem('mm_customer_active_session_id', String(customerSessionId));
         localStorage.setItem('mm_customer_active_table', String(created.table || tableNumber).padStart(2, '0'));
@@ -997,6 +1048,7 @@
         console.info('[Mirch Masaala] The active table session could not be saved on this phone.');
       }
     }
+    storePublicToken(created.id, created.publicToken);
     return {
       id: created.id,
       dbId: created.dbId,
@@ -1967,6 +2019,7 @@
     window.MM_REQUEST_PAYMENT_VERIFICATION = requestPaymentVerification;
     window.MM_REFRESH_TABLE_VISITS = refreshTableVisits;
     window.MM_SET_TABLE_VISIT_STATUS = setTableVisitStatus;
+    window.MM_RELEASE_ABANDONED_VISIT = releaseAbandonedVisit;
     window.MM_LOAD_STAFF_NOTIFICATIONS = loadStaffNotifications;
     window.MM_RESOLVE_STAFF_NOTIFICATION = resolveStaffNotification;
     window.MM_REFRESH_ROLE_NOTIFICATIONS = refreshRoleNotifications;
