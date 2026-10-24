@@ -9,7 +9,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mirch Masaala">
-<meta name="mobile-web-app-capable" content="yes">\n<meta name="application-name" content="Mirch Masaala">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Mirch Masaala">
 <meta name="theme-color" content="#120c0a">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icons/mirch-masaala-garden-resto-192.png">
@@ -1205,6 +1206,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   .customer-bottom #customer-bill-pay-btn { padding: 11px 7px; font-size: 11px; }
   .customer-bottom .customer-help-btn { padding: 11px 7px; font-size: 11px; }
 }
+.dish-photo{display:block;width:100%;height:100%;min-height:0;object-fit:cover;border-radius:10px;background:#2a201b}.dish-photo-menu{aspect-ratio:1/1}.dish-photo-special{max-width:72px;max-height:58px;aspect-ratio:1/1;object-fit:cover;border-radius:12px;margin:auto}.dish-photo-modal{width:88px;height:70px;object-fit:cover;border-radius:14px;margin:auto}.pic{overflow:hidden;align-items:stretch;justify-content:stretch}.dish-photo-fallback{display:flex;width:100%;height:100%;min-height:48px;align-items:center;justify-content:center;font-size:25px;border-radius:10px;background:linear-gradient(135deg,#33231a,#1d1713);color:#d9b65d}.dish-name-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.dish-title-text{min-width:0}.dish-spice-button{flex:0 0 auto;border:1px solid rgba(212,168,75,.35);border-radius:8px;background:rgba(212,168,75,.08);color:var(--gold2);font-size:10px;font-weight:750;line-height:1.2;padding:4px 6px;cursor:pointer}.dish-line-preference{display:block;font-size:10px;color:var(--gold2);margin-top:2px}.dish-photo-credit{display:inline-block;color:#b8aa92;font-size:9px;line-height:1.2;margin-top:3px;text-decoration:underline;text-underline-offset:2px}.checkout-code-field{text-align:left;border:1px solid var(--line);border-radius:12px;padding:10px;margin:0 0 10px;background:rgba(212,168,75,.045)}.checkout-code-field label{display:block;margin-bottom:5px}.checkout-code-field input{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#140f0d;color:var(--text);font-size:16px;letter-spacing:3px;font-weight:800}.checkout-code-field input::placeholder{font-size:12px;letter-spacing:0;font-weight:400;color:var(--muted)}.seating-capacity-settings{border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0;background:rgba(212,168,75,.045)}.seating-capacity-controls{display:grid;grid-template-columns:minmax(110px,1fr) 80px;gap:8px;margin-top:8px}.seating-capacity-controls select,.seating-capacity-controls input{width:100%;min-width:0;padding:10px;border-radius:9px;background:#140f0d;color:var(--text);border:1px solid var(--line)}.seating-capacity-controls .btn{grid-column:1/-1;margin-top:0}.table-seat-capacity,.home-locked-caption{display:block;font-size:9px;color:var(--muted);font-weight:700;margin-top:2px}.home-locked-caption{white-space:normal}@media(max-width:360px){.dish-spice-button{font-size:9px;padding:4px}.checkout-code-field{padding:8px}}
 </style>
 <script src="./qr-matrices.js"></script>
 <style>
@@ -1448,8 +1450,13 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   </div>
   <div class="body" id="cart-list"></div>
   <div class="foot">
-    <label class="muted" id="cart-note-label" style="font-size:12px">Any special request?</label>
-    <textarea id="notes" class="search" style="margin:6px 0;min-height:56px" placeholder="Less spicy…"></textarea>
+    <div class="checkout-code-field" id="customer-order-code-field">
+      <label for="customer-order-code" class="muted" style="font-size:12px;font-weight:750">6-digit table code from your waiter</label>
+      <input id="customer-order-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" placeholder="Enter table code" aria-describedby="customer-order-code-help" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)">
+      <p class="muted" id="customer-order-code-help" style="font-size:10px;margin-top:4px">Your waiter must start the table visit and share this code. Your cart stays safe if ordering cannot be completed.</p>
+    </div>
+    <label class="muted" id="cart-note-label" style="font-size:12px">Special requirements (optional)</label>
+    <textarea id="notes" class="search" maxlength="1000" style="margin:6px 0;min-height:66px" placeholder="Less oil, no onion, allergies or other requests…"></textarea>
     <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:800;margin:10px 0">
       <span>Total</span><span class="gold" id="total">₹0</span>
     </div>
@@ -1790,6 +1797,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 <div class="modal" id="special-modal">
   <div class="box center">
     <div style="font-size:40px" id="sp-emoji">✨</div>
+    <div id="sp-photo-credit"></div>
     <h3 class="gold" id="sp-title" style="margin:8px 0">Chef special</h3>
     <p class="muted" id="sp-desc" style="margin-bottom:12px"></p>
     <p class="gold" style="font-size:22px;font-weight:800" id="sp-price"></p>
@@ -1842,6 +1850,7 @@ var CANCEL_MS = 7 * 60 * 1000;
 var ADMIN_PHONE = '+91 98765 43210';
 
 var role = null, pendingRole = null, table = '01', cart = [], cat = 'all', dietFilter = 'all', wDietFilter = 'all';
+var dishSpicePrefs = {};
 var selectedHomeTable = null;
 var waitingTimer = null, waitingJokeIndex = 0, lastPlacedOrderId = null;
 var orders = load('mm_o', []);
@@ -2214,7 +2223,7 @@ function pickSpecials() {
 function foodEmoji(item) {
   if (!item) return '🍽️';
   if (item.is_veg) return ['🥗', '🍛', '🥘', '🍲', '🥦'][item.id % 5];
-  return ['🍖', '🍗', '🥩', '🔥', '😋'][item.id % 5];
+  return '🍽️';
 }
 function drawSpecials() {
   var el = document.getElementById('specials');
@@ -2223,8 +2232,8 @@ function drawSpecials() {
   var picks = pickSpecials();
   el.innerHTML = picks.map(function(item) {
     return '<button type="button" class="special-chip" onclick="openSpecial(' + item.id + ')">' +
-      '<div class="em">' + foodEmoji(item) + '</div>' +
-      '<div class="nm">' + esc(window.mmDishName(item)) + '</div>' +
+      '<div class="em">' + dishImageMarkup(item, 'special') + '</div>' +
+      '<div class="nm">' + esc(window.mmDishName(item)) + '</div>' + dishPhotoCreditMarkup(item) +
       '<div class="pr">₹' + item.price + '</div></button>';
   }).join('');
 }
@@ -2233,7 +2242,9 @@ function openSpecial(id) {
   var item = MENU.menu_items.find(function(i) { return i.id === id; });
   if (!item) return;
   specialItemId = id;
-  document.getElementById('sp-emoji').textContent = foodEmoji(item);
+  document.getElementById('sp-emoji').innerHTML = dishImageMarkup(item, 'modal');
+  var photoCredit = document.getElementById('sp-photo-credit');
+  if (photoCredit) photoCredit.innerHTML = dishPhotoCreditMarkup(item);
   document.getElementById('sp-title').textContent = window.mmDishName(item);
   document.getElementById('sp-desc').textContent = window.mmDishDescription(item) || window.mmI18n('Vegetarian chef pick','शेफची शाकाहारी खास निवड');
   var specialAdd = document.getElementById('sp-add');
@@ -2270,6 +2281,7 @@ function startTable(n) {
   if (!isOpen) { toast(SETTINGS.closedMessage || 'Restaurant is closed'); return; }
   table = String(n).padStart(2, '0');
   try { localStorage.setItem('mm_customer_active_table', table); } catch (e) {}
+  dishSpicePrefs = load('mm_spice_pref_' + table, {}) || {};
   cart = load('mm_c_' + table, []);
   cat = 'all'; dietFilter = 'all';
   document.getElementById('search').value = '';
@@ -2477,6 +2489,49 @@ function setDietFilter(s) { dietFilter = s; drawDietFilters(); drawMenu(); drawS
 function drawWDietFilters() { renderDietButtons('w-diet-filters', wDietFilter, 'setWDietFilter'); }
 function setWDietFilter(s) { wDietFilter = s; drawWDietFilters(); wMenu(); }
 function setCat(s) { cat = s; drawCats(); drawMenu(); }
+
+function spiceLabel(value) {
+ var labels={normal:['Normal','सामान्य'],mild:['Mild','कमी तिखट'],medium:['Medium','मध्यम तिखट'],hot:['Hot','जास्त तिखट']};
+ var key=String(value||'normal').toLowerCase();if(!labels[key])key='normal';
+ return window.mmI18n(labels[key][0],labels[key][1]);
+}
+function getDishSpiceLevel(itemId) {
+ var inCart=(Array.isArray(cart)?cart:[]).find(function(c){return String(c.id)===String(itemId);});
+ var value=String((inCart&&inCart.spiceLevel)||(dishSpicePrefs&&dishSpicePrefs[String(itemId)])||'normal').toLowerCase();
+ return ['normal','mild','medium','hot'].indexOf(value)>=0?value:'normal';
+}
+function cycleDishSpice(itemId) {
+ var levels=['normal','mild','medium','hot'],next=levels[(levels.indexOf(getDishSpiceLevel(itemId))+1)%levels.length];
+ if(!dishSpicePrefs||typeof dishSpicePrefs!=='object')dishSpicePrefs={};
+ dishSpicePrefs[String(itemId)]=next;
+ (Array.isArray(cart)?cart:[]).forEach(function(c){if(String(c.id)===String(itemId))c.spiceLevel=next;});
+ save('mm_spice_pref_'+String(table).padStart(2,'0'),dishSpicePrefs);save('mm_c_'+String(table).padStart(2,'0'),cart);
+ drawMenu();if(document.getElementById('cart')&&document.getElementById('cart').classList.contains('on'))drawCart();
+ toast(window.mmI18n('Spice level: ','तिखटपणा: ')+spiceLabel(next));
+}
+function dishPhotoInfo(item) {
+ item=item||{};var url=String(item.image||item.image_url||'').trim(),credit='';
+ if(!url&&/mutton/i.test(String(item.name||''))&&/biryani/i.test(String(item.name||''))){url='https://upload.wikimedia.org/wikipedia/commons/e/e8/Hyderabadi_Mutton_Biryani.jpg';credit='Photo: Jayanthkumar101 · CC BY-SA 4.0';}
+ try{var parsed=new URL(url,window.location.href);if(parsed.protocol!=='https:')return{url:'',credit:''};return{url:parsed.href,credit:credit};}catch(e){return{url:'',credit:''};}
+}
+function dishImageMarkup(item,variant) {
+ var info=dishPhotoInfo(item);if(!info.url)return'<span class="dish-photo-fallback" aria-label="Dish photo not added yet">🍽️</span>';
+ var cls='dish-photo dish-photo-'+String(variant||'menu').replace(/[^a-z-]/g,'');
+ var alt='Photo of '+(window.mmDishName?window.mmDishName(item):(item.name||'dish'));
+ return '<img class="'+cls+'" src="'+esc(info.url)+'" alt="'+esc(alt)+'" loading="lazy" decoding="async" referrerpolicy="no-referrer" title="'+esc(info.credit||'Restaurant dish photo')+'" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'+'<span class="dish-photo-fallback" style="display:none" aria-hidden="true">🍽️</span>';
+}
+function dishPhotoCreditMarkup(item) {
+ var info=dishPhotoInfo(item);return info.credit?'<a class="dish-photo-credit" href="https://commons.wikimedia.org/wiki/File:Hyderabadi_Mutton_Biryani.jpg" target="_blank" rel="noopener noreferrer">Photo: Jayanthkumar101 · CC BY-SA 4.0</a>':'';
+}
+function updateCheckoutLabels() {
+ var codeLabel=document.querySelector('label[for="customer-order-code"]'),codeHelp=document.getElementById('customer-order-code-help'),codeInput=document.getElementById('customer-order-code'),noteLabel=document.getElementById('cart-note-label'),noteInput=document.getElementById('notes');
+ if(codeLabel)codeLabel.textContent=window.mmI18n('6-digit table code from your waiter','वेटरकडून मिळालेला ६ अंकी टेबल कोड');
+ if(codeHelp)codeHelp.textContent=window.mmI18n('Your waiter must start the table visit and share this code. Your cart stays safe if ordering cannot be completed.','वेटरने टेबल सुरू करून हा कोड द्यावा. ऑर्डर न झाल्यास तुमचे पदार्थ कार्टमध्ये सुरक्षित राहतील.');
+ if(codeInput)codeInput.placeholder=window.mmI18n('Enter table code','टेबल कोड भरा');
+ if(noteLabel)noteLabel.textContent=window.mmI18n('Special requirements (optional)','विशेष सूचना (ऐच्छिक)');
+ if(noteInput)noteInput.placeholder=window.mmI18n('Less oil, no onion, allergies or other requests…','कमी तेल, कांदा नको, अॅलर्जी किंवा इतर सूचना…');
+}
+
 function drawMenu() {
   var menuHost = document.getElementById('menu');
   if (!menuHost) return;
@@ -2504,9 +2559,9 @@ function drawMenu() {
   });
   menuHost.innerHTML = items.map(function(item) {
     var inC = cart.find(function(c){ return c.id === item.id; });
-    return '<div class="card"><div class="pic">' + (item.is_veg?'🥗':'🍖') + '</div><div style="flex:1;min-width:0">' +
-      '<div class="name"><span class="' + (item.is_veg?'veg':'nonveg') + '"></span>' + esc(window.mmDishName(item)) + '</div>' +
-      (item.description ? '<div class="desc">' + esc(window.mmDishDescription(item)) + '</div>' : '') +
+    return '<div class="card"><div class="pic">' + dishImageMarkup(item, 'menu') + '</div><div style="flex:1;min-width:0">' +
+      '<div class="name dish-name-row"><span class="' + (item.is_veg?'veg':'nonveg') + '"></span><span class="dish-title-text">' + esc(window.mmDishName(item)) + '</span><button type="button" class="dish-spice-button" onclick="cycleDishSpice(' + item.id + ')" aria-label="Change spice level for ' + esc(window.mmDishName(item)) + '">🌶️ ' + esc(spiceLabel(getDishSpiceLevel(item.id))) + '</button></div>' +
+      (item.description ? '<div class="desc">' + esc(window.mmDishDescription(item)) + '</div>' : '') + dishPhotoCreditMarkup(item) +
       '<div class="row"><span class="price">₹' + item.price + '</span>' +
       (inC ? '<div class="qty"><button type="button" onclick="qty(' + item.id + ',-1)">−</button><b>' + inC.qty + '</b><button type="button" class="p" onclick="qty(' + item.id + ',1)">+</button></div>'
            : '<button type="button" class="add" onclick="add(' + item.id + ')">' + window.mmI18n('ADD','जोडा') + '</button>') +
@@ -2515,9 +2570,9 @@ function drawMenu() {
 }
 function add(id) {
   var item = MENU.menu_items.find(function(i){ return i.id === id; }); if (!item) return;
-  var ex = cart.find(function(c){ return c.id === id; });
-  if (ex) ex.qty++; else cart.push({ id: id, db_id: item.db_id || null, name: item.name, price: item.price, qty: 1 });
-  save('mm_c_' + table, cart); drawMenu(); updCart(); toast(window.mmI18n('Added','पदार्थ जोडला'));
+  var spice=getDishSpiceLevel(id),ex=cart.find(function(c){return c.id===id;});
+  if(ex){ex.qty++;ex.spiceLevel=spice;}else cart.push({id:id,db_id:item.db_id||null,name:item.name,price:item.price,qty:1,spiceLevel:spice,notes:''});
+  save('mm_c_'+String(table).padStart(2,'0'),cart);drawMenu();updCart();toast(window.mmI18n('Added','पदार्थ जोडला'));
 }
 function qty(id, d) {
   var c = cart.find(function(x){ return x.id === id; }); if (!c) return;
@@ -2543,10 +2598,11 @@ function closeCart() {
   drawMenu(); updCart();
 }
 function drawCart() {
+  updateCheckoutLabels();
   var el = document.getElementById('cart-list');
   if (!cart.length) { el.innerHTML = '<p class="muted center" style="padding:40px">' + window.mmI18n('Cart empty','कार्ट रिकामी आहे') + '</p>'; document.getElementById('total').textContent = '₹0'; return; }
   el.innerHTML = cart.map(function(c) {
-    return '<div class="card"><div style="flex:1"><div class="name">' + esc(window.mmDishName(c.name)) + '</div><div class="desc">₹' + c.price + '</div></div>' +
+    return '<div class="card"><div style="flex:1"><div class="name">' + esc(window.mmDishName(c.name)) + '</div><div class="dish-line-preference">🌶️ ' + esc(spiceLabel(c.spiceLevel || getDishSpiceLevel(c.id))) + '</div><div class="desc">₹' + c.price + '</div></div>' +
       '<div class="qty"><button type="button" onclick="qty(' + c.id + ',-1)">−</button><b>' + c.qty + '</b><button type="button" class="p" onclick="qty(' + c.id + ',1)">+</button></div>' +
       '<div class="price" style="width:56px;text-align:right">₹' + (c.price*c.qty) + '</div></div>';
   }).join('');
@@ -3369,9 +3425,12 @@ function myOrders() {
       (Array.isArray(o.items) ? o.items : []).map(function(i){
         var qty = Number(i.qty) || 1;
         var line = Number(i.price || 0) * qty;
-        return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-top:4px"><span class="muted">' + qty + '× ' + esc(window.mmDishName ? window.mmDishName(i.name || '') : (i.name || '')) + '</span>' +
+        return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-top:4px"><span class="muted">' + qty + '× ' + esc(window.mmDishName ? window.mmDishName(i.name || '') : (i.name || '')) +
+          '<small class="dish-line-preference">🌶️ ' + esc(spiceLabel(i.spiceLevel || i.spice_level || 'normal')) + '</small>' +
+          (i.notes ? '<small class="dish-line-preference">Note: ' + esc(i.notes) + '</small>' : '') + '</span>' +
           '<span class="muted">' + (line ? money(line) : '') + '</span></div>';
       }).join('') +
+      (o.notes ? '<p class="muted" style="font-size:11px;margin-top:6px">Special requirements: ' + esc(o.notes) + '</p>' : '') +
       '<b class="gold" style="margin-top:6px">₹' + o.total + '</b>' + cbtn + '</div>';
   }).join('');
   go('myorders');
@@ -3960,7 +4019,7 @@ function drawWaiterOrders() {
     var kind = st === 'READY' ? 'ready' : (st === 'PREPARING' ? 'preparing' : st === 'SERVED' ? 'served' : 'new');
     var cleanNote = String(o.notes || '').replace(/^\[Waiter\]\s*/, '').trim();
     return '<article class="waiter-order-card ' + kind + '"><div class="waiter-order-head"><b>#' + esc(o.orderNumber || o.id || '') + '</b><span class="waiter-order-status">' + window.mmI18n(st === 'PREPARING' ? 'COOKING' : st, ({NEW:'नवीन',PREPARING:'बनत आहे',COOKING:'बनत आहे',READY:'तयार',SERVED:'वाढले',CANCELLED:'रद्द',PAID:'पैसे भरले'})[st] || st) + '</span></div>' +
-      '<div class="waiter-order-items">' + (o.items || []).map(function (item) { return '<div>' + (Number(item.qty) || 1) + '× ' + esc(window.mmDishName(item.name || '')) + '</div>'; }).join('') +
+      '<div class="waiter-order-items">' + (o.items || []).map(function (item) { return '<div>' + (Number(item.qty) || 1) + '× ' + esc(window.mmDishName(item.name || '')) + ' <small>🌶️ ' + esc(spiceLabel(item.spiceLevel || item.spice_level || 'normal')) + '</small></div>'; }).join('') +
       (cleanNote ? '<div class="waiter-order-note">Guest note: ' + esc(cleanNote) + '</div>' : '') + '</div>' +
       (st === 'READY' ? '<button type="button" class="btn btn-ok waiter-serve-btn" onclick="setStatus(\'' + String(o.id || '').replace(/'/g, '') + '\',\'SERVED\')">' + window.mmI18n('Food served ✓','जेवण दिले ✓') + '</button>' : '') + '</article>';
   }).join('') + '</div>';
@@ -4011,7 +4070,7 @@ function drawK() {
     }
     return '<article class="kcard' + (hasNotes ? ' has-note' : '') + '" style="border-color:' + col + '">' +
       '<div class="kitchen-ticket-head"><b>Table ' + esc(o.table || '—') + '</b><span class="kitchen-ticket-id">#' + esc(o.orderNumber || o.id || '') + '</span></div>' +
-      (o.items || []).map(function(i){ return '<div class="kitchen-item-row"><span>' + (Number(i.qty) || 1) + '× ' + esc(i.name) + '</span></div>'; }).join('') +
+      (o.items || []).map(function(i){ return '<div class="kitchen-item-row"><span>' + (Number(i.qty) || 1) + '× ' + esc(i.name) + ' <small>🌶️ ' + esc(spiceLabel(i.spiceLevel || i.spice_level || 'normal')) + '</small></span></div>'; }).join('') +
       noteHtml +
       '<button type="button" class="kitchen-status-btn" style="--ticket-accent:' + col + '" onclick="setStatus(\'' + String(o.id || '').replace(/'/g, '') + '\',\'' + next + '\')">' + label + '</button></article>';
   }
@@ -4264,6 +4323,7 @@ function renderAdminTicketLookupResult() {
     (itemRows.length ? itemRows.map(function(item) {
       var qty = Number(item.quantity) || 1;
       return '<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:7px;font-size:12px"><span>' + qty + '× ' + esc(item.name || 'Dish') +
+        '<div class="dish-line-preference">🌶️ ' + esc(spiceLabel(item.spice_level || item.spiceLevel || 'normal')) + '</div>' +
         (item.notes ? '<div class="muted" style="font-size:10px">' + esc(item.notes) + '</div>' : '') +
         '</span><span style="white-space:nowrap">' + money(item.line_total != null ? item.line_total : (Number(item.unit_price) || 0) * qty) + '</span></div>';
     }).join('') : '<p class="muted" style="font-size:12px">No line items were recorded for this ticket.</p>') +
@@ -4481,10 +4541,29 @@ function doneNotif(id) {
   if (n) { n.done = true; save('mm_n', notifs); drawAlerts(); }
 }
 function drawQR() {
-  document.getElementById('a-qr').innerHTML = '<p class="muted" style="margin-bottom:10px">Each QR opens the exact table menu directly. Print all table stickers or download an individual QR.</p><div class="qr-actions"><button type="button" class="btn btn-main" onclick="downloadAllQRCodes()">🖨️ Open / print QR sheet</button></div><div class="table-grid">' +
+  document.getElementById('a-qr').innerHTML = '<p class="muted" style="margin-bottom:10px">Each QR opens the exact table menu directly. Print all table stickers or download an individual QR.</p>' +
+    '<div class="seating-capacity-settings"><b>Table seating capacity</b><p class="muted" style="font-size:11px;margin-top:3px">Default is 4 seats until you set each table’s actual capacity. Set 1–30 seats.</p><div class="seating-capacity-controls">' +
+    '<select id="capacity-table-select" aria-label="Choose table for seating capacity" onchange="loadSelectedTableCapacity()">' + MENU.tables.map(function(t){return '<option value="' + t.number + '">Table ' + t.number + '</option>';}).join('') + '</select>' +
+    '<input id="capacity-seats-input" type="number" min="1" max="30" step="1" value="4" inputmode="numeric" aria-label="Number of seats at table"><button type="button" class="btn btn-main" id="capacity-save-button" onclick="saveTableCapacity()">Save capacity</button></div><p class="muted" id="capacity-save-status" style="font-size:11px;margin-top:7px" aria-live="polite"></p></div>' +
+    '<div class="qr-actions"><button type="button" class="btn btn-main" onclick="downloadAllQRCodes()">🖨️ Open / print QR sheet</button></div><div class="table-grid">' +
     MENU.tables.map(function(t) {
       return '<button type="button" class="tbtn" style="font-size:12px;flex-direction:column" onclick="showQR(\'' + t.number + '\')">' + t.number + '<br>QR</button>';
     }).join('') + '</div>';
+}
+
+function loadSelectedTableCapacity() {
+ var selector=document.getElementById('capacity-table-select'),input=document.getElementById('capacity-seats-input');if(selector&&input)input.value=String(tableCapacityFor(selector.value));
+}
+async function saveTableCapacity() {
+ if(role!=='admin'){toast('Owner/Admin access required');return;}
+ var selector=document.getElementById('capacity-table-select'),input=document.getElementById('capacity-seats-input'),status=document.getElementById('capacity-save-status'),button=document.getElementById('capacity-save-button');
+ var number=selector?selector.value:'',capacity=Number(input&&input.value);
+ if(!number||!Number.isInteger(capacity)||capacity<1||capacity>30){if(status)status.textContent='Choose a table and enter between 1 and 30 seats.';return;}
+ if(typeof window.MM_SET_TABLE_CAPACITY!=='function'){if(status)status.textContent='Apply supabase/menu-item-options-and-table-capacity.sql, then refresh.';toast('Table capacity setup is not active yet');return;}
+ if(button){button.disabled=true;button.textContent='Saving…';}
+ try{var result=await window.MM_SET_TABLE_CAPACITY(number,capacity);if(!window.MM_TABLE_CAPACITIES)window.MM_TABLE_CAPACITIES={};window.MM_TABLE_CAPACITIES[String(number).padStart(2,'0')]=Number(result.seating_capacity||capacity);rebuildTables();renderHomeTables();drawQR();var nextStatus=document.getElementById('capacity-save-status');if(nextStatus)nextStatus.textContent='Table '+String(number).padStart(2,'0')+' saved: '+capacity+' seats.';toast('Table capacity saved');}
+ catch(e){if(status)status.textContent=e&&e.message?e.message:'Could not save table capacity.';toast(e&&e.message?e.message:'Could not save table capacity.');}
+ finally{var nextButton=document.getElementById('capacity-save-button');if(nextButton){nextButton.disabled=false;nextButton.textContent='Save capacity';}}
 }
 function tableURL(t) {
   return location.origin + location.pathname + '?table=' + encodeURIComponent(String(t).padStart(2,'0'));
@@ -5299,14 +5378,14 @@ function tableCount() {
   if (n > 50) n = 50;
   return n;
 }
+function tableCapacityFor(number) {
+ var key=String(number||'').padStart(2,'0'),capacity=Number((window.MM_TABLE_CAPACITIES||{})[key]);
+ return Number.isInteger(capacity)&&capacity>=1&&capacity<=30?capacity:4;
+}
 function rebuildTables() {
-  var n = tableCount();
-  var tables = [];
-  for (var i = 1; i <= n; i++) {
-    tables.push({ id: i, number: String(i).padStart(2, '0'), name: 'Table ' + String(i).padStart(2, '0'), is_active: true });
-  }
-  MENU.tables = tables;
-  return tables;
+  var n=tableCount(),tables=[];
+  for(var i=1;i<=n;i++){var number=String(i).padStart(2,'0');tables.push({id:i,number:number,name:'Table '+number,is_active:true,seating_capacity:tableCapacityFor(number)});}
+  MENU.tables=tables;return tables;
 }
 var homeScrollFrame=0;
 var homeProgrammaticScrollUntil=0;
@@ -5429,7 +5508,7 @@ function renderHomeTables() {
     var fixed=document.createElement('button');
     fixed.type='button';fixed.className='tbtn table-carousel-card selected home-locked-table';
     fixed.setAttribute('aria-label','Your active table '+lockedTable);
-    fixed.innerHTML='<span class="table-mini-cartoon" aria-hidden="true">🍽️</span><strong>'+lockedTable+'</strong><small class="home-locked-caption">YOUR TABLE</small>';
+    fixed.innerHTML='<span class="table-mini-cartoon" aria-hidden="true">🍽️</span><strong>'+lockedTable+'</strong><small class="home-locked-caption">YOUR TABLE</small><small class="table-seat-capacity">'+tableCapacityFor(lockedTable)+' seats</small>';
     fixed.onclick=function(){startTable(lockedTable);};
     g.appendChild(fixed);
     selectedHomeTable=lockedTable;
@@ -5445,7 +5524,7 @@ function renderHomeTables() {
   if(swipeGuide)swipeGuide.style.display='';
   MENU.tables.forEach(function(t){
     var b=document.createElement('button');b.type='button';b.className='tbtn table-carousel-card';b.style.setProperty('--card-index',g.children.length);b.setAttribute('data-table-number',t.number);
-    b.innerHTML='<span class="table-mini-cartoon" aria-hidden="true">🍽️</span><strong>'+t.number+'</strong>';
+    b.innerHTML='<span class="table-mini-cartoon" aria-hidden="true">🍽️</span><strong>'+t.number+'</strong><small class="table-seat-capacity">'+tableCapacityFor(t.number)+' seats</small>';
     b.setAttribute('aria-label','Select Table '+t.number);
     b.onclick=(function(num,card){return function(){selectHomeTable(num,card,false);};})(t.number,b);g.appendChild(b);
   });
