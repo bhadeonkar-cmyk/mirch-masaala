@@ -162,6 +162,7 @@ requireText(publicBoard, 'o.archived_at IS NULL', 'Public board filters archived
   [html, 'function lookupAdminTicket()', 'Owner ticket lookup UI exists'],
   [html, 'id="home-my-orders"', 'Customer Home has a persistent saved-order control'],
   [html, "window.mmI18n('My orders', 'माझ्या ऑर्डर्स')", 'Customer Home always shows a My orders control'],
+  [html, "if (typeof window.renderCustomerHomeOrders === 'function') window.renderCustomerHomeOrders();", 'Home order link initializes on first page load'],
   [html, 'w-secondary-alert', 'Routine waiter alerts have a lower-priority host below the table picker'],
   [html, 'function finishTableVisit()', 'Waiter has an explicit table-visit completion action'],
   [html, 'id="w-visit-control"', 'Waiter can review table visit state from the selected table'],

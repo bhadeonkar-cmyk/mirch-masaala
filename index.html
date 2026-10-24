@@ -6365,6 +6365,9 @@ window.setWDietFilter = setWDietFilter;
     window.applyHomeLanguage(window.MM_HOME_LANGUAGE === 'mr' ? 'en' : 'mr');
   };
   window.applyHomeLanguage(window.MM_HOME_LANGUAGE);
+  // The Home screen is visible on first load without a navigation event.
+  // Initialise its persistent My orders control after language helpers exist.
+  if (typeof window.renderCustomerHomeOrders === 'function') window.renderCustomerHomeOrders();
 })();
 </script>
 <script src="./supabase-live.js"></script>
