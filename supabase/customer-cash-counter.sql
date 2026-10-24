@@ -436,7 +436,7 @@ DECLARE
   v_paid_count integer:=0;
   v_in_progress boolean;
 BEGIN
-  IF coalesce(public.get_my_staff_role(),'') NOT IN ('admin','waiter') THEN RAISE EXCEPTION 'Owner/Admin or signed-in counter staff access required'; END IF;
+  IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN RAISE EXCEPTION 'Only the Owner/Counter (Admin login) can confirm and record payments'; END IF;
   IF p_visit_id IS NULL THEN RAISE EXCEPTION 'Choose the exact table visit from its counter alert'; END IF;
   IF p_amount IS NULL OR p_amount<=0 OR p_amount>999999 THEN RAISE EXCEPTION 'Enter a valid received amount'; END IF;
   IF v_method NOT IN ('gpay','phonepe','upi','cash','card','other') THEN RAISE EXCEPTION 'Choose a valid payment method'; END IF;
