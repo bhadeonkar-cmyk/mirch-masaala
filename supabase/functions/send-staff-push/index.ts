@@ -27,7 +27,10 @@ function makeMessage(row: Record<string, unknown>, role: string) {
   let body = String(row.message || "A restaurant update needs your attention.");
   if (type === "CASH_AT_COUNTER") {
     title = "CASH AT COUNTER · TABLE " + table;
-    body = String(row.message || "A guest has left the table and will pay cash at the counter. Please collect the outstanding balance.");
+    body = String(row.message || "A guest is leaving and will pay cash at the counter. Please collect the payment.");
+  } else if (type === "GUEST_LEFT_UNPAID") {
+    title = "GUEST LEFT · BALANCE DUE · TABLE " + table;
+    body = String(row.message || "Guests have left before checkout. Please collect the outstanding balance from the original visit.");
   } else if (type === "PAYMENT_CHECK") {
     title = "PAYMENT VERIFICATION · TABLE " + table;
     body = String(row.message || "A guest says they paid. Please verify the transaction before recording payment.");
@@ -56,7 +59,7 @@ function makeMessage(row: Record<string, unknown>, role: string) {
     role: pathRole,
     url: SITE_ROOT + "?staff=" + encodeURIComponent(pathRole),
     tag: "mm-alert-" + String(row.id || "") + "-" + pathRole,
-    requireInteraction: type === "WAITER_CALL" || type === "BILL_REQUEST" || type === "PAYMENT_CHECK" || type === "CASH_AT_COUNTER"
+    requireInteraction: type === "WAITER_CALL" || type === "BILL_REQUEST" || type === "PAYMENT_CHECK" || type === "CASH_AT_COUNTER" || type === "GUEST_LEFT_UNPAID"
   };
 }
 
