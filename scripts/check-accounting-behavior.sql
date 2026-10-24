@@ -170,6 +170,8 @@ BEGIN
     WHERE o.ticket_id='MM-OVER-01'
   ) THEN RAISE EXCEPTION 'QA failed: rejected overpayment left a receipt'; END IF;
 
+  -- The remaining staff-specific admin actions must still be checked using the waiter role.
+  PERFORM set_config('app.qa_role','waiter',false);
   -- Only the owner can access preview/cleanup.
   v_rejected := false;
   BEGIN
