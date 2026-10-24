@@ -1271,8 +1271,8 @@
 
   async function recordVisitPayment(visitId, amount, method, note) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
-    if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) {
-      throw new Error('Only signed-in owner or counter staff can confirm that payment was received.');
+    if (String(window.role || '') !== 'admin') {
+      throw new Error('Only the Owner/Counter using the Admin login can confirm and record payment. Please direct the guest to the counter.');
     }
     var result = await client.rpc('mm_staff_record_visit_payment', {
       p_visit_id: String(visitId || ''),
@@ -1291,8 +1291,8 @@
 
   async function recordTablePayment(tableNumber, amount, method, note) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
-    if (['admin', 'waiter'].indexOf(window.role) < 0) {
-      throw new Error('Only signed-in owner or waiter staff can confirm that payment was received.');
+    if (String(window.role || '') !== 'admin') {
+      throw new Error('Only the Owner/Counter using the Admin login can confirm and record payment.');
     }
     var result = await client.rpc('mm_staff_record_table_payment', {
       p_table_number: String(tableNumber || ''),
