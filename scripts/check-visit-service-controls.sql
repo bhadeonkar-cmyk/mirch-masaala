@@ -88,8 +88,48 @@ BEGIN
     v_visit_id,v_guest_session,v_pin
   );
   IF v_result->>'visitId' IS DISTINCT FROM v_visit_id::text
-     OR v_result->>'status' <> 'NEW' THEN
-    RAISE EXCEPTION 'QA failed: valid PIN did not create an order tied to the active visit: %',v_result;
+     OR v_result->>'status' <> 'NEW'
+     OR v_result->>'approvalStatus' <> 'PENDING' THEN
+    RAISE EXCEPTION 'QA failed: valid PIN did not create a pending order tied to the active visit: %',v_result;
+  END IF;
+  IF jsonb_array_length(coalesce(v_result->'notification_ids','[]'::jsonb)) <> 1
+     OR jsonb_array_length(coalesce(v_result->'dispatch_tokens','[]'::jsonb)) <> 1 THEN
+    RAISE EXCEPTION 'QA failed: pending order did not return the owner notification and push dispatch token: %',v_result;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.mm_restaurant_notifications
+    WHERE ticket_id='MM-GUEST-GOOD-001' AND target_role='admin'
+      AND notification_type='ORDER_APPROVAL' AND resolved_at IS NULL
+  ) THEN
+    RAISE EXCEPTION 'QA failed: owner did not receive an approval alert';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.mm_restaurant_notifications
+    WHERE ticket_id='MM-GUEST-GOOD-001' AND target_role='kitchen'
+      AND notification_type='NEW_ORDER'
+  ) THEN
+    RAISE EXCEPTION 'QA failed: pending order was sent to kitchen before owner approval';
+  END IF;
+
+  -- Only the owner can approve; approval resolves the owner alert and notifies the kitchen.
+  PERFORM set_config('app.qa_role','admin',false);
+  v_result := public.mm_admin_review_customer_order('MM-GUEST-GOOD-001','APPROVE','QA owner approval');
+  IF v_result->>'approvalStatus' <> 'APPROVED' OR v_result->>'status' <> 'NEW' THEN
+    RAISE EXCEPTION 'QA failed: owner approval did not update ticket state: %',v_result;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.mm_restaurant_notifications
+    WHERE ticket_id='MM-GUEST-GOOD-001' AND target_role='admin'
+      AND notification_type='ORDER_APPROVAL' AND resolved_at IS NULL
+  ) THEN
+    RAISE EXCEPTION 'QA failed: owner approval alert stayed open after approval';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.mm_restaurant_notifications
+    WHERE ticket_id='MM-GUEST-GOOD-001' AND target_role='kitchen'
+      AND notification_type='NEW_ORDER'
+  ) THEN
+    RAISE EXCEPTION 'QA failed: approved ticket did not notify the kitchen';
   END IF;
 
   -- Staff cannot release a table with an active kitchen ticket.
