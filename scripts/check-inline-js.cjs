@@ -104,7 +104,7 @@ try {
   ['previewAndCleanTable()', 'Owner can preview/clean test tickets'],
   ['toggleSelectedOrderComplimentary()', 'Owner can classify free meals'],
   ['refreshAdminAccountsSummary()', 'Account stats refresh without resetting controls'],
-  ['Only signed-in owner/waiter staff can confirm receipt of payment.', 'Customer cannot self-confirm payment'],
+  ['Only the Owner/Counter using the Admin login can confirm receipt of payment.', 'Only the counter admin can confirm money received'],
   ['/^[0-9]{1,2}$/.test(tableNumber)', 'Payment form validates table number']
 ].forEach(([needle, label]) => requireText(html, needle, label));
 
@@ -115,6 +115,7 @@ try {
   ['CREATE OR REPLACE FUNCTION public.mm_admin_set_complimentary', 'Complimentary accounting RPC exists'],
   ['CREATE OR REPLACE FUNCTION public.mm_get_public_table_bill', 'Public bill amount comes from shared outstanding balances'],
   ['CREATE OR REPLACE FUNCTION public.mm_staff_record_table_payment', 'Server-side payment ledger exists'],
+  ["IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN", 'Table-level payment recording requires the Owner/Counter Admin login'],
   ["set_config('app.mm_payment_status', 'on', true)", 'Final payment closes a fully paid ticket'],
   ['ORDER_FULLY_PAID', 'Fully-paid tickets create an audit event'],
   ['CREATE OR REPLACE FUNCTION public.mm_admin_accounts_summary', 'Database-wide account summary exists'],
@@ -220,6 +221,8 @@ requireText(paymentConfirmationMigration, 'CREATE OR REPLACE FUNCTION public.mm_
 requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_cash_counter_release', 'Cash checkout is authorized and committed server-side');
 requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_get_visit_bill', 'Customer bill lookup is visit-scoped');
 requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_staff_record_visit_payment', 'Staff settlement is scoped to the original visit');
+requireText(cashCounterMigration, "IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN RAISE EXCEPTION 'Only the Owner/Counter (Admin login) can confirm and record payments'; END IF;", 'Visit payment recording requires the Owner/Counter Admin login');
+requireText(html, 'DIRECT GUEST TO COUNTER · ACKNOWLEDGE', 'Waiter is told to direct the guest to counter instead of approving payment');
 requireText(visitServiceControlsMigration, 'CREATE OR REPLACE FUNCTION public.mm_staff_release_abandoned_visit', 'Staff can release a table after guests leave');
 requireText(visitServiceControlsMigration, 'p_guest_order_code text DEFAULT NULL', 'Secure order RPC validates the table PIN');
 requireText(visitServiceControlsMigration, 'ADD COLUMN IF NOT EXISTS target_staff_code', 'Alerts can target the assigned waiter ID');
