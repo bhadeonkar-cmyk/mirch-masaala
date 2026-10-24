@@ -830,7 +830,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = 'pg_catalog, public, pg_temp'
-AS $
+AS $$
 DECLARE v_table text;
 BEGIN
   IF upper(coalesce(NEW.approval_status, 'APPROVED')) <> 'APPROVED' THEN
@@ -846,14 +846,14 @@ BEGIN
   );
   RETURN NEW;
 END
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.mm_notify_owner_pending_order()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = 'pg_catalog, public, pg_temp'
-AS $
+AS $$
 DECLARE
   v_table text;
   v_token text;
@@ -875,7 +875,7 @@ BEGIN
   );
   RETURN NEW;
 END
-$;
+$$;
 
 DROP TRIGGER IF EXISTS mm_notify_owner_pending_order_trigger ON public.orders;
 CREATE TRIGGER mm_notify_owner_pending_order_trigger
@@ -888,7 +888,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = 'pg_catalog, public, pg_temp'
-AS $
+AS $$
 DECLARE v_table text;
 BEGIN
   IF upper(coalesce(NEW.approval_status, '')) <> 'APPROVED'
@@ -905,7 +905,7 @@ BEGIN
   );
   RETURN NEW;
 END
-$;
+$$;
 
 DROP TRIGGER IF EXISTS mm_notify_kitchen_after_owner_approval_trigger ON public.orders;
 CREATE TRIGGER mm_notify_kitchen_after_owner_approval_trigger
@@ -923,7 +923,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = 'pg_catalog, public, pg_temp'
-AS $
+AS $$
 DECLARE
   v_order public.orders%ROWTYPE;
   v_table_number text;
@@ -950,7 +950,7 @@ BEGIN
     'notes', v_order.notes, 'createdAt', v_order.created_at, 'items', v_items
   );
 END
-$;
+$$;
 REVOKE ALL ON FUNCTION public.mm_get_public_order(text,uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.mm_get_public_order(text,uuid) TO anon, authenticated;
 
@@ -964,7 +964,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = 'pg_catalog, public, pg_temp'
-AS $
+AS $$
 DECLARE
   v_order public.orders%ROWTYPE;
   v_decision text := upper(trim(coalesce(p_decision, '')));
@@ -1016,7 +1016,7 @@ BEGIN
     'reason', left(trim(coalesce(p_reason, '')), 250)
   );
 END
-$;
+$$;
 REVOKE ALL ON FUNCTION public.mm_admin_review_customer_order(text,text,text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mm_admin_review_customer_order(text,text,text) TO authenticated;
 
