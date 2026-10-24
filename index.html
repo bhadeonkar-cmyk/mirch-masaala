@@ -2758,16 +2758,17 @@ function updateStaffPaymentControls() {
     visitButton.textContent = payContext.method === 'cash' ? 'Confirm cash received' :
       payContext.method === 'card' ? 'Confirm card payment received' : 'Confirm payment received after checking';
   }
+  var isCustomer = !role;
   var cashLeave = document.getElementById('pay-cash-leave-btn');
-  if (cashLeave) cashLeave.style.display = staffCanConfirm ? 'none' : 'block';
+  if (cashLeave) cashLeave.style.display = isCustomer ? 'block' : 'none';
   var cashStatus = document.getElementById('pay-cash-leave-status');
-  if (cashStatus) cashStatus.style.display = staffCanConfirm ? 'none' : 'block';
+  if (cashStatus) cashStatus.style.display = isCustomer ? 'block' : 'none';
   var verifyButton = document.getElementById('pay-verify-upi-btn');
   var verifyStatus = document.getElementById('pay-verify-upi-status');
-  if (verifyButton) verifyButton.style.display = staffCanConfirm ? 'none' : 'inline-flex';
-  if (verifyStatus) verifyStatus.style.display = staffCanConfirm ? 'none' : 'block';
+  if (verifyButton) verifyButton.style.display = isCustomer ? 'inline-flex' : 'none';
+  if (verifyStatus) verifyStatus.style.display = isCustomer ? 'block' : 'none';
   var hint = document.getElementById('pay-staff-confirm-hint');
-  if (hint) hint.style.display = staffCanConfirm ? 'none' : 'block';
+  if (hint) hint.style.display = isCustomer ? 'block' : 'none';
 }
 function customerVisitContextForTable(tableNumber) {
   var ctx = { table: String(tableNumber || '').padStart(2, '0'), visitId: '', customerSessionId: '' };
