@@ -25,7 +25,10 @@ function makeMessage(row: Record<string, unknown>, role: string) {
   const pathRole = ["waiter", "kitchen", "admin"].includes(role) ? role : "waiter";
   let title = "Mirch Masaala";
   let body = String(row.message || "A restaurant update needs your attention.");
-  if (type === "CASH_AT_COUNTER") {
+  if (type === "ORDER_APPROVAL") {
+    title = "NEW ORDER · OWNER APPROVAL REQUIRED · TABLE " + table;
+    body = String(row.message || "A customer order is waiting for your approval.");
+  } else if (type === "CASH_AT_COUNTER") {
     title = "CASH AT COUNTER · TABLE " + table;
     body = String(row.message || "A guest is leaving and will pay cash at the counter. Please collect the payment.");
   } else if (type === "GUEST_LEFT_UNPAID") {
@@ -100,7 +103,7 @@ Deno.serve(async (req: Request) => {
     .select("id, target_role, notification_type, table_number, ticket_id, item_name, message, target_staff_code, push_dispatch_token")
     .eq("restaurant_id", RESTAURANT_ID)
     .in("id", ids)
-    .in("notification_type", ["WAITER_CALL", "BILL_REQUEST", "PARTY_BOOKING", "PAYMENT_CHECK", "CASH_AT_COUNTER", "GUEST_LEFT_UNPAID"])
+    .in("notification_type", ["WAITER_CALL", "BILL_REQUEST", "PARTY_BOOKING", "PAYMENT_CHECK", "CASH_AT_COUNTER", "GUEST_LEFT_UNPAID", "ORDER_APPROVAL"])
     .is("push_sent_at", null)
     .is("resolved_at", null)
     .gt("created_at", recentCutoff);
