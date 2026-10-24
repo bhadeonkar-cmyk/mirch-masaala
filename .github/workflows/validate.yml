@@ -114,8 +114,9 @@ jobs:
               RAISE EXCEPTION 'QA failed: re-running migration changed archived test cleanup';
             END IF;
           END \$qa\$;"
-      - name: Verify dish options and table capacity migration
-        run: |
-          psql -v ON_ERROR_STOP=1 -f supabase/menu-item-options-and-table-capacity.sql
-          psql -v ON_ERROR_STOP=1 -f scripts/check-menu-item-options.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/menu-item-options-and-table-capacity.sql
+      - name: Compile menu options and table capacity migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/menu-item-options-and-table-capacity.sql
+      - name: Exercise menu options and table capacity QA
+        run: psql -v ON_ERROR_STOP=1 -f scripts/check-menu-item-options.sql
+      - name: Verify menu options migration is re-runnable
+        run: psql -v ON_ERROR_STOP=1 -f supabase/menu-item-options-and-table-capacity.sql
