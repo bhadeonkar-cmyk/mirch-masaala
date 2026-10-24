@@ -94,10 +94,10 @@ Deno.serve(async (req: Request) => {
   // Limit public dispatch to fresh guest requests with a matching one-time token.
   const recentCutoff = new Date(Date.now() - 2 * 60 * 1000).toISOString();
   const candidates = await admin.from("mm_restaurant_notifications")
-    .select("id, target_role, notification_type, table_number, ticket_id, item_name, message, push_dispatch_token")
+    .select("id, target_role, notification_type, table_number, ticket_id, item_name, message, target_staff_code, push_dispatch_token")
     .eq("restaurant_id", RESTAURANT_ID)
     .in("id", ids)
-    .in("notification_type", ["WAITER_CALL", "BILL_REQUEST", "PARTY_BOOKING", "PAYMENT_CHECK", "CASH_AT_COUNTER"])
+    .in("notification_type", ["WAITER_CALL", "BILL_REQUEST", "PARTY_BOOKING", "PAYMENT_CHECK", "CASH_AT_COUNTER", "GUEST_LEFT_UNPAID"])
     .is("push_sent_at", null)
     .is("resolved_at", null)
     .gt("created_at", recentCutoff);
@@ -123,7 +123,7 @@ Deno.serve(async (req: Request) => {
       .is("push_sent_at", null)
       .is("resolved_at", null)
       .gt("created_at", recentCutoff)
-      .select("id, target_role, notification_type, table_number, ticket_id, item_name, message")
+      .select("id, target_role, notification_type, table_number, ticket_id, item_name, message, target_staff_code")
       .maybeSingle();
 
     if (claimed.error) {
@@ -139,7 +139,7 @@ Deno.serve(async (req: Request) => {
 
   const roles = [...new Set(rows.map((r: Record<string, unknown>) => String(r.target_role || "")))];
   const subsResult = await admin.from("mm_staff_push_subscriptions")
-    .select("id, target_role, endpoint, subscription")
+    .select("id, target_role, staff_code, endpoint, subscription")
     .in("target_role", roles);
 
   if (subsResult.error) {
@@ -153,8 +153,11 @@ Deno.serve(async (req: Request) => {
   const subscriptions = subsResult.data || [];
 
   for (const row of rows) {
+    const assignedCode = String(row.target_staff_code || "").trim().toUpperCase();
     const target = subscriptions.filter((sub: Record<string, unknown>) =>
-      String(sub.target_role) === String(row.target_role)
+      String(sub.target_role) === String(row.target_role) &&
+      (!assignedCode || String(row.target_role) !== "waiter" ||
+        String(sub.staff_code || "").trim().toUpperCase() === assignedCode)
     );
     const payload = JSON.stringify(makeMessage(row as Record<string, unknown>, String(row.target_role || "waiter")));
     for (const sub of target) {
