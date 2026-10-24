@@ -4421,21 +4421,22 @@ function renderRoleNotifications(rows) {
       var isParty = type === 'PARTY_BOOKING';
       var isPaymentCheck = type === 'PAYMENT_CHECK';
       var isCashCounter = type === 'CASH_AT_COUNTER';
-      var visitPaymentAlert = (isCashCounter || isPaymentCheck) && isVisitUuid(n.ticket_id);
-      var title = isCashCounter ? 'CASH AT COUNTER' : isPaymentCheck ? 'PAYMENT VERIFICATION' : isParty ? 'PARTY BOOKING REQUEST' : isCall ? window.mmI18n('WAITER CALLED','वेटरला बोलावले') : type === 'BILL_REQUEST' ? window.mmI18n('BILL REQUEST','बिलाची विनंती') :
+      var isGuestLeftUnpaid = type === 'GUEST_LEFT_UNPAID';
+      var visitPaymentAlert = (isCashCounter || isPaymentCheck || isGuestLeftUnpaid) && isVisitUuid(n.ticket_id);
+      var title = isGuestLeftUnpaid ? 'GUEST LEFT · BALANCE DUE' : isCashCounter ? 'CASH AT COUNTER' : isPaymentCheck ? 'PAYMENT VERIFICATION' : isParty ? 'PARTY BOOKING REQUEST' : isCall ? window.mmI18n('WAITER CALLED','वेटरला बोलावले') : type === 'BILL_REQUEST' ? window.mmI18n('BILL REQUEST','बिलाची विनंती') :
         type === 'NEW_ORDER' ? window.mmI18n('NEW ORDER','नवीन ऑर्डर') : type === 'ORDER_READY' ? window.mmI18n('ORDER READY','ऑर्डर तयार') : type === 'ITEM_SOLD_OUT' ? window.mmI18n('SOLD OUT','संपला') : window.mmI18n('ALERT','सूचना');
-      var line = (isPaymentCheck || isCashCounter) ? (n.message || (isCashCounter ? 'Guest is leaving and will pay at the counter.' : 'The customer says they paid. Please verify the transaction before recording payment.')) : isParty ? (n.message || 'A new party booking request needs your attention.') : isCall ? window.mmI18n('Please go to the guest now.','कृपया लगेच ग्राहकाकडे जा.') :
+      var line = (isGuestLeftUnpaid || isPaymentCheck || isCashCounter) ? (n.message || (isGuestLeftUnpaid ? 'Guests have left. Collect the outstanding balance from the closed visit.' : isCashCounter ? 'Guest is leaving and will pay at the counter.' : 'The customer says they paid. Please verify the transaction before recording payment.')) : isParty ? (n.message || 'A new party booking request needs your attention.') : isCall ? window.mmI18n('Please go to the guest now.','कृपया लगेच ग्राहकाकडे जा.') :
         type === 'BILL_REQUEST' ? window.mmI18n('A guest needs help with the bill.','ग्राहकाला बिलासाठी मदत हवी आहे.') :
         type === 'NEW_ORDER' ? window.mmI18n('A new ticket is waiting in the kitchen queue.','किचनमध्ये नवीन ऑर्डर आली आहे.') :
         type === 'ORDER_READY' ? window.mmI18n('Please check the ready ticket.','तयार ऑर्डर तपासा.') : (n.item_name ? window.mmDishName(n.item_name) : (n.message || window.mmI18n('A menu item is unavailable.','हा पदार्थ सध्या उपलब्ध नाही.')));
       var bigTable = isCall ? '<div class="urgent-table-number">' + esc(tableNo) + '</div><div class="urgent-table-caption">' + window.mmI18n('TABLE · GO NOW','टेबल · लगेच जा') + '</div>' :
-        (tableNo && ['NEW_ORDER','ORDER_READY','BILL_REQUEST','CASH_AT_COUNTER','PAYMENT_CHECK'].indexOf(type)>=0 ? '<div class="role-alert-table-small">' + window.mmI18n('TABLE','टेबल') + ' ' + esc(tableNo) + '</div>' : '');
+        (tableNo && ['NEW_ORDER','ORDER_READY','BILL_REQUEST','CASH_AT_COUNTER','PAYMENT_CHECK','GUEST_LEFT_UNPAID'].indexOf(type)>=0 ? '<div class="role-alert-table-small">' + window.mmI18n('TABLE','टेबल') + ' ' + esc(tableNo) + '</div>' : '');
       var details = type === 'ITEM_SOLD_OUT' || visitPaymentAlert ? '' : (n.ticket_id ? (isParty ? 'Booking ' : 'Ticket #') + esc(n.ticket_id) : '');
       return '<article class="role-alert-card ' + (isCall ? 'role-alert-call' : 'role-alert-' + type.toLowerCase()) + '">' +
-        '<div class="role-alert-title"><span>' + (isPaymentCheck ? '💸' : isParty ? '🎉' : isCall ? '🔔' : type==='BILL_REQUEST' ? '💳' : type==='NEW_ORDER' ? '🍳' : type==='ORDER_READY' ? '✅' : '⚠️') + ' ' + title + '</span><button type="button" class="role-alert-dismiss" aria-label="' + window.mmI18n('Mark alert handled','सूचना पूर्ण करा') + '" onclick="handleStaffNotification(' + Number(n.id) + ')">' + window.mmI18n('Done','झाले') + '</button></div>' +
+        '<div class="role-alert-title"><span>' + ((isGuestLeftUnpaid || isCashCounter) ? '💵' : isPaymentCheck ? '💸' : isParty ? '🎉' : isCall ? '🔔' : type==='BILL_REQUEST' ? '💳' : type==='NEW_ORDER' ? '🍳' : type==='ORDER_READY' ? '✅' : '⚠️') + ' ' + title + '</span>' + (visitPaymentAlert ? '' : '<button type="button" class="role-alert-dismiss" aria-label="' + window.mmI18n('Mark alert handled','सूचना पूर्ण करा') + '" onclick="handleStaffNotification(' + Number(n.id) + ')">' + window.mmI18n('Done','झाले') + '</button>') + '</div>' +
         bigTable + '<p class="role-alert-message">' + esc(line) + '</p>' +
         (details ? '<p class="role-alert-details">' + details + '</p>' : '') +
-        (visitPaymentAlert ? '<button type="button" class="role-alert-action" onclick="openCashCounterCollection(\'' + esc(n.ticket_id) + '\',\'' + esc(tableNo) + '\',' + Number(n.id) + ',\'' + (isCashCounter ? 'cash' : 'upi') + '\')">' + (isCashCounter ? 'COLLECT CASH' : 'VERIFY & RECORD PAYMENT') + '</button>'
+        (visitPaymentAlert ? '<button type="button" class="role-alert-action" onclick="openCashCounterCollection(\'' + esc(n.ticket_id) + '\',\'' + esc(tableNo) + '\',' + Number(n.id) + ',\'' + ((isCashCounter || isGuestLeftUnpaid) ? 'cash' : 'upi') + '\')">' + (isGuestLeftUnpaid ? 'COLLECT OUTSTANDING BALANCE' : isCashCounter ? 'COLLECT CASH' : 'VERIFY & RECORD PAYMENT') + '</button>'
           : isPaymentCheck ? (roleKind === 'admin'
             ? '<button type="button" class="role-alert-action" onclick="openPaymentsFromAlert()">OPEN PAYMENT LOG</button>'
             : '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">ACKNOWLEDGE AFTER CHECKING</button>') : isCashCounter ? '<span class="role-alert-action">Please check the table balance</span>' : isParty ? '<button type="button" class="role-alert-action" onclick="openPartyFromAlert()">VIEW PARTY BOOKINGS</button>' : isCall ? '<button type="button" class="role-alert-action" onclick="handleStaffNotification(' + Number(n.id) + ')">I AM GOING · MARK HANDLED</button>' : '') +
@@ -4445,9 +4446,9 @@ function renderRoleNotifications(rows) {
   // Only a direct waiter call is urgent enough to sit above the table picker.
   renderRows('w-urgent-alert', currentRole === 'waiter' ? rows.filter(function(n){return String(n.notification_type).toUpperCase()==='WAITER_CALL';}) : [], 'waiter');
   // Routine bill and ready-food alerts stay below the table picker, so they do not obscure table selection.
-  renderRows('w-secondary-alert', currentRole === 'waiter' ? rows.filter(function(n){return ['BILL_REQUEST','ORDER_READY','PAYMENT_CHECK','CASH_AT_COUNTER'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'waiter');
+  renderRows('w-secondary-alert', currentRole === 'waiter' ? rows.filter(function(n){return ['BILL_REQUEST','ORDER_READY','PAYMENT_CHECK','CASH_AT_COUNTER','GUEST_LEFT_UNPAID'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'waiter');
   renderRows('k-urgent-alert', currentRole === 'kitchen' ? rows.filter(function(n){return String(n.notification_type).toUpperCase()==='NEW_ORDER';}) : [], 'kitchen');
-  renderRows('a-urgent-alert', currentRole === 'admin' ? rows.filter(function(n){return ['ITEM_SOLD_OUT','BILL_REQUEST','PARTY_BOOKING','PAYMENT_CHECK','CASH_AT_COUNTER'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'admin');
+  renderRows('a-urgent-alert', currentRole === 'admin' ? rows.filter(function(n){return ['ITEM_SOLD_OUT','BILL_REQUEST','PARTY_BOOKING','PAYMENT_CHECK','CASH_AT_COUNTER','GUEST_LEFT_UNPAID'].indexOf(String(n.notification_type).toUpperCase())>=0;}) : [], 'admin');
   var alertTab = document.getElementById('a-alerts');
   if (alertTab && currentRole === 'admin' && alertTab.style.display !== 'none' && typeof drawAlerts === 'function') drawAlerts();
 }
@@ -4455,16 +4456,16 @@ window.renderRoleNotifications = renderRoleNotifications;
 function drawAlerts() {
   var host = document.getElementById('a-alerts'); if (!host) return;
   var localOpen = notifs.filter(function(n){ return !n.done; });
-  var shared = (window.MM_ROLE_NOTIFICATIONS || []).filter(function(n){ return ['ITEM_SOLD_OUT','BILL_REQUEST','ORDER_READY','PARTY_BOOKING','PAYMENT_CHECK','CASH_AT_COUNTER'].indexOf(String(n.notification_type || '').toUpperCase()) >= 0; });
+  var shared = (window.MM_ROLE_NOTIFICATIONS || []).filter(function(n){ return ['ITEM_SOLD_OUT','BILL_REQUEST','ORDER_READY','PARTY_BOOKING','PAYMENT_CHECK','CASH_AT_COUNTER','GUEST_LEFT_UNPAID'].indexOf(String(n.notification_type || '').toUpperCase()) >= 0; });
   var localHtml = localOpen.map(function(n) {
     return '<div class="card" style="justify-content:space-between"><div><b>' + esc(n.message) + '</b><div class="muted">' + new Date(n.at).toLocaleTimeString() + '</div></div><button type="button" class="btn btn-ok btn-sm" onclick="doneNotif(' + n.id + ')">Done</button></div>';
   }).join('');
   var sharedHtml = shared.map(function(n) {
     var type = String(n.notification_type || '').toUpperCase();
-    var visitPaymentAlert = (type === 'CASH_AT_COUNTER' || type === 'PAYMENT_CHECK') && isVisitUuid(n.ticket_id);
-    var name = type === 'CASH_AT_COUNTER' ? 'CASH AT COUNTER' : type === 'PAYMENT_CHECK' ? 'PAYMENT VERIFICATION' : type === 'PARTY_BOOKING' ? 'NEW PARTY BOOKING' : type === 'ITEM_SOLD_OUT' ? 'SOLD OUT' : type === 'BILL_REQUEST' ? 'BILL REQUEST' : 'ORDER READY';
+    var visitPaymentAlert = (type === 'CASH_AT_COUNTER' || type === 'PAYMENT_CHECK' || type === 'GUEST_LEFT_UNPAID') && isVisitUuid(n.ticket_id);
+    var name = type === 'GUEST_LEFT_UNPAID' ? 'GUEST LEFT · BALANCE DUE' : type === 'CASH_AT_COUNTER' ? 'CASH AT COUNTER' : type === 'PAYMENT_CHECK' ? 'PAYMENT VERIFICATION' : type === 'PARTY_BOOKING' ? 'NEW PARTY BOOKING' : type === 'ITEM_SOLD_OUT' ? 'SOLD OUT' : type === 'BILL_REQUEST' ? 'BILL REQUEST' : 'ORDER READY';
     var action = visitPaymentAlert
-      ? '<button type="button" class="btn btn-main btn-sm" onclick="openCashCounterCollection(\'' + esc(n.ticket_id) + '\',\'' + esc(n.table_number || '') + '\',' + Number(n.id) + ',\'' + (type === 'CASH_AT_COUNTER' ? 'cash' : 'upi') + '\')">' + (type === 'CASH_AT_COUNTER' ? 'Collect cash' : 'Verify & record payment') + '</button>'
+      ? '<button type="button" class="btn btn-main btn-sm" onclick="openCashCounterCollection(\'' + esc(n.ticket_id) + '\',\'' + esc(n.table_number || '') + '\',' + Number(n.id) + ',\'' + ((type === 'CASH_AT_COUNTER' || type === 'GUEST_LEFT_UNPAID') ? 'cash' : 'upi') + '\')">' + (type === 'GUEST_LEFT_UNPAID' ? 'Collect outstanding balance' : type === 'CASH_AT_COUNTER' ? 'Collect cash' : 'Verify & record payment') + '</button>'
       : type === 'PARTY_BOOKING'
         ? '<button type="button" class="btn btn-soft btn-sm" onclick="openPartyFromAlert()">View bookings</button><button type="button" class="btn btn-ok btn-sm" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button>'
         : type === 'PAYMENT_CHECK'
