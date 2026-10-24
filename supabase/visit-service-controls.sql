@@ -26,7 +26,7 @@ ALTER TABLE public.restaurant_table_visits
 ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS approval_status text NOT NULL DEFAULT 'APPROVED';
 
-DO $
+DO $$
 DECLARE c record;
 BEGIN
   FOR c IN
@@ -41,7 +41,7 @@ BEGIN
     ADD CONSTRAINT orders_approval_status_check
     CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED'));
 END
-$;
+$$;
 
 -- Keep push-dispatch fields available even if the separate push migration is applied later.
 ALTER TABLE public.mm_restaurant_notifications
