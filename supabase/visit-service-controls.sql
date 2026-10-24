@@ -443,6 +443,106 @@ BEGIN
 END
 $$;
 
+CREATE OR REPLACE FUNCTION public.mm_guest_request_visit_payment_check(
+  p_restaurant_id uuid,
+  p_table_number text,
+  p_visit_id uuid,
+  p_customer_session_id uuid,
+  p_method text DEFAULT 'upi'
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $$
+DECLARE
+  v_table text:=lpad(trim(coalesce(p_table_number,'')),2,'0');
+  v_method text:=lower(trim(coalesce(p_method,'upi')));
+  v_visit public.restaurant_table_visits%ROWTYPE;
+  v_table_id uuid;
+  v_role text;
+  v_existing bigint;
+  v_id bigint;
+  v_token text;
+  v_message text;
+  v_amount numeric(12,2);
+  v_ids bigint[]:=ARRAY[]::bigint[];
+  v_tokens jsonb:='[]'::jsonb;
+  v_has_push boolean;
+BEGIN
+  IF p_restaurant_id IS DISTINCT FROM 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid THEN RAISE EXCEPTION 'Unknown restaurant'; END IF;
+  IF v_table !~ '^[0-9]{2}$' OR p_visit_id IS NULL OR p_customer_session_id IS NULL THEN
+    RAISE EXCEPTION 'Your table visit could not be verified.';
+  END IF;
+  IF v_method NOT IN ('upi','gpay','phonepe') THEN RAISE EXCEPTION 'Choose a supported digital payment method'; END IF;
+
+  SELECT t.id INTO v_table_id FROM public.restaurant_tables t
+  WHERE t.restaurant_id=p_restaurant_id AND lpad(t.table_number::text,2,'0')=v_table AND t.is_active=true LIMIT 1;
+  IF v_table_id IS NULL THEN RAISE EXCEPTION 'Active table not found'; END IF;
+  SELECT v.* INTO v_visit FROM public.restaurant_table_visits v
+  WHERE v.id=p_visit_id AND v.restaurant_id=p_restaurant_id AND v.table_id=v_table_id AND v.table_number=v_table;
+  IF NOT FOUND OR v_visit.status<>'OPEN' THEN RAISE EXCEPTION 'This table visit has ended. Please ask staff for the current bill.'; END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.orders o WHERE o.restaurant_id=p_restaurant_id AND o.table_id=v_table_id
+      AND o.table_visit_id=v_visit.id AND o.customer_session_id=p_customer_session_id
+      AND coalesce(o.is_test_order,false)=false AND coalesce(o.is_complimentary,false)=false
+      AND o.archived_at IS NULL AND upper(coalesce(o.status,''))<>'CANCELLED'
+  ) THEN RAISE EXCEPTION 'We could not verify the order from this phone. Please ask staff for the bill.'; END IF;
+
+  SELECT coalesce(sum(greatest(round(coalesce(o.total,0)-coalesce(p.paid,0),2),0)),0)
+  INTO v_amount
+  FROM public.orders o
+  LEFT JOIN (SELECT order_id,sum(amount) AS paid FROM public.order_payments GROUP BY order_id) p ON p.order_id=o.id
+  WHERE o.table_visit_id=v_visit.id AND o.restaurant_id=p_restaurant_id
+    AND upper(coalesce(o.status,'')) NOT IN ('CANCELLED','PAID')
+    AND coalesce(o.is_test_order,false)=false AND coalesce(o.is_complimentary,false)=false AND o.archived_at IS NULL;
+  IF coalesce(v_amount,0)<=0.01 THEN RAISE EXCEPTION 'No unpaid balance remains for this visit.'; END IF;
+
+  v_message:=format('Payment verification requested · Table %s · Assigned waiter %s · Visit %s · Customer reports paying via %s · Balance ₹%s. Verify the restaurant transaction before recording payment.',
+    v_table,coalesce(nullif(v_visit.assigned_waiter_code,''),'not assigned'),left(v_visit.id::text,8),
+    CASE v_method WHEN 'gpay' THEN 'Google Pay / UPI' WHEN 'phonepe' THEN 'PhonePe / UPI' ELSE 'UPI' END,
+    to_char(v_amount,'FM999999990.00'));
+
+  SELECT
+    EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.mm_restaurant_notifications'::regclass AND attname='push_dispatch_token' AND NOT attisdropped)
+    AND EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.mm_restaurant_notifications'::regclass AND attname='push_sent_at' AND NOT attisdropped)
+  INTO v_has_push;
+
+  FOREACH v_role IN ARRAY ARRAY['admin','waiter']::text[]
+  LOOP
+    SELECT n.id INTO v_existing FROM public.mm_restaurant_notifications n
+    WHERE n.restaurant_id=p_restaurant_id AND n.target_role=v_role AND n.notification_type='PAYMENT_CHECK'
+      AND n.ticket_id=v_visit.id::text AND n.resolved_at IS NULL
+      AND n.created_at>=now()-interval '45 seconds'
+    ORDER BY n.created_at DESC LIMIT 1;
+    IF v_existing IS NOT NULL THEN
+      v_ids:=array_append(v_ids,v_existing);v_existing:=NULL;CONTINUE;
+    END IF;
+
+    IF v_has_push THEN
+      v_token:=gen_random_uuid()::text;
+      EXECUTE 'INSERT INTO public.mm_restaurant_notifications
+        (restaurant_id,target_role,notification_type,table_number,ticket_id,message,target_staff_code,push_dispatch_token)
+        VALUES ($1,$2,''PAYMENT_CHECK'',$3,$4,$5,$6,$7) RETURNING id'
+      INTO v_id USING p_restaurant_id,v_role,v_table,v_visit.id::text,v_message,CASE WHEN v_role='waiter' THEN coalesce(v_visit.assigned_waiter_code,'') ELSE '' END,v_token;
+      v_tokens:=v_tokens||jsonb_build_array(jsonb_build_object('id',v_id,'token',v_token));
+    ELSE
+      INSERT INTO public.mm_restaurant_notifications
+        (restaurant_id,target_role,notification_type,table_number,ticket_id,message,target_staff_code)
+      VALUES (p_restaurant_id,v_role,'PAYMENT_CHECK',v_table,v_visit.id::text,v_message,CASE WHEN v_role='waiter' THEN coalesce(v_visit.assigned_waiter_code,'') ELSE '' END)
+      RETURNING id INTO v_id;
+    END IF;
+    v_ids:=array_append(v_ids,v_id);
+  END LOOP;
+
+  RETURN jsonb_build_object('ok',true,'table_number',v_table,'visit_id',v_visit.id,
+    'notification_ids',to_jsonb(v_ids),'dispatch_tokens',v_tokens,'message','Payment verification request sent to staff.');
+END
+$$;
+
+-- Only a signed-in owner/waiter can record payment, and the allocation is restricted
+-- to one exact visit, even if a later party is now using the same physical table.
+
 -- Recreate order placement so guests can only order into a visit explicitly
 -- opened by staff and must supply that visit's code. Staff tickets need no guest PIN.
 DROP FUNCTION IF EXISTS public.mm_place_order(uuid,text,text,text,jsonb,uuid,uuid);
