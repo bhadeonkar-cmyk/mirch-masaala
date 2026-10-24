@@ -524,7 +524,7 @@ BEGIN
       UPDATE public.mm_restaurant_notifications
       SET resolved_at=coalesce(resolved_at,now()),resolved_by=coalesce(resolved_by,auth.uid())
       WHERE restaurant_id=v_visit.restaurant_id AND ticket_id=v_visit.id::text
-        AND notification_type IN ('CASH_AT_COUNTER','PAYMENT_CHECK') AND resolved_at IS NULL;
+        AND notification_type IN ('CASH_AT_COUNTER','PAYMENT_CHECK','GUEST_LEFT_UNPAID') AND resolved_at IS NULL;
     END IF;
   END IF;
 
