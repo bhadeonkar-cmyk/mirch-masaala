@@ -213,14 +213,24 @@
   async function loadStaffNotifications() {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
     if (['admin', 'waiter', 'kitchen'].indexOf(window.role) < 0) return [];
-    var result = await client.rpc('mm_staff_notifications', { p_limit: 50 });
+    var staffCode = '';
+    try { staffCode = String(localStorage.getItem('mm_waiter_staff_code') || '').trim().toUpperCase(); } catch (e) {}
+    var result = await client.rpc('mm_staff_notifications', {
+      p_limit: 50,
+      p_staff_code: String(window.role) === 'waiter' ? staffCode : null
+    });
     if (result.error) throw result.error;
     return result.data || [];
   }
 
   async function resolveStaffNotification(id) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
-    var result = await client.rpc('mm_resolve_staff_notification', { p_notification_id: Number(id) });
+    var staffCode = '';
+    try { staffCode = String(localStorage.getItem('mm_waiter_staff_code') || '').trim().toUpperCase(); } catch (e) {}
+    var result = await client.rpc('mm_resolve_staff_notification', {
+      p_notification_id: Number(id),
+      p_staff_code: String(window.role) === 'waiter' ? staffCode : null
+    });
     if (result.error) throw result.error;
     await refreshRoleNotifications(true);
     return result.data;
@@ -236,7 +246,9 @@
     var table = String(row.table_number || '').padStart(2, '0');
     var title = 'Mirch Masaala';
     var body = row.message || '';
-    if (type === 'PAYMENT_CHECK') { title = 'PAYMENT VERIFICATION · TABLE ' + table; body = row.message || 'A guest says they paid. Please verify the transaction before recording payment.'; }
+    if (type === 'CASH_AT_COUNTER') { title = 'CASH AT COUNTER · TABLE ' + table; body = row.message || 'A guest is leaving and will pay at the counter.'; }
+    else if (type === 'GUEST_LEFT_UNPAID') { title = 'GUEST LEFT · BALANCE DUE · TABLE ' + table; body = row.message || 'Guests have left before settlement. Please collect the outstanding balance.'; }
+    else if (type === 'PAYMENT_CHECK') { title = 'PAYMENT VERIFICATION · TABLE ' + table; body = row.message || 'A guest says they paid. Please verify the transaction before recording payment.'; }
     else if (type === 'PARTY_BOOKING') { title = 'NEW PARTY BOOKING REQUEST'; body = row.message || 'A new party booking request needs your attention.'; }
     else if (type === 'WAITER_CALL') { title = 'WAITER NEEDED · TABLE ' + table; body = 'A guest is waiting for a waiter.'; }
     else if (type === 'BILL_REQUEST') { title = 'BILL REQUEST · TABLE ' + table; body = 'Please attend the table bill request.'; }
@@ -363,6 +375,7 @@
       var saved = await client.from('mm_staff_push_subscriptions').upsert({
         staff_user_id: userResult.data.user.id,
         target_role: String(window.role),
+        staff_code: String(window.role) === 'waiter' ? (function(){ try { return String(localStorage.getItem('mm_waiter_staff_code') || '').trim().toUpperCase(); } catch(e) { return ''; } })() : '',
         endpoint: subscription.endpoint,
         subscription: subscription.toJSON(),
         user_agent: String(navigator.userAgent || '').slice(0, 400),
