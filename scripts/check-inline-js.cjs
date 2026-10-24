@@ -66,7 +66,7 @@ try {
   ['MM_REQUEST_VISIT_PAYMENT_VERIFICATION', 'UPI verification requests are scoped to the active visit'],
   ['MM_RELEASE_ABANDONED_VISIT', 'Staff can release an abandoned table visit without mixing balances'],
   ['p_guest_order_code: guestOrderCode', 'Customer ordering requires the active visit PIN'],
-  ['p_staff_code: String(window.role) === 'waiter' ? staffCode : null', 'Staff alerts are filtered by the assigned waiter ID'],
+  ["p_staff_code: String(window.role) === 'waiter' ? staffCode : null", "Staff alerts are filtered by the assigned waiter ID"],
   ['for (var i = 0; i < tokens.length; i++)', 'Every retained customer ticket gets status refresh'],
   [".select('ticket_id,status').maybeSingle()", 'Staff status change confirms a database row was updated'],
   [".select('id,price').maybeSingle()", 'Owner price update confirms a database row was updated'],
