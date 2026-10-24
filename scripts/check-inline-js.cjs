@@ -229,7 +229,7 @@ requireText(html, 'DIRECT GUEST TO COUNTER · ACKNOWLEDGE', 'Waiter is told to d
 requireText(visitServiceControlsMigration, 'CREATE OR REPLACE FUNCTION public.mm_staff_release_abandoned_visit', 'Staff can release a table after guests leave');
 requireText(visitServiceControlsMigration, 'p_guest_order_code text DEFAULT NULL', 'Secure order RPC validates the table PIN');
 requireText(visitServiceControlsMigration, "ADD COLUMN IF NOT EXISTS approval_status text NOT NULL DEFAULT 'APPROVED'", 'Order approval status is stored in the shared database');
-requireText(visitServiceControlsMigration, "WHEN 'PENDING'", 'Guest orders can wait for owner approval');
+requireText(visitServiceControlsMigration, "THEN 'PENDING' ELSE 'APPROVED' END", 'Guest orders can wait for owner approval');
 requireText(visitServiceControlsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_review_customer_order', 'Only owner/admin can approve or reject customer orders');
 requireText(visitServiceControlsMigration, "'ORDER_APPROVAL'", 'Pending customer orders create owner alerts');
 requireText(html, 'Needs your approval', 'Owner Orders tab shows pending approval tickets');
