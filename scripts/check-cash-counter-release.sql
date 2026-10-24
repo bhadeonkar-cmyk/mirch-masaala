@@ -66,6 +66,20 @@ BEGIN
     RAISE EXCEPTION 'QA failed: balances crossed visits on the same table: old %, new %',v_old_bill,v_new_bill;
   END IF;
 
+  -- A waiter may see the assigned alert, but only Owner/Counter (Admin login) can record cash.
+  v_rejected := false;
+  BEGIN
+    PERFORM public.mm_staff_record_visit_payment(v_old_visit,60,'cash','QA waiter cash attempt');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'Only the Owner/Counter (Admin login) can confirm and record payments%' THEN
+      v_rejected := true;
+    ELSE
+      RAISE;
+    END IF;
+  END;
+  IF NOT v_rejected THEN RAISE EXCEPTION 'QA failed: waiter was allowed to record visit payment'; END IF;
+
+  PERFORM set_config('app.qa_role','admin',false);
   v_result := public.mm_staff_record_visit_payment(v_old_visit,60,'cash','QA cash at counter');
   IF v_result->>'status' <> 'RECORDED' OR (v_result->>'remaining_due')::numeric > 0.01 THEN
     RAISE EXCEPTION 'QA failed: old visit cash payment was not fully recorded: %',v_result;
