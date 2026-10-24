@@ -704,7 +704,7 @@ BEGIN
     'items', v_items
   );
 END
-$$
+$;
 
 REVOKE ALL ON FUNCTION public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text) TO anon, authenticated;
