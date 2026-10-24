@@ -122,7 +122,7 @@ try {
   ['CREATE OR REPLACE FUNCTION public.mm_admin_get_order_details', 'Owner lookup returns order history and line items'],
   ['CREATE TABLE IF NOT EXISTS public.order_management_audit', 'Accounting audit table exists'],
   ['CREATE TABLE IF NOT EXISTS public.order_payments', 'Shared payment table exists'],
-  ['coalesce(public.get_my_staff_role(), \'\') NOT IN (\'admin\', \'waiter\')', 'Payment RPC rejects non-staff identities'],
+  ["IF public.get_my_staff_role() IS DISTINCT FROM 'admin' THEN", 'Payment RPC rejects non-admin staff identities'],
   ['Paid or cancelled orders cannot be reopened', 'Cancelled/paid tickets cannot silently reappear'],
   ['This ticket already has recorded payments.', 'Normal cancellation is blocked after money is recorded'],
   ["set_config('app.mm_owner_table_cleanup', 'on', true)", 'Owner test cleanup is the only payment-cancellation exception'],
