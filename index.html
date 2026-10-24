@@ -1281,7 +1281,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <div class="home-utility-bar" aria-label="Restaurant status and quick actions">
       <div class="home-corner-stack">
         <div id="status-pill" class="pill open">Open now</div>
-        <section id="home-my-orders" aria-label="Recheck your order" style="display:none" aria-live="polite"></section>
+        <section id="home-my-orders" aria-label="My orders and item details" style="display:none" aria-live="polite"></section>
       </div>
       <div class="home-language-control">
         <span id="home-language-caption" class="muted" style="font-size:12px">Language / भाषा</span>
@@ -3412,7 +3412,7 @@ function myOrders() {
   tokens.forEach(function(t){ if (t && t.id && t.token) ownIds[String(t.id)] = true; });
   var mine = orders.filter(function(o){ return o && ownIds[String(o.id)]; });
   var el = document.getElementById('my-list');
-  if (!mine.length) el.innerHTML = '<p class="muted center" style="padding:40px">No orders yet</p>';
+  if (!mine.length) el.innerHTML = '<div class="card" style="display:block;padding:24px 18px;text-align:center"><b class="gold">No saved orders on this phone yet</b><p class="muted" style="font-size:12px;line-height:1.5;margin-top:8px">After placing an order on this phone, tap <b>My orders</b> on Home to check every dish, quantity, special request, total and order status.</p><button type="button" class="btn btn-soft" style="margin-top:12px" onclick="go(\'home\')">Back to Home</button></div>';
   else el.innerHTML = mine.map(function(o) {
     var rem = o.cancelUntil ? o.cancelUntil - Date.now() : 0;
     var cbtn = '';
@@ -5698,18 +5698,14 @@ function renderCustomerHomeOrders() {
     return token && token.id && token.token;
   });
 
-  if (!validTokens.length) {
-    host.style.display = 'none';
-    host.innerHTML = '';
-    return;
-  }
-
+  // Keep My orders visible even before a ticket exists so returning guests have
+  // one predictable place to review their dishes and status.
   host.style.display = 'block';
   host.innerHTML =
-    '<button type="button" class="home-recheck-order" onclick="myOrders()" aria-label="Recheck your order details and status">' +
+    '<button type="button" class="home-recheck-order" onclick="myOrders()" aria-label="Open your saved orders, items and status">' +
       '<span class="recheck-icon" aria-hidden="true"><span>↻</span></span>' +
-      '<span class="recheck-copy"><span class="recheck-title">' + window.mmI18n('Recheck order', 'ऑर्डर पुन्हा तपासा') + '</span>' +
-      '<span class="recheck-subtitle">' + window.mmI18n('Track items & status', 'ऑर्डरची स्थिती पहा') + '</span></span>' +
+      '<span class="recheck-copy"><span class="recheck-title">' + window.mmI18n('My orders', 'माझ्या ऑर्डर्स') + '</span>' +
+      '<span class="recheck-subtitle">' + window.mmI18n('Check items & status', 'पदार्थ व स्थिती तपासा') + '</span></span>' +
       (validTokens.length > 1 ? '<span class="recheck-count" aria-label="' + validTokens.length + ' saved orders">' + validTokens.length + '</span>' : '') +
       '<span class="recheck-chevron" aria-hidden="true">›</span>' +
     '</button>';

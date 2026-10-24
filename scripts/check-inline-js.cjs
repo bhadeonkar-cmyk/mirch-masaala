@@ -160,8 +160,8 @@ requireText(publicBoard, 'o.archived_at IS NULL', 'Public board filters archived
   [tableVisitsMigration, "upper(coalesce(o.status, '')) IN ('NEW', 'PREPARING', 'READY')", 'Table cannot finish while a kitchen ticket is active'],
   [tableVisitsMigration, 'v_due,', 'Table finish checks unpaid bills'],
   [html, 'function lookupAdminTicket()', 'Owner ticket lookup UI exists'],
-  [html, 'id="home-my-orders"', 'Customer Home has a discreet saved-order control'],
-  [html, 'Recheck order', 'Customer can reopen saved orders from Home with one small button'],
+  [html, 'id="home-my-orders"', 'Customer Home has a persistent saved-order control'],
+  [html, "window.mmI18n('My orders', 'माझ्या ऑर्डर्स')", 'Customer Home always shows a My orders control'],
   [html, 'w-secondary-alert', 'Routine waiter alerts have a lower-priority host below the table picker'],
   [html, 'function finishTableVisit()', 'Waiter has an explicit table-visit completion action'],
   [html, 'id="w-visit-control"', 'Waiter can review table visit state from the selected table'],
@@ -235,6 +235,15 @@ requireText(live, 'MM_SET_TABLE_CAPACITY', 'Owner capacity action is connected t
 requireText(menuOptionsMigration, "ADD COLUMN IF NOT EXISTS spice_level text NOT NULL DEFAULT 'normal'", 'Per-dish spice is persisted');
 requireText(menuOptionsMigration, 'ADD COLUMN IF NOT EXISTS seating_capacity smallint NOT NULL DEFAULT 4', 'Table seating capacity is persisted');
 requireText(menuOptionsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_set_table_capacity', 'Owner capacity RPC exists');
+requireText(menuOptionsMigration, 'GRANT EXECUTE ON FUNCTION public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text) TO anon, authenticated;', 'Dish-options order RPC grant matches the function signature');
+const homeOrdersStart = html.indexOf('function renderCustomerHomeOrders()');
+const homeOrdersEnd = html.indexOf('function renderPublicOrderBoard(', homeOrdersStart);
+const homeOrdersRenderer = html.slice(homeOrdersStart, homeOrdersEnd);
+if (homeOrdersStart < 0 || homeOrdersEnd < 0 || homeOrdersRenderer.includes("host.style.display = 'none'")) {
+  fail('Customer Home must keep the My orders control visible even when there are no saved tickets');
+} else {
+  console.log('✓ Customer Home My orders control remains visible for returning guests');
+}
 requireText(menuOptionsMigration, "'spiceLevel', coalesce(oi.spice_level, 'normal')", 'Customer ticket returns saved spice');
 const sharedOrderStart = live.indexOf('async function createSharedOrder(');
 const sharedOrderEnd = live.indexOf('async function placeCustomerOrder(', sharedOrderStart);

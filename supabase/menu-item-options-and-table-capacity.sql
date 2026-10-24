@@ -191,7 +191,7 @@ BEGIN
 END
 $$;
 REVOKE ALL ON FUNCTION public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.mm_place_order(uuid, text, text, jsonb, jsonb, uuid, uuid, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text) TO anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.mm_get_public_order(
   p_ticket_id text,
