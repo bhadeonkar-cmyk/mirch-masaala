@@ -280,13 +280,13 @@ BEGIN
     IF v_has_push THEN
       v_token:=gen_random_uuid()::text;
       EXECUTE 'INSERT INTO public.mm_restaurant_notifications
-        (restaurant_id,target_role,notification_type,table_number,ticket_id,message,push_dispatch_token)
-        VALUES ($1,$2,''GUEST_LEFT_UNPAID'',$3,$4,$5,$6) RETURNING id'
-        INTO v_id USING v_visit.restaurant_id,v_role,v_table,v_visit.id::text,v_message,v_token;
+        (restaurant_id,target_role,notification_type,table_number,ticket_id,message,target_staff_code,push_dispatch_token)
+        VALUES ($1,$2,''GUEST_LEFT_UNPAID'',$3,$4,$5,$6,$7) RETURNING id'
+        INTO v_id USING v_visit.restaurant_id,v_role,v_table,v_visit.id::text,v_message,CASE WHEN v_role='waiter' THEN coalesce(v_visit.assigned_waiter_code,'') ELSE '' END,v_token;
       v_tokens:=v_tokens||jsonb_build_array(jsonb_build_object('id',v_id,'token',v_token));
     ELSE
-      INSERT INTO public.mm_restaurant_notifications(restaurant_id,target_role,notification_type,table_number,ticket_id,message)
-      VALUES(v_visit.restaurant_id,v_role,'GUEST_LEFT_UNPAID',v_table,v_visit.id::text,v_message) RETURNING id INTO v_id;
+      INSERT INTO public.mm_restaurant_notifications(restaurant_id,target_role,notification_type,table_number,ticket_id,message,target_staff_code)
+      VALUES(v_visit.restaurant_id,v_role,'GUEST_LEFT_UNPAID',v_table,v_visit.id::text,v_message,CASE WHEN v_role='waiter' THEN coalesce(v_visit.assigned_waiter_code,'') ELSE '' END) RETURNING id INTO v_id;
     END IF;
     v_ids:=array_append(v_ids,v_id);
   END LOOP;
@@ -424,14 +424,14 @@ BEGIN
     IF v_has_push THEN
       v_token:=gen_random_uuid()::text;
       EXECUTE 'INSERT INTO public.mm_restaurant_notifications
-        (restaurant_id,target_role,notification_type,table_number,ticket_id,message,push_dispatch_token)
-        VALUES ($1,$2,''CASH_AT_COUNTER'',$3,$4,$5,$6) RETURNING id'
-      INTO v_id USING v_visit.restaurant_id,v_role,v_table,v_visit.id::text,v_message,v_token;
+        (restaurant_id,target_role,notification_type,table_number,ticket_id,message,target_staff_code,push_dispatch_token)
+        VALUES ($1,$2,''CASH_AT_COUNTER'',$3,$4,$5,$6,$7) RETURNING id'
+      INTO v_id USING v_visit.restaurant_id,v_role,v_table,v_visit.id::text,v_message,CASE WHEN v_role='waiter' THEN coalesce(v_visit.assigned_waiter_code,'') ELSE '' END,v_token;
       v_tokens:=v_tokens||jsonb_build_array(jsonb_build_object('id',v_id,'token',v_token));
     ELSE
       INSERT INTO public.mm_restaurant_notifications
-        (restaurant_id,target_role,notification_type,table_number,ticket_id,message)
-      VALUES (v_visit.restaurant_id,v_role,'CASH_AT_COUNTER',v_table,v_visit.id::text,v_message)
+        (restaurant_id,target_role,notification_type,table_number,ticket_id,message,target_staff_code)
+      VALUES (v_visit.restaurant_id,v_role,'CASH_AT_COUNTER',v_table,v_visit.id::text,v_message,CASE WHEN v_role='waiter' THEN coalesce(v_visit.assigned_waiter_code,'') ELSE '' END)
       RETURNING id INTO v_id;
     END IF;
     v_ids:=array_append(v_ids,v_id);
