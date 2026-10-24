@@ -165,6 +165,9 @@ CREATE TABLE IF NOT EXISTS public.mm_staff_push_subscriptions (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE public.mm_staff_push_subscriptions
+  ADD COLUMN IF NOT EXISTS staff_code text NOT NULL DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS ix_mm_staff_push_role
   ON public.mm_staff_push_subscriptions (target_role, updated_at DESC);
 
