@@ -1217,12 +1217,13 @@
       if (stbl) stbl.textContent = order.table;
       if (typeof window.updCart === 'function') window.updCart();
       window.lastPlacedOrderId = order.id;
+      var isPendingApproval = String(order.approvalStatus || 'APPROVED').toUpperCase() === 'PENDING';
       window.go('success');
       var host = document.getElementById('success-progress-host');
-      if (host) host.innerHTML = window.progressMarkup(order) + '<p class="waiting-joke" id="waiting-joke">Chef has received your mission. 🍳</p>';
+      if (host) host.innerHTML = window.progressMarkup(order) + '<p class="waiting-joke" id="waiting-joke">' + (isPendingApproval ? 'Your order is with the owner for approval. 🕒' : 'Chef has received your mission. 🍳') + '</p>';
       if (typeof window.startWaitFun === 'function') window.startWaitFun(order.id);
       if (typeof window.confetti === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) window.confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
-      notifySuccess('Order sent to kitchen!');
+      notifySuccess(isPendingApproval ? 'Order sent to owner for approval.' : 'Order sent to kitchen!');
       refreshCustomerOrders();
     } catch (e) {
       notifyError(e && e.message ? e.message : 'Could not send the order. Please ask your waiter.');
