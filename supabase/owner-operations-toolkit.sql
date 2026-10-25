@@ -320,12 +320,6 @@ BEGIN
      AND EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.menu_items'::regclass AND attname='is_available' AND NOT attisdropped) THEN
     EXECUTE 'UPDATE public.menu_items SET is_available=true WHERE restaurant_id=$1' USING v_restaurant_id;
   END IF;
-  IF to_regclass('public.restaurant_tables') IS NOT NULL
-     AND EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.restaurant_tables'::regclass AND attname='restaurant_id' AND NOT attisdropped)
-     AND EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.restaurant_tables'::regclass AND attname='seating_capacity' AND NOT attisdropped) THEN
-    EXECUTE 'UPDATE public.restaurant_tables SET seating_capacity=4 WHERE restaurant_id=$1' USING v_restaurant_id;
-  END IF;
-
   -- Reset shared customer-facing configuration to safe defaults when that optional table exists.
   IF to_regclass('public.mm_restaurant_config') IS NOT NULL THEN
     FOR v_setting IN
