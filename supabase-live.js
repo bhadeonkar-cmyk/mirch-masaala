@@ -258,6 +258,10 @@
     else if (type === 'ORDER_READY') { title = 'ORDER READY · TABLE ' + table; body = 'Please check the ready ticket.'; }
     else if (type === 'ITEM_SOLD_OUT') { title = 'ITEM SOLD OUT'; body = row.item_name || row.message || 'Kitchen changed menu availability.'; }
     // Browser notifications use the same selected language as the screen.
+    if (window.MM_HOME_LANGUAGE === 'mr' && typeof window.MM_TRANSLATE_NOTIFICATION_MESSAGE === 'function') {
+      var localizedBody = window.MM_TRANSLATE_NOTIFICATION_MESSAGE(row);
+      if (localizedBody && /[\u0900-\u097F]/.test(localizedBody)) body = localizedBody;
+    }
     if (typeof window.MM_TRANSLATE_TEXT === 'function') {
       title = window.MM_TRANSLATE_TEXT(title);
       body = window.MM_TRANSLATE_TEXT(body);
