@@ -237,6 +237,19 @@ BEGIN
     RAISE EXCEPTION 'QA failed: old-visit settlement leaked onto the table 06 ticket';
   END IF;
 
-  RAISE NOTICE 'QA passed: Home browsing creates no visit, order PIN is enforced, active tickets block release, assigned waiter alerts route correctly, and closed balances settle separately.';
+  -- Simulate an active guest order created before the approval migration was installed.
+  -- The workflow reruns the migration after this script and verifies backfill/alert routing.
+  INSERT INTO public.orders (
+    restaurant_id, table_id, table_visit_id, customer_session_id,
+    status, approval_status, notes, total, ticket_id, created_at, updated_at
+  ) VALUES (
+    'a3702d10-6673-4c06-9783-1d61c945ecd5',
+    '66666666-6666-4666-8666-666666666661',
+    v_visit_id,
+    'bbbbbbbb-0000-4000-8000-000000000006'::uuid,
+    'NEW', 'APPROVED', 'QA legacy customer order', 12, 'MM-GUEST-LEGACY-001', now(), now()
+  );
+
+  RAISE NOTICE 'QA passed: secure ordering, owner approve/reject, assigned waiter alerts and visit checkout behave correctly; legacy guest order queued for migration backfill.';
 END
 $qa$;
