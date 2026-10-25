@@ -340,7 +340,7 @@ requireText(partyBookingsMigration, "'PARTY_BOOKING'", 'Party request creates an
 requireText(staffPushEdge, '"PARTY_BOOKING"', 'Background push sender supports party booking alerts');
 requireText(staffPushEdge, '"PAYMENT_CHECK"', 'Background push sender supports payment verification alerts');
 requireText(staffPushEdge, '"CASH_AT_COUNTER"', 'Background push sender supports urgent cash collection alerts');
-requireText(html, 'src="./app-language.js?v=20261026c"', 'App-wide language layer is loaded after screen-specific translations');
+requireText(html, 'src="./app-language.js?v=20261026d"', 'App-wide language layer is loaded after screen-specific translations');
 requireText(appLanguage, 'new MutationObserver', 'Newly rendered UI and alerts are translated after screen updates');
 requireText(appLanguage, 'if (noTranslateTextTags[root.tagName]) return;', 'Form placeholders are translated without changing the guest typed text');
 requireText(appLanguage, 'window.mmFriendlyError', 'Order setup errors are presented in user-friendly language');
