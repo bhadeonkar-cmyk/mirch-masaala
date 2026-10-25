@@ -914,6 +914,45 @@ FOR EACH ROW
 WHEN (OLD.approval_status IS DISTINCT FROM NEW.approval_status)
 EXECUTE FUNCTION public.mm_notify_kitchen_after_owner_approval();
 
+-- Backfill unresolved, active guest tickets created before this approval workflow was installed.
+-- Do not revisit tickets already reviewed: the existence of an ORDER_APPROVAL alert is the review marker.
+UPDATE public.orders o
+SET approval_status = 'PENDING'
+WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+  AND o.customer_session_id IS NOT NULL
+  AND upper(coalesce(o.status, '')) = 'NEW'
+  AND coalesce(o.is_test_order, false) = false
+  AND o.archived_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM public.mm_restaurant_notifications n
+    WHERE n.restaurant_id = o.restaurant_id
+      AND n.notification_type = 'ORDER_APPROVAL'
+      AND n.ticket_id = o.ticket_id
+  );
+
+-- Ensure every remaining pending ticket has an owner-visible alert, including older tickets backfilled above.
+INSERT INTO public.mm_restaurant_notifications (
+  restaurant_id, target_role, notification_type, table_number, ticket_id, message, push_dispatch_token
+)
+SELECT o.restaurant_id, 'admin', 'ORDER_APPROVAL', lpad(t.table_number::text, 2, '0'),
+       coalesce(o.ticket_id, ''), 'Customer order waiting for owner approval · Table ' || lpad(t.table_number::text, 2, '0'),
+       gen_random_uuid()::text
+FROM public.orders o
+JOIN public.restaurant_tables t ON t.id = o.table_id AND t.restaurant_id = o.restaurant_id
+WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+  AND upper(coalesce(o.approval_status, '')) = 'PENDING'
+  AND coalesce(o.is_test_order, false) = false
+  AND o.archived_at IS NULL
+  AND upper(coalesce(o.status, '')) = 'NEW'
+  AND NOT EXISTS (
+    SELECT 1 FROM public.mm_restaurant_notifications n
+    WHERE n.restaurant_id = o.restaurant_id
+      AND n.target_role = 'admin'
+      AND n.notification_type = 'ORDER_APPROVAL'
+      AND n.ticket_id = o.ticket_id
+  );
+
+
 -- A customer can read only their own status through the secret per-order token.
 CREATE OR REPLACE FUNCTION public.mm_get_public_order(
   p_ticket_id text,
