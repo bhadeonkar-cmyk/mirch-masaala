@@ -1210,6 +1210,34 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 
 /* Customer table selection is QR-only. Staff table selectors are separate and remain available. */
 #home-choose-table, #table-swipe-guide, #tables, #table-continue { display: none !important; }
+
+/* QR is the primary customer action; guidance is intentionally short and step-based. */
+.qr-entry-kicker{display:flex;align-items:center;gap:10px;text-align:left;margin:10px 0 8px;padding:11px 13px;border:1px solid rgba(212,168,75,.24);border-radius:14px;background:linear-gradient(105deg,rgba(212,168,75,.12),rgba(30,21,18,.75))}
+.qr-entry-number{display:grid;place-items:center;flex:0 0 34px;height:34px;border-radius:10px;background:rgba(212,168,75,.18);color:var(--gold2);font-size:12px;font-weight:900}
+.qr-entry-copy{flex:1;min-width:0}.qr-entry-copy b{display:block;color:var(--text);font-size:13px}.qr-entry-copy small{display:block;color:var(--muted);font-size:11px;margin-top:2px}.qr-entry-pill{font-size:10px;letter-spacing:1px;font-weight:900;color:var(--gold2);border:1px solid var(--line);border-radius:7px;padding:5px 7px}
+#scan-table-btn{display:flex!important;align-items:center;justify-content:center;min-height:56px;margin-top:0!important;font-size:16px;letter-spacing:.1px;border-radius:15px;box-shadow:0 7px 22px rgba(212,168,75,.27)}
+.qr-order-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0 12px;text-align:left}
+.qr-order-step{display:flex;align-items:flex-start;gap:7px;min-width:0;padding:10px 8px;border:1px solid rgba(212,168,75,.18);border-radius:12px;background:rgba(30,21,18,.72)}
+.qr-order-step>span{display:grid;place-items:center;flex:0 0 23px;height:23px;border-radius:8px;background:rgba(212,168,75,.16);color:var(--gold2);font-size:10px;font-weight:900}
+.qr-order-step b{display:block;color:var(--text);font-size:11px;line-height:1.25}.qr-order-step small{display:block;color:var(--muted);font-size:10px;line-height:1.35;margin-top:3px}
+.owner-qr-quickstart{display:flex;align-items:center;gap:12px;margin:10px 12px 13px;padding:13px;border:1px solid rgba(212,168,75,.32);border-radius:15px;background:linear-gradient(110deg,rgba(212,168,75,.13),rgba(38,28,24,.88))}
+.owner-qr-quickstart-copy{flex:1;min-width:0}.owner-qr-eyebrow{display:block;font-size:9px;letter-spacing:1.5px;font-weight:900;color:var(--gold2);margin-bottom:3px}.owner-qr-quickstart h3{font-size:14px;line-height:1.3;margin-bottom:4px}.owner-qr-quickstart p{font-size:11px;line-height:1.45;color:var(--muted)}.owner-qr-quickstart .btn{width:auto;flex:0 0 auto;white-space:nowrap}
+.owner-qr-quickstart-dismiss{border:0;background:transparent;color:var(--muted);padding:4px;font-size:18px;align-self:flex-start;cursor:pointer}
+.qr-setup-hero{margin:0 0 14px;padding:16px;border:1px solid rgba(212,168,75,.36);border-radius:18px;background:linear-gradient(145deg,rgba(212,168,75,.15),rgba(30,21,18,.98) 65%);box-shadow:0 12px 28px rgba(0,0,0,.16)}
+.qr-setup-eyebrow{font-size:9px;letter-spacing:1.7px;font-weight:900;color:var(--gold2)}.qr-setup-hero h2{font-size:21px;line-height:1.25;margin:5px 0}.qr-setup-hero>p{font-size:12px;color:var(--muted);line-height:1.5;margin:0 0 12px}
+.qr-setup-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.qr-setup-step{min-width:0;padding:10px;border:1px solid rgba(212,168,75,.2);border-radius:12px;background:rgba(0,0,0,.13)}
+.qr-setup-step>span{display:grid;place-items:center;width:25px;height:25px;border-radius:8px;background:rgba(212,168,75,.18);color:var(--gold2);font-size:11px;font-weight:900;margin-bottom:7px}
+.qr-setup-step b{display:block;font-size:12px}.qr-setup-step small{display:block;font-size:10px;line-height:1.45;color:var(--muted);margin-top:4px}
+.qr-setup-hero .btn{margin-top:5px;min-height:48px}.qr-setup-note{font-size:10px;color:var(--muted);line-height:1.45;margin-top:8px}
+.qr-table-picker{padding:12px;margin-bottom:12px;border:1px solid var(--line);border-radius:15px;background:rgba(30,21,18,.5)}.qr-table-picker h3{font-size:14px;margin-bottom:4px}.qr-table-picker>p{font-size:11px;color:var(--muted);margin-bottom:9px}
+.qr-table-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:8px}
+.qr-table-card{min-height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--gold2);cursor:pointer}
+.qr-table-card b{font-size:18px;letter-spacing:.5px}.qr-table-card small{font-size:10px;color:var(--muted)}
+.qr-advanced{margin:10px 0 16px;border:1px solid var(--line);border-radius:12px;background:rgba(30,21,18,.38)}.qr-advanced summary{padding:12px;font-size:12px;font-weight:800;color:var(--gold2);cursor:pointer}.qr-advanced .seating-capacity-settings{margin:0 10px 10px}
+.tabs button[data-t="qr"]{color:var(--gold2);font-weight:850}
+@media(max-width:480px){.qr-order-steps{gap:5px}.qr-order-step{display:block;padding:8px 6px}.qr-order-step>span{margin-bottom:6px}.qr-order-step b{font-size:10px}.qr-order-step small{font-size:9px}.owner-qr-quickstart{align-items:flex-start;flex-wrap:wrap}.owner-qr-quickstart .btn{width:100%;flex:1 1 100%}.qr-setup-steps{grid-template-columns:1fr}.qr-setup-step{display:grid;grid-template-columns:28px 1fr;gap:0 8px;padding:9px}.qr-setup-step>span{grid-row:span 2;margin:0}}
+
 .onkarfx-credit { margin:18px 12px 8px; padding-top:12px; border-top:1px solid var(--line); text-align:center; font-size:10px; line-height:1.6; color:var(--muted); opacity:.78; }
 .onkarfx-credit a { color:var(--muted); text-decoration:underline; text-underline-offset:3px; }
 </style>
@@ -1307,22 +1335,28 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
         <div class="brand-sub" id="brand-tag">INDIAN RESTAURANT</div>
       </div>
     </div>
-    <p class="muted" id="home-tagline" style="font-size:13px;margin:6px 0 8px">Good food, easy ordering.</p>
+    <p class="muted" id="home-tagline" style="font-size:13px;margin:6px 0 8px">Dine in made easy — scan your table QR.</p>
     <div class="tip-banner" id="home-tip">
       <span class="ic">👋</span>
-      <div class="tx"><b id="home-welcome">Welcome!</b> <span id="home-welcome-text">Scan the QR sticker on your table with your phone camera. Your table is selected automatically.</span></div>
+      <div class="tx"><b id="home-welcome">Welcome!</b> <span id="home-welcome-text">No table selection or code needed. Scan your table QR and your table is selected automatically.</span></div>
       <button type="button" class="x" onclick="this.parentElement.style.display='none'">×</button>
     </div>
     <p class="muted" style="margin-bottom:4px"><b id="home-choose-table" style="color:var(--text)">Choose your table</b></p>
     <div class="table-swipe-guide" id="table-swipe-guide" aria-live="polite"><span class="swipe-side">↔</span><span id="home-swipe-label">Swipe sideways to find your table</span><span class="swipe-hand">👆</span></div>
     <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
     <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
+    <div class="qr-entry-kicker" aria-label="Primary dine-in ordering action"><span class="qr-entry-number">01</span><div class="qr-entry-copy"><b id="home-qr-entry-title">Dine in · Start here</b><small id="home-qr-entry-copy">Scan the sticker on your table.</small></div><span class="qr-entry-pill">QR</span></div>
     <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 <span id="home-scan-label">Scan table QR</span></button>
-    <p class="muted" id="home-no-install" style="margin-top:10px;font-size:12px">Scan the QR sticker on your table, or tap Scan table QR to use the in-app scanner. No table selection or code needed. If the sticker is missing, ask your waiter to share the exact table link.</p>
+    <div class="qr-order-steps" aria-label="How to order with a table QR">
+      <div class="qr-order-step"><span>1</span><div><b id="home-qr-step-scan">Scan</b><small id="home-qr-step-scan-copy">Use the sticker or scanner above.</small></div></div>
+      <div class="qr-order-step"><span>2</span><div><b id="home-qr-step-choose">Choose dishes</b><small id="home-qr-step-choose-copy">Add dishes and send your order.</small></div></div>
+      <div class="qr-order-step"><span>3</span><div><b id="home-qr-step-track">Track order</b><small id="home-qr-step-track-copy">Follow updates in My orders.</small></div></div>
+    </div>
+    <p class="muted" id="home-no-install" style="margin-top:7px;font-size:12px">No sticker? Tap Scan table QR above or ask your waiter to share the exact table link.</p>
     <div class="home-shortcuts" aria-label="Helpful links">
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" id="home-table-qr-help" aria-label="Table QR help" title="Table QR help" onclick="openTableQRHelp()"><span aria-hidden="true">📱</span></button>
-        <span class="home-shortcut-label">Table QR</span>
+        <span class="home-shortcut-label" id="home-table-qr-help-label">QR help</span>
       </div>
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" aria-label="How to use this app" title="How to use this app" onclick="openGuide()"><span aria-hidden="true">📖</span></button>
@@ -1576,10 +1610,11 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div id="a-maintenance-reminder" aria-live="polite"></div>
   <div class="tabs">
     <button type="button" class="on" data-t="orders" onclick="tab(this,'orders')">Orders</button>
-    <button type="button" data-t="alerts" onclick="tab(this,'alerts')">Alerts</button>
-    <button type="button" data-t="menu" onclick="tab(this,'menu')">Menu</button>
-    <button type="button" data-t="qr" onclick="tab(this,'qr')">QR</button>
-    <button type="button" data-t="settings" onclick="tab(this,'settings')">Settings</button>
+    <button type="button" class="on" data-t="orders" onclick="tab(this,'orders')">Orders</button>
+      <button type="button" data-t="qr" onclick="tab(this,'qr')">Table QR</button>
+      <button type="button" data-t="alerts" onclick="tab(this,'alerts')">Alerts</button>
+      <button type="button" data-t="menu" onclick="tab(this,'menu')">Menu</button>
+      <button type="button" data-t="settings" onclick="tab(this,'settings')">Settings</button>
     <select class="admin-more" id="admin-more" aria-label="More admin tools" onchange="if(this.value)tab(this,this.value)">
       <option value="">More tools</option>
       <option value="stats">Stats</option>
@@ -6478,14 +6513,23 @@ window.setWDietFilter = setWDietFilter;
 (function () {
   var translations = {
     en: {
-      'home-tagline': 'Good food, easy ordering.',
+      'home-tagline': 'Dine in made easy — scan your table QR.',
       'home-welcome': 'Welcome!',
-      'home-welcome-text': 'Scan the QR sticker on your table with your phone camera. Your table is selected automatically.',
+      'home-welcome-text': 'No table selection or code needed. Scan your table QR and your table is selected automatically.',
+      'home-qr-entry-title': 'Dine in · Start here',
+      'home-qr-entry-copy': 'Scan the sticker on your table.',
+      'home-qr-step-scan': 'Scan',
+      'home-qr-step-scan-copy': 'Use the sticker or scanner above.',
+      'home-qr-step-choose': 'Choose dishes',
+      'home-qr-step-choose-copy': 'Add dishes and send your order.',
+      'home-qr-step-track': 'Track order',
+      'home-qr-step-track-copy': 'Follow updates in My orders.',
+      'home-table-qr-help-label': 'QR help',
       'home-choose-table': 'Choose your table',
       'home-swipe-label': 'Swipe sideways to find your table',
       'table-continue': 'Continue to table →',
       'home-scan-label': 'Scan table QR',
-      'home-no-install': 'No app install needed · Works on any phone',
+      'home-no-install': 'No sticker? Tap Scan table QR above, or ask your waiter to share the exact table link.',
       'home-how-to-use': 'How to use',
       'home-places-to-visit': 'Places to visit',
       'home-visit-us': 'Visit us',
@@ -6528,14 +6572,23 @@ window.setWDietFilter = setWDietFilter;
       'waiter-confirm-edit': '← Back to edit'
     },
     mr: {
-      'home-tagline': 'चविष्ट जेवण, सोपी ऑर्डर.',
+      'home-tagline': 'टेबलवरील QR स्कॅन करा आणि सहज ऑर्डर द्या.',
       'home-welcome': 'स्वागत आहे!',
-      'home-welcome-text': 'टेबलवरील QR कोड मोबाईल कॅमेऱ्याने स्कॅन करा किंवा खाली स्वाइप करून आपले टेबल निवडा.',
+      'home-welcome-text': 'टेबल निवडण्याची किंवा कोड टाकण्याची गरज नाही. टेबलचा QR स्कॅन करा; टेबल आपोआप निवडले जाईल.',
+      'home-qr-entry-title': 'जेवणासाठी · इथून सुरू करा',
+      'home-qr-entry-copy': 'टेबलवरील स्टिकर स्कॅन करा.',
+      'home-qr-step-scan': 'स्कॅन करा',
+      'home-qr-step-scan-copy': 'स्टिकर किंवा वरील स्कॅनर वापरा.',
+      'home-qr-step-choose': 'पदार्थ निवडा',
+      'home-qr-step-choose-copy': 'पदार्थ जोडा आणि ऑर्डर पाठवा.',
+      'home-qr-step-track': 'ऑर्डर पाहा',
+      'home-qr-step-track-copy': 'My orders मध्ये अपडेट पाहा.',
+      'home-table-qr-help-label': 'QR मदत',
       'home-choose-table': 'आपले टेबल निवडा',
       'home-swipe-label': 'टेबल शोधण्यासाठी बाजूला स्वाइप करा',
       'table-continue': 'टेबलकडे पुढे जा →',
       'home-scan-label': 'टेबलचा QR स्कॅन करा',
-      'home-no-install': 'अ‍ॅप इन्स्टॉल करण्याची गरज नाही · कोणत्याही फोनवर चालते',
+      'home-no-install': 'स्टिकर नसेल तर वरील Scan table QR वापरा किंवा वेटरकडून टेबलची योग्य लिंक घ्या.',
       'home-how-to-use': 'वापरण्याची माहिती',
       'home-places-to-visit': 'भेट देण्याची ठिकाणे',
       'home-visit-us': 'आम्हाला भेट द्या',
