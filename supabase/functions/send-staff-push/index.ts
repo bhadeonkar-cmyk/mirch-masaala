@@ -19,7 +19,7 @@ function json(status: number, body: Record<string, unknown>) {
   });
 }
 
-function makeMessage(row: Record<string, unknown>, role: string) {
+function makeMessage(row: Record<string, unknown>, role: string, language = "en") {
   const type = String(row.notification_type || "").toUpperCase();
   const table = String(row.table_number || "").padStart(2, "0");
   const pathRole = ["waiter", "kitchen", "admin"].includes(role) ? role : "waiter";
@@ -56,6 +56,44 @@ function makeMessage(row: Record<string, unknown>, role: string) {
     title = "MENU AVAILABILITY UPDATE";
     body = String(row.item_name || row.message || "Kitchen changed menu availability.");
   }
+  if (String(language || "en").toLowerCase() === "mr") {
+    // Translate by stable event type, not by whichever customer's language created it.
+    // This keeps one shared notification record readable to each staff member locally.
+    if (type === "ORDER_APPROVAL") {
+      title = "नवीन ऑर्डर · मालकांची मंजुरी आवश्यक · टेबल " + table;
+      body = "ग्राहकाची ऑर्डर मंजुरीसाठी प्रतीक्षेत आहे.";
+    } else if (type === "CASH_AT_COUNTER") {
+      title = "काउंटरवर रोख पैसे · टेबल " + table;
+      body = "ग्राहक काउंटरवर रोख रक्कम देणार आहे. कृपया पैसे स्वीकारा.";
+    } else if (type === "GUEST_LEFT_UNPAID") {
+      title = "ग्राहक बिल न भरता निघून गेला · टेबल " + table;
+      body = "मूळ टेबल भेटीची बाकी रक्कम तपासून वसूल करा.";
+    } else if (type === "PAYMENT_CHECK") {
+      title = "पेमेंट तपासा · टेबल " + table;
+      body = "ग्राहकाने पेमेंट केल्याचे सांगितले आहे. नोंद करण्यापूर्वी व्यवहार तपासा.";
+    } else if (type === "PARTY_BOOKING") {
+      title = "कार्यक्रम बुकिंगची नवीन विनंती";
+      body = "कार्यक्रम बुकिंगची नवीन विनंती आली आहे.";
+    } else if (type === "WAITER_CALL") {
+      title = "वेटर हवा · टेबल " + table;
+      body = "ग्राहक वाट पाहत आहे. कृपया लगेच टेबल " + table + " वर जा.";
+    } else if (type === "BILL_REQUEST") {
+      title = "बिलाची विनंती · टेबल " + table;
+      body = "कृपया टेबल " + table + " वरील बिलाची विनंती हाताळा.";
+    } else if (type === "NEW_ORDER") {
+      title = "नवीन ऑर्डर · टेबल " + table;
+      body = "टेबल " + table + " साठी किचनमध्ये नवीन ऑर्डर आली आहे.";
+    } else if (type === "ORDER_READY") {
+      title = "ऑर्डर तयार · टेबल " + table;
+      body = "टेबल " + table + " वरील तयार ऑर्डर तपासा.";
+    } else if (type === "ITEM_SOLD_OUT") {
+      title = "मेनू उपलब्धतेतील बदल";
+      body = String(row.item_name || "").trim()
+        ? String(row.item_name) + " सध्या उपलब्ध नाही."
+        : "किचनने पदार्थाची उपलब्धता बदलली आहे.";
+    }
+  }
+
   return {
     title,
     body,
@@ -145,7 +183,7 @@ Deno.serve(async (req: Request) => {
 
   const roles = [...new Set(rows.map((r: Record<string, unknown>) => String(r.target_role || "")))];
   const subsResult = await admin.from("mm_staff_push_subscriptions")
-    .select("id, target_role, staff_code, endpoint, subscription")
+    .select("id, target_role, staff_code, endpoint, subscription, preferred_language")
     .in("target_role", roles);
 
   if (subsResult.error) {
@@ -165,8 +203,12 @@ Deno.serve(async (req: Request) => {
       (!assignedCode || String(row.target_role) !== "waiter" ||
         String(sub.staff_code || "").trim().toUpperCase() === assignedCode)
     );
-    const payload = JSON.stringify(makeMessage(row as Record<string, unknown>, String(row.target_role || "waiter")));
     for (const sub of target) {
+      const payload = JSON.stringify(makeMessage(
+        row as Record<string, unknown>,
+        String(row.target_role || "waiter"),
+        String(sub.preferred_language || "en")
+      ));
       try {
         await webpush.sendNotification(
           sub.subscription as Record<string, unknown>,
