@@ -77,8 +77,14 @@ try {
 ].forEach(([needle, label]) => requireText(live, needle, label));
 
 [
-  ['#home-choose-table, #table-swipe-guide, #tables, #table-continue, #scan-table-btn', 'Customer table selection is QR-only'],
-  ['Scan the QR sticker on your table to order. No table selection or code needed. If the QR is missing, ask your waiter.', 'Customer instructions require QR-only ordering'],
+  ['#home-choose-table, #table-swipe-guide, #tables, #table-continue { display: none !important; }', 'Customer manual table picker is hidden in QR-only flow'],
+  ['#scan-table-btn{display:flex!important', 'Primary Table QR scanner is explicitly kept visible'],
+  ['id="scan-table-btn" onclick="openScan()"', 'Primary Table QR scanner remains available to customers'],
+  ['No sticker? Tap Scan table QR above or ask your waiter to share the exact table link.', 'Customer has a clear fallback when a table sticker is missing'],
+  ['class="qr-order-steps"', 'Customer has a short scan, choose dishes, and track order guide'],
+  ['function drawQR()', 'Owner has a dedicated table QR setup screen'],
+  ['Generate &amp; print all table QRs', 'Owner can generate and print all QR labels from the guided screen'],
+  ['function openOwnerQRSetup()', 'Orders screen directs owner to Table QR setup'],
   ['Digital ordering &amp; business automation by', 'Subtle Onkar FX business enquiry credit is present'],
   ['function cancelOrder(id)', 'Customer cancellation UI exists'],
   ['class="customer-explore-shortcut"', 'Customer has a Places to Visit shortcut on the ordering screen'],
