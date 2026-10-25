@@ -257,8 +257,13 @@
     else if (type === 'NEW_ORDER') { title = 'NEW ORDER · TABLE ' + table; body = 'A new kitchen ticket has arrived.'; }
     else if (type === 'ORDER_READY') { title = 'ORDER READY · TABLE ' + table; body = 'Please check the ready ticket.'; }
     else if (type === 'ITEM_SOLD_OUT') { title = 'ITEM SOLD OUT'; body = row.item_name || row.message || 'Kitchen changed menu availability.'; }
+    // Browser notifications use the same selected language as the screen.
+    if (typeof window.MM_TRANSLATE_TEXT === 'function') {
+      title = window.MM_TRANSLATE_TEXT(title);
+      body = window.MM_TRANSLATE_TEXT(body);
+    }
     try {
-      var notification = new Notification(title, { body: body, tag: 'mm-alert-' + row.id, icon: './icon.svg', requireInteraction: type === 'WAITER_CALL' || type === 'BILL_REQUEST' || type === 'PARTY_BOOKING' || type === 'PAYMENT_CHECK' });
+      var notification = new Notification(title, { body: body, tag: 'mm-alert-' + row.id, icon: './icon.svg', requireInteraction: type === 'WAITER_CALL' || type === 'BILL_REQUEST' || type === 'PARTY_BOOKING' || type === 'PAYMENT_CHECK' || type === 'CASH_AT_COUNTER' || type === 'GUEST_LEFT_UNPAID' });
       notification.onclick = function () { try { window.focus(); } catch (e) {} notification.close(); };
     } catch (e) {}
   }
@@ -447,13 +452,23 @@
       return;
     }
 
+    if (typeof window.MM_TRANSLATE_TEXT === 'function') {
+      title = window.MM_TRANSLATE_TEXT(title);
+      message = window.MM_TRANSLATE_TEXT(message);
+    }
     var key = 'mm_customer_status_notified_' + String(updated.id || '') + '_' + approval + '_' + status;
     try { if (localStorage.getItem(key) === '1') return; localStorage.setItem(key, '1'); } catch (e) {}
-    if (typeof window.toast === 'function') window.toast('Table ' + updated.table + ' · ' + message);
+    var customerToast = 'Table ' + updated.table + ' · ' + message;
+    var customerNotificationBody = 'Table ' + updated.table + ' · Ticket ' + updated.id + ' · ' + message;
+    if (typeof window.MM_TRANSLATE_TEXT === 'function') {
+      customerToast = window.MM_TRANSLATE_TEXT(customerToast);
+      customerNotificationBody = window.MM_TRANSLATE_TEXT(customerNotificationBody);
+    }
+    if (typeof window.toast === 'function') window.toast(customerToast);
     if (!isMobileBrowser() && 'Notification' in window && Notification.permission === 'granted') {
       try {
         var n = new Notification(title, {
-          body: 'Table ' + updated.table + ' · Ticket ' + updated.id + ' · ' + message,
+          body: customerNotificationBody,
           tag: 'mm-customer-' + key,
           icon: './icon.svg'
         });
