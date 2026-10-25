@@ -380,6 +380,30 @@
     'The order could not be confirmed. Please check My orders before retrying.':'ऑर्डरची खात्री होऊ शकली नाही. पुन्हा प्रयत्न करण्यापूर्वी माझ्या ऑर्डर्स तपासा.',
     'This phone is not linked to an active table visit. Please ask staff for the bill.':'हा फोन सध्या सुरू असलेल्या टेबल भेटीशी जोडलेला नाही. बिलासाठी कर्मचाऱ्यांना सांगा.',
     'A restaurant update needs your attention.':'रेस्टॉरंटमधील नवीन सूचनेकडे लक्ष द्या.',
+    'ORDER AWAITING OWNER APPROVAL':'मालकांची मंजुरी आवश्यक असलेली ऑर्डर',
+    'GUEST LEFT · BALANCE DUE':'ग्राहक निघून गेला · बाकी रक्कम',
+    'CASH AT COUNTER':'काउंटरवर रोख पैसे',
+    'PAYMENT VERIFICATION':'पेमेंट तपासा',
+    'PARTY BOOKING REQUEST':'कार्यक्रम बुकिंगची विनंती',
+    'ORDER APPROVAL':'ऑर्डर मंजुरी',
+    'TABLE · GO NOW':'टेबल · लगेच जा',
+    'Booking':'बुकिंग',
+    'Ticket #':'ऑर्डर क्रमांक ',
+    'DIRECT GUEST TO COUNTER · ACKNOWLEDGE':'ग्राहकाला काउंटरकडे पाठवा · नोंद करा',
+    'COUNTER ALERTED · ACKNOWLEDGE':'काउंटरला कळवले · नोंद करा',
+    'ASK OWNER/COUNTER TO VERIFY · ACKNOWLEDGE':'मालक/काउंटरकडून पेमेंट तपासून घ्या · नोंद करा',
+    'COLLECT OUTSTANDING BALANCE':'बाकी रक्कम वसूल करा',
+    'COLLECT CASH':'रोख रक्कम घ्या',
+    'VERIFY & RECORD PAYMENT':'पेमेंट तपासा व नोंदवा',
+    'REVIEW ORDER · APPROVE OR REJECT':'ऑर्डर तपासा · मंजूर करा किंवा नकार द्या',
+    'OPEN PAYMENT LOG':'पेमेंट नोंद उघडा',
+    'ACKNOWLEDGE AFTER CHECKING':'तपासून नोंद करा',
+    'VIEW PARTY BOOKINGS':'कार्यक्रम बुकिंग पाहा',
+    'Please check the table balance':'कृपया टेबलची बाकी रक्कम तपासा',
+    'ITEM SOLD OUT':'पदार्थ संपला',
+    'New approved order received':'नवीन मंजूर ऑर्डर आली आहे',
+    'Owner approved order · ready for preparation':'मालकांनी ऑर्डर मंजूर केली · तयार करण्यास सज्ज',
+    'Customer order waiting for owner approval':'ग्राहकाची ऑर्डर मालकांच्या मंजुरीसाठी प्रतीक्षेत आहे'
     'Order sent to kitchen':'ऑर्डर किचनला पाठवली',
     'Your order is now in the kitchen queue.':'तुमची ऑर्डर किचनमध्ये आहे.',
     'Order cancelled':'ऑर्डर रद्द केली',
@@ -555,6 +579,40 @@
     var children = root.childNodes;
     for (var i = 0; i < children.length; i++) scan(children[i]);
   }
+
+  function translateNotificationMessage(row) {
+    if (!row || window.MM_HOME_LANGUAGE !== 'mr') return String(row && row.message || '');
+    var type = String(row.notification_type || '').toUpperCase();
+    var source = clean(row.message || '');
+    var match;
+    if (type === 'CASH_AT_COUNTER') {
+      match = source.match(/^CASH AT COUNTER\s*·\s*Table\s+(\d+)\s*·\s*Assigned waiter\s+([^·]+)\s*·\s*Guest is leaving now and says they will pay cash at the counter\s*·\s*Visit\s+([A-Za-z0-9-]+)\s*·\s*Balance\s*₹([\d,]+(?:\.\d{1,2})?)$/i);
+      if (match) return 'काउंटरवर रोख पैसे · टेबल ' + match[1] + ' · नेमलेला वेटर ' + (match[2].toLowerCase() === 'not assigned' ? 'नेमलेला नाही' : match[2]) + ' · ग्राहक काउंटरवर रोख पैसे देणार आहे · भेट ' + match[3] + ' · बाकी ₹' + match[4];
+      match = source.match(/^CASH AT COUNTER\s*·\s*Table\s+(\d+)\s*·\s*Guest is leaving now and says they will pay cash at the counter\s*·\s*Visit\s+([A-Za-z0-9-]+)\s*·\s*Balance\s*₹([\d,]+(?:\.\d{1,2})?)$/i);
+      if (match) return 'काउंटरवर रोख पैसे · टेबल ' + match[1] + ' · ग्राहक काउंटरवर रोख पैसे देणार आहे · भेट ' + match[2] + ' · बाकी ₹' + match[3];
+    }
+    if (type === 'GUEST_LEFT_UNPAID') {
+      match = source.match(/^GUEST LEFT UNPAID\s*·\s*Table\s+(\d+)\s*·\s*Assigned waiter\s+([^·]+)\s*·\s*Balance\s*₹([\d,]+(?:\.\d{1,2})?)\s*·\s*Reason:\s*(.*?)\s*·\s*Visit\s+([A-Za-z0-9-]+)$/i);
+      if (match) return 'ग्राहक बिल न भरता निघून गेला · टेबल ' + match[1] + ' · वेटर ' + (match[2].toLowerCase() === 'not assigned' ? 'नेमलेला नाही' : match[2]) + ' · बाकी ₹' + match[3] + ' · कारण: ' + match[4] + ' · भेट ' + match[5];
+    }
+    if (type === 'PAYMENT_CHECK') {
+      match = source.match(/^Payment verification requested\s*·\s*Table\s+(\d+)\s*·\s*Assigned waiter\s+([^·]+)\s*·\s*Visit\s+([A-Za-z0-9-]+)\s*·\s*Customer reports paying via\s+([^·]+)\s*·\s*Balance\s*₹([\d,]+(?:\.\d{1,2})?)\.?\s*Verify the restaurant transaction before recording payment\.?$/i);
+      if (match) return 'पेमेंट तपासण्याची विनंती · टेबल ' + match[1] + ' · वेटर ' + (match[2].toLowerCase() === 'not assigned' ? 'नेमलेला नाही' : match[2]) + ' · भेट ' + match[3] + ' · ग्राहकाने ' + match[4] + ' द्वारे पैसे भरल्याचे सांगितले · बाकी ₹' + match[5] + ' · नोंद करण्यापूर्वी व्यवहार तपासा';
+      match = source.match(/^Payment verification requested\s*·\s*Table\s+(\d+)\s*·\s*Customer reports paying via\s+(.+?)\.\s*Please verify the transaction in the restaurant account before recording payment\.?$/i);
+      if (match) return 'पेमेंट तपासण्याची विनंती · टेबल ' + match[1] + ' · ग्राहकाने ' + match[2] + ' द्वारे पैसे भरल्याचे सांगितले · पेमेंट नोंदवण्यापूर्वी रेस्टॉरंट खात्यात व्यवहार तपासा';
+    }
+    if (type === 'PARTY_BOOKING') {
+      match = source.match(/^New party request\s+(PARTY-[A-Z0-9-]+)\s*[—-]\s*(.+?);\s*(\d+) guests;\s*(.+?) at (.+?)\. Please review Party Bookings\.?$/i);
+      if (match) return 'नवीन कार्यक्रम बुकिंग ' + match[1] + ' · ' + match[2] + ' · ' + match[3] + ' पाहुणे · ' + match[4] + ' रोजी ' + match[5] + ' · कृपया कार्यक्रम बुकिंग तपासा';
+    }
+    if (type === 'ORDER_APPROVAL') {
+      match = source.match(/^(?:Customer order waiting for owner approval|Customer order waiting for owner approval)\s*·\s*Table\s+(\d+)$/i);
+      if (match) return 'ग्राहकाची ऑर्डर मालकांच्या मंजुरीसाठी प्रतीक्षेत आहे · टेबल ' + match[1];
+    }
+    return translatedSourceText(source) || source;
+  }
+
+  window.MM_TRANSLATE_NOTIFICATION_MESSAGE = translateNotificationMessage;
 
   function languageLabel() {
     return window.MM_HOME_LANGUAGE === 'mr' ? 'English' : 'मराठी';
