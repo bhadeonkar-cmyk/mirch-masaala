@@ -403,7 +403,7 @@
     'ITEM SOLD OUT':'पदार्थ संपला',
     'New approved order received':'नवीन मंजूर ऑर्डर आली आहे',
     'Owner approved order · ready for preparation':'मालकांनी ऑर्डर मंजूर केली · तयार करण्यास सज्ज',
-    'Customer order waiting for owner approval':'ग्राहकाची ऑर्डर मालकांच्या मंजुरीसाठी प्रतीक्षेत आहे'
+    'Customer order waiting for owner approval':'ग्राहकाची ऑर्डर मालकांच्या मंजुरीसाठी प्रतीक्षेत आहे',
     'Order sent to kitchen':'ऑर्डर किचनला पाठवली',
     'Your order is now in the kitchen queue.':'तुमची ऑर्डर किचनमध्ये आहे.',
     'Order cancelled':'ऑर्डर रद्द केली',
