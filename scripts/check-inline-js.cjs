@@ -91,10 +91,6 @@ try {
   ['function drawQR()', 'Owner has a dedicated table QR setup screen'],
   ['Generate &amp; print all table QRs', 'Owner can generate and print all QR labels from the guided screen'],
   ['function openOwnerQRSetup()', 'Orders screen directs owner to Table QR setup'],
-  ['Digital ordering &amp; business automation by', 'Subtle Onkar FX business enquiry credit is present']
-  ['function drawQR()', 'Owner has a dedicated table QR setup screen'],
-  ['Generate &amp; print all table QR QRs', 'placeholder'],
-  ['function openOwnerQRSetup()', 'Orders screen directs owner to Table QR setup'],
   ['Digital ordering &amp; business automation by', 'Subtle Onkar FX business enquiry credit is present'],
   ['function cancelOrder(id)', 'Customer cancellation UI exists'],
   ['class="customer-explore-shortcut"', 'Customer has a Places to Visit shortcut on the ordering screen'],
