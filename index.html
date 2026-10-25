@@ -6747,6 +6747,8 @@ window.setWDietFilter = setWDietFilter;
     'WAITER CALLED':'वेटरला बोलावले','BILL REQUEST':'बिलाची विनंती','NEW ORDER':'नवीन ऑर्डर','ORDER READY':'ऑर्डर तयार','SOLD OUT':'संपला',
     'Done':'झाले','I AM GOING · MARK HANDLED':'मी येत आहे · पूर्ण करा'
   };
+  window.MM_TRANSLATIONS = translations;
+  window.MM_MR_BASIC = mrBasic;
   window.mmI18n = function (english, marathi) {
     return window.MM_HOME_LANGUAGE === 'mr' ? (marathi || mrBasic[english] || english) : english;
   };
