@@ -495,6 +495,10 @@
     if (match) return 'वेटर हवा · टेबल ' + match[1];
     match = normalized.match(/^bill request\s*[·-]\s*table\s+([0-9]{1,3})$/i);
     if (match) return 'बिलाची विनंती · टेबल ' + match[1];
+    match = normalized.match(/^new order\s*[·-]\s*owner approval required\s*[·-]\s*table\s+([0-9]{1,3})$/i);
+    if (match) return 'नवीन ऑर्डर · मालकांची मंजुरी आवश्यक · टेबल ' + match[1];
+    match = normalized.match(/^item sold out$/i);
+    if (match) return 'पदार्थ संपला';
     match = normalized.match(/^new order\s*[·-]\s*table\s+([0-9]{1,3})$/i);
     if (match) return 'नवीन ऑर्डर · टेबल ' + match[1];
     match = normalized.match(/^order ready\s*[·-]\s*table\s+([0-9]{1,3})$/i);
