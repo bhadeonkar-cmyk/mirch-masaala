@@ -1240,6 +1240,58 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 
 .onkarfx-credit { margin:18px 12px 8px; padding-top:12px; border-top:1px solid var(--line); text-align:center; font-size:10px; line-height:1.6; color:var(--muted); opacity:.78; }
 .onkarfx-credit a { color:var(--muted); text-decoration:underline; text-underline-offset:3px; }
+
+/* Compact guided QR flow: one animated character, a short arrow path and a clear primary action. */
+#home-tip{display:none!important}
+.qr-guide-mini{display:flex;align-items:center;gap:9px;min-height:48px;margin:9px 0 6px;padding:6px 10px;border:1px solid rgba(212,168,75,.25);border-radius:13px;background:linear-gradient(100deg,rgba(212,168,75,.08),rgba(30,21,18,.45));text-align:left}
+.qr-mini-mascot{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:rgba(212,168,75,.1);border:1px solid rgba(212,168,75,.22);font-size:21px}
+.qr-mini-mascot span{display:block;animation:qrChefBob 2.2s ease-in-out infinite}
+.qr-mini-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.qr-mini-copy b{font-size:12px;line-height:1.2;color:var(--text)}
+.qr-mini-copy>span{font-size:10px;line-height:1.3;color:var(--muted);white-space:normal}
+.qr-mini-copy em{font-style:normal;color:var(--gold2);font-weight:900;display:inline-block;animation:qrArrowNudge 1.8s ease-in-out infinite}
+.qr-mini-arrow{font-size:22px;line-height:1;color:var(--gold2);animation:qrDownNudge 1.4s ease-in-out infinite}
+#scan-table-btn{border:1px solid rgba(240,215,140,.58);box-shadow:0 0 0 1px rgba(212,168,75,.08),0 5px 17px rgba(212,168,75,.2);animation:qrButtonGlow 3.2s ease-in-out infinite}
+#scan-table-btn:focus-visible{outline:2px solid var(--gold2);outline-offset:3px}
+.qr-no-sticker{margin:4px 0 8px;font-size:10px;line-height:1.4;color:var(--muted)}
+.owner-qr-quickstart{gap:8px;margin:7px 8px 9px;padding:8px 10px;border-radius:12px;border-color:rgba(212,168,75,.28);box-shadow:0 0 0 1px rgba(212,168,75,.025)}
+.owner-qr-quickstart-mascot{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border-radius:9px;background:rgba(212,168,75,.1);font-size:21px;animation:qrChefBob 2.3s ease-in-out infinite}
+.owner-qr-quickstart-copy{gap:1px}
+.owner-qr-quickstart .owner-qr-eyebrow{font-size:8px;margin:0;letter-spacing:1.2px}
+.owner-qr-quickstart h3{font-size:12px;margin:1px 0;line-height:1.25}
+.owner-qr-quickstart h3 i{font-style:normal;color:var(--gold2);display:inline-block;animation:qrArrowNudge 1.7s ease-in-out infinite}
+.owner-qr-quickstart p{font-size:10px;line-height:1.3}
+.owner-qr-quickstart .btn{min-height:35px;padding:8px 9px;font-size:11px}
+.owner-qr-quickstart-dismiss{font-size:16px;padding:1px}
+.qr-setup-hero.qr-setup-compact{padding:10px 12px;margin:0 0 10px;border-radius:14px;box-shadow:0 5px 18px rgba(0,0,0,.13)}
+.qr-setup-header{display:flex;align-items:center;gap:9px}
+.qr-setup-mascot{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border:1px solid rgba(212,168,75,.27);border-radius:12px;background:rgba(212,168,75,.09);font-size:25px;animation:qrChefBob 2.1s ease-in-out infinite}
+.qr-setup-copy{flex:1;min-width:0}
+.qr-setup-hero.qr-setup-compact .qr-setup-eyebrow{font-size:8px;letter-spacing:1.35px}
+.qr-setup-hero.qr-setup-compact h2{font-size:16px;line-height:1.2;margin:2px 0}
+.qr-setup-hero.qr-setup-compact .qr-setup-copy p{font-size:10px;line-height:1.35;margin:3px 0 0}
+.qr-flow-line{display:flex;align-items:center;justify-content:center;gap:11px;margin:7px 0;color:var(--muted);font-size:10px;font-weight:800}
+.qr-flow-line i{font-style:normal;font-size:15px;color:var(--gold2);animation:qrArrowNudge 1.7s ease-in-out infinite}
+.qr-flow-line i:nth-of-type(2){animation-delay:.25s}
+.qr-setup-hero.qr-setup-compact .qr-print-primary{min-height:42px;margin:0;padding:10px 12px;font-size:13px;border:1px solid rgba(240,215,140,.55);box-shadow:0 3px 14px rgba(212,168,75,.16)}
+.qr-setup-note{font-size:9px;line-height:1.35;margin-top:6px}
+.qr-note-arrow{color:var(--gold2);font-size:14px;font-weight:900;display:inline-block;margin-right:3px}
+.qr-table-picker{padding:10px;margin-bottom:9px;border-radius:13px}
+.qr-table-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.qr-table-picker h3{font-size:13px;margin-bottom:2px}
+.qr-table-picker>p{font-size:10px;margin:0}
+.qr-table-count{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;padding:4px 7px;font-size:9px;color:var(--gold2);font-weight:800}
+.qr-table-grid{grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:6px;margin-top:9px}
+.qr-table-card{min-height:57px;gap:1px;border-radius:10px;transition:border-color .18s,box-shadow .18s,transform .18s}
+.qr-table-card b{font-size:16px}
+.qr-table-card small{font-size:8px}
+.qr-table-card:hover,.qr-table-card:focus-visible{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(240,215,140,.13),0 0 12px rgba(212,168,75,.12);transform:translateY(-1px)}
+@keyframes qrChefBob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-3px) rotate(3deg)}}
+@keyframes qrArrowNudge{0%,100%{transform:translateX(0);opacity:.72}50%{transform:translateX(3px);opacity:1}}
+@keyframes qrDownNudge{0%,100%{transform:translateY(-1px);opacity:.72}50%{transform:translateY(3px);opacity:1}}
+@keyframes qrButtonGlow{0%,100%{box-shadow:0 0 0 0 rgba(240,215,140,0),0 5px 16px rgba(212,168,75,.18)}50%{box-shadow:0 0 0 2px rgba(240,215,140,.12),0 5px 19px rgba(212,168,75,.31)}}
+@media(max-width:420px){.qr-guide-mini{gap:7px;padding:6px 8px}.qr-mini-mascot{flex-basis:30px;width:30px;height:30px;font-size:19px}.qr-mini-copy b{font-size:11px}.qr-mini-copy>span{font-size:9px}.qr-flow-line{gap:8px}.qr-setup-mascot{flex-basis:33px;width:33px;height:33px;font-size:22px}.qr-setup-hero.qr-setup-compact h2{font-size:14px}.owner-qr-quickstart{gap:6px;margin:6px 6px 8px;padding:7px}.owner-qr-quickstart-mascot{width:28px;flex-basis:28px;height:28px;font-size:19px}.owner-qr-quickstart .btn{padding:7px 8px;font-size:10px}}
+@media(prefers-reduced-motion:reduce){.qr-mini-mascot span,.qr-mini-copy em,.qr-mini-arrow,#scan-table-btn,.owner-qr-quickstart-mascot,.owner-qr-quickstart h3 i,.qr-setup-mascot,.qr-flow-line i{animation:none!important;transition:none!important}}
 </style>
 <script src="./qr-matrices.js"></script>
 <style>
@@ -1345,14 +1397,13 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <div class="table-swipe-guide" id="table-swipe-guide" aria-live="polite"><span class="swipe-side">↔</span><span id="home-swipe-label">Swipe sideways to find your table</span><span class="swipe-hand">👆</span></div>
     <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
     <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
-    <div class="qr-entry-kicker" aria-label="Primary dine-in ordering action"><span class="qr-entry-number">01</span><div class="qr-entry-copy"><b id="home-qr-entry-title">Dine in · Start here</b><small id="home-qr-entry-copy">Scan the sticker on your table.</small></div><span class="qr-entry-pill">QR</span></div>
-    <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 <span id="home-scan-label">Scan table QR</span></button>
-    <div class="qr-order-steps" aria-label="How to order with a table QR">
-      <div class="qr-order-step"><span>1</span><div><b id="home-qr-step-scan">Scan</b><small id="home-qr-step-scan-copy">Use the sticker or scanner above.</small></div></div>
-      <div class="qr-order-step"><span>2</span><div><b id="home-qr-step-choose">Choose dishes</b><small id="home-qr-step-choose-copy">Add dishes and send your order.</small></div></div>
-      <div class="qr-order-step"><span>3</span><div><b id="home-qr-step-track">Track order</b><small id="home-qr-step-track-copy">Follow updates in My orders.</small></div></div>
+    <div class="qr-guide-mini" aria-label="Table QR ordering guide">
+      <span class="qr-mini-mascot" aria-hidden="true"><span>👨‍🍳</span></span>
+      <div class="qr-mini-copy"><b id="home-qr-entry-title">Start with your table QR</b><span id="home-qr-entry-copy">Scan <em>→</em> choose dishes <em>→</em> track order</span></div>
+      <span class="qr-mini-arrow" aria-hidden="true">↓</span>
     </div>
-    <p class="muted" id="home-no-install" style="margin-top:7px;font-size:12px">No sticker? Tap Scan table QR above or ask your waiter to share the exact table link.</p>
+    <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 <span id="home-scan-label">Scan table QR</span></button>
+    <p class="qr-no-sticker" id="home-no-install">Sticker missing? Ask your waiter for the correct table link.</p>
     <div class="home-shortcuts" aria-label="Helpful links">
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" id="home-table-qr-help" aria-label="Table QR help" title="Table QR help" onclick="openTableQRHelp()"><span aria-hidden="true">📱</span></button>
@@ -4581,7 +4632,7 @@ function drawAdminOrders() {
   var qrGuide = '';
   try {
     if (localStorage.getItem('mm_qr_guide_hidden') !== 'true') {
-      qrGuide = '<section class="owner-qr-quickstart"><div class="owner-qr-quickstart-copy"><span class="owner-qr-eyebrow">CORE WORKFLOW</span><h3>Table QR → customer order → kitchen</h3><p>Print the table labels once. During service, the waiter opens a visit and the guest scans that table’s QR to order.</p></div><button type="button" class="btn btn-main btn-sm" onclick="openOwnerQRSetup()">Set up Table QR</button><button type="button" class="owner-qr-quickstart-dismiss" aria-label="Hide setup guide" title="Hide setup guide" onclick="dismissOwnerQRGuide()">×</button></section>';
+      qrGuide = '<section class="owner-qr-quickstart"><span class="owner-qr-quickstart-mascot" aria-hidden="true">👨‍🍳</span><div class="owner-qr-quickstart-copy"><span class="owner-qr-eyebrow">MAIN WORKFLOW</span><h3>Table QR <i>→</i> Kitchen</h3><p>Print once · waiter opens visit · guest scans.</p></div><button type="button" class="btn btn-main btn-sm" onclick="openOwnerQRSetup()">QR setup ↗</button><button type="button" class="owner-qr-quickstart-dismiss" aria-label="Hide setup guide" title="Hide setup guide" onclick="dismissOwnerQRGuide()">×</button></section>';
     }
   } catch (e) {}
   var html = qrGuide + '<p class="muted" style="padding:8px 12px 0">Orders go straight to the kitchen. Use this screen to monitor tickets and verify order details.</p><div style="display:flex;justify-content:flex-end;padding:8px 12px 0"><button type="button" class="btn btn-soft btn-sm" onclick="refreshAdminOrderQueue()">↻ Refresh orders</button></div><div class="stats"><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + kitchenOrders.filter(function(o){return String(o.status || '').toUpperCase()==='SERVED';}).length + '</b>Served</div></div>';
@@ -4759,17 +4810,15 @@ function doneNotif(id) {
 }
 function drawQR() {
   document.getElementById('a-qr').innerHTML =
-    '<section class="qr-setup-hero"><span class="qr-setup-eyebrow">START HERE · TABLE QR ORDERING</span><h2>Prepare your table QR codes</h2><p>One QR belongs to one table. Print the sheet, place each label on its matching table, then let your waiter start the visit before guests order.</p>' +
-      '<div class="qr-setup-steps">' +
-        '<div class="qr-setup-step"><span>1</span><div><b>Generate &amp; print</b><small>Open the QR sheet and print or save it as PDF.</small></div></div>' +
-        '<div class="qr-setup-step"><span>2</span><div><b>Place &amp; test</b><small>Put each label on the matching table and test one scan.</small></div></div>' +
-        '<div class="qr-setup-step"><span>3</span><div><b>Start service</b><small>Waiter starts the visit. Guests scan and orders go straight to the kitchen.</small></div></div>' +
-      '</div>' +
-      '<button type="button" class="btn btn-main" onclick="downloadAllQRCodes()">🖨️ Generate &amp; print all table QRs</button>' +
-      '<p class="qr-setup-note">Check the table number before sticking each label. If the camera scanner is unavailable, the phone camera can open the printed link.</p></section>' +
-    '<section class="qr-table-picker"><h3>Replace or share a single table QR</h3><p>Choose one table to preview its code, copy the table link, or share it with the waiter.</p><div class="qr-table-grid">' +
+    '<section class="qr-setup-hero qr-setup-compact">' +
+      '<div class="qr-setup-header"><span class="qr-setup-mascot" aria-hidden="true">👨‍🍳</span><div class="qr-setup-copy"><span class="qr-setup-eyebrow">MAIN WORKFLOW · TABLE QR</span><h2>Generate &amp; print table QR codes</h2><p>One label per table. Place it correctly, then your waiter starts the visit.</p></div></div>' +
+      '<div class="qr-flow-line" aria-label="Generate, place, test"><span>Generate</span><i>→</i><span>Place</span><i>→</i><span>Test scan</span></div>' +
+      '<button type="button" class="btn btn-main qr-print-primary" onclick="downloadAllQRCodes()">🖨️ Generate &amp; print all table QRs</button>' +
+      '<p class="qr-setup-note"><span class="qr-note-arrow" aria-hidden="true">↳</span> During service: waiter starts visit <b>→</b> guest scans <b>→</b> kitchen receives order.</p>' +
+    '</section>' +
+    '<section class="qr-table-picker"><div class="qr-table-picker-heading"><div><h3>Single table QR</h3><p>Tap a table to view, copy, share or download its QR.</p></div><span class="qr-table-count">' + MENU.tables.length + ' tables</span></div><div class="qr-table-grid">' +
     MENU.tables.map(function(t) {
-      return '<button type="button" class="qr-table-card" onclick="showQR(\'' + t.number + '\')"><b>' + esc(t.number) + '</b><small>View / share QR</small></button>';
+      return '<button type="button" class="qr-table-card" onclick="showQR(\'' + t.number + '\')"><b>' + esc(t.number) + '</b><small>View / share</small></button>';
     }).join('') + '</div></section>' +
     '<details class="qr-advanced"><summary>Advanced · table seating capacity</summary><div class="seating-capacity-settings"><b>Seats per table</b><p class="muted" style="font-size:11px;margin-top:3px">Set 1–30 seats if your tables have different capacities.</p><div class="seating-capacity-controls">' +
     '<select id="capacity-table-select" aria-label="Choose table for seating capacity" onchange="loadSelectedTableCapacity()">' + MENU.tables.map(function(t){return '<option value="' + t.number + '">Table ' + t.number + '</option>';}).join('') + '</select>' +
@@ -6536,20 +6585,14 @@ window.setWDietFilter = setWDietFilter;
       'home-tagline': 'Dine in made easy — scan your table QR.',
       'home-welcome': 'Welcome!',
       'home-welcome-text': 'No table selection or code needed. Scan your table QR and your table is selected automatically.',
-      'home-qr-entry-title': 'Dine in · Start here',
-      'home-qr-entry-copy': 'Scan the sticker on your table.',
-      'home-qr-step-scan': 'Scan',
-      'home-qr-step-scan-copy': 'Use the sticker or scanner above.',
-      'home-qr-step-choose': 'Choose dishes',
-      'home-qr-step-choose-copy': 'Add dishes and send your order.',
-      'home-qr-step-track': 'Track order',
-      'home-qr-step-track-copy': 'Follow updates in My orders.',
+      'home-qr-entry-title': 'Start with your table QR',
+      'home-qr-entry-copy': 'Scan → choose dishes → track order',
       'home-table-qr-help-label': 'QR help',
       'home-choose-table': 'Choose your table',
       'home-swipe-label': 'Swipe sideways to find your table',
       'table-continue': 'Continue to table →',
       'home-scan-label': 'Scan table QR',
-      'home-no-install': 'No sticker? Tap Scan table QR above, or ask your waiter to share the exact table link.',
+      'home-no-install': 'Sticker missing? Ask your waiter for the correct table link.',
       'home-how-to-use': 'How to use',
       'home-places-to-visit': 'Places to visit',
       'home-visit-us': 'Visit us',
@@ -6595,20 +6638,14 @@ window.setWDietFilter = setWDietFilter;
       'home-tagline': 'टेबलवरील QR स्कॅन करा आणि सहज ऑर्डर द्या.',
       'home-welcome': 'स्वागत आहे!',
       'home-welcome-text': 'टेबल निवडण्याची किंवा कोड टाकण्याची गरज नाही. टेबलचा QR स्कॅन करा; टेबल आपोआप निवडले जाईल.',
-      'home-qr-entry-title': 'जेवणासाठी · इथून सुरू करा',
-      'home-qr-entry-copy': 'टेबलवरील स्टिकर स्कॅन करा.',
-      'home-qr-step-scan': 'स्कॅन करा',
-      'home-qr-step-scan-copy': 'स्टिकर किंवा वरील स्कॅनर वापरा.',
-      'home-qr-step-choose': 'पदार्थ निवडा',
-      'home-qr-step-choose-copy': 'पदार्थ जोडा आणि ऑर्डर पाठवा.',
-      'home-qr-step-track': 'ऑर्डर पाहा',
-      'home-qr-step-track-copy': 'My orders मध्ये अपडेट पाहा.',
+      'home-qr-entry-title': 'टेबल QR ने सुरुवात करा',
+      'home-qr-entry-copy': 'स्कॅन → पदार्थ निवडा → ऑर्डर पाहा',
       'home-table-qr-help-label': 'QR मदत',
       'home-choose-table': 'आपले टेबल निवडा',
       'home-swipe-label': 'टेबल शोधण्यासाठी बाजूला स्वाइप करा',
       'table-continue': 'टेबलकडे पुढे जा →',
       'home-scan-label': 'टेबलचा QR स्कॅन करा',
-      'home-no-install': 'स्टिकर नसेल तर वरील Scan table QR वापरा किंवा वेटरकडून टेबलची योग्य लिंक घ्या.',
+      'home-no-install': 'स्टिकर नसेल तर वेटरकडून योग्य टेबल लिंक घ्या.',
       'home-how-to-use': 'वापरण्याची माहिती',
       'home-places-to-visit': 'भेट देण्याची ठिकाणे',
       'home-visit-us': 'आम्हाला भेट द्या',
