@@ -17,6 +17,9 @@ const menuOptionsMigration = fs.readFileSync('supabase/menu-item-options-and-tab
 const ownerToolkitMigration = fs.readFileSync('supabase/owner-operations-toolkit.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
 const staffPushEdge = fs.readFileSync('supabase/functions/send-staff-push/index.ts', 'utf8');
+const appLanguage = fs.readFileSync('app-language.js', 'utf8');
+const staffPushSql = fs.readFileSync('supabase/staff-push-notifications.sql', 'utf8');
+const readinessCheck = fs.readFileSync('supabase/app-readiness-check.sql', 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
 
 function fail(message) {
@@ -44,6 +47,12 @@ try {
   console.log('✓ Supabase integration JavaScript parses');
 } catch (error) {
   fail('Supabase integration syntax error: ' + error.message);
+}
+try {
+  new vm.Script(appLanguage, { filename: 'app-language.js' });
+  console.log('✓ App-wide language layer JavaScript parses');
+} catch (error) {
+  fail('App-wide language layer syntax error: ' + error.message);
 }
 
 [
@@ -331,6 +340,17 @@ requireText(partyBookingsMigration, "'PARTY_BOOKING'", 'Party request creates an
 requireText(staffPushEdge, '"PARTY_BOOKING"', 'Background push sender supports party booking alerts');
 requireText(staffPushEdge, '"PAYMENT_CHECK"', 'Background push sender supports payment verification alerts');
 requireText(staffPushEdge, '"CASH_AT_COUNTER"', 'Background push sender supports urgent cash collection alerts');
+requireText(html, 'src="./app-language.js?v=20261026"', 'App-wide language layer is loaded after screen-specific translations');
+requireText(appLanguage, 'new MutationObserver', 'Newly rendered UI and alerts are translated after screen updates');
+requireText(appLanguage, 'window.mmFriendlyError', 'Order setup errors are presented in user-friendly language');
+requireText(appLanguage, 'window.MM_TRANSLATION_DICTIONARY', 'App-wide Marathi dictionary is available to the UI');
+requireText(live, "preferred_language: window.MM_HOME_LANGUAGE === 'mr' ? 'mr' : 'en'", 'Push subscriptions save the staff device language');
+requireText(live, 'window.MM_UPDATE_STAFF_PUSH_LANGUAGE = updateStaffPushLanguage', 'A language switch updates the device push preference');
+requireText(staffPushSql, 'ADD COLUMN IF NOT EXISTS preferred_language', 'Push setup upgrades existing device subscriptions for language support');
+requireText(staffPushEdge, 'preferred_language || "en"', 'Background pushes are rendered in each device language');
+requireText(staffPushEdge, 'ग्राहक वाट पाहत आहे', 'Background push events have a Marathi localized message');
+requireText(readinessCheck, 'public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text)', 'Readiness check verifies the exact QR-order RPC signature');
+requireText(readinessCheck, 'mm_notify_kitchen_new_order_trigger', 'Readiness check verifies the kitchen order alert trigger');
 requireText(staffPushEdge, 'GUEST_LEFT_UNPAID', 'Background push sender supports abandoned-visit collection alerts');
 requireText(staffPushEdge, '"PAYMENT_CHECK", "CASH_AT_COUNTER"', 'Cash collection is included in the push dispatch allowlist');
 requireText(staffPushEdge, '|| type === "CASH_AT_COUNTER"', 'Cash collection pushes remain visible until staff attends');
