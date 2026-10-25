@@ -380,6 +380,7 @@
         staff_code: String(window.role) === 'waiter' ? (function(){ try { return String(localStorage.getItem('mm_waiter_staff_code') || '').trim().toUpperCase(); } catch(e) { return ''; } })() : '',
         endpoint: subscription.endpoint,
         subscription: subscription.toJSON(),
+        preferred_language: window.MM_HOME_LANGUAGE === 'mr' ? 'mr' : 'en',
         user_agent: String(navigator.userAgent || '').slice(0, 400),
         updated_at: new Date().toISOString()
       }, { onConflict: 'endpoint' });
@@ -397,6 +398,28 @@
       return false;
     }
   }
+
+  // Keep each enrolled device's push language in sync with its own UI setting.
+  async function updateStaffPushLanguage(language) {
+    if (!client || !window.MM_SUPABASE_ENABLED || !window.role || !navigator.serviceWorker) return;
+    var registration = await navigator.serviceWorker.getRegistration('./');
+    if (!registration || !registration.pushManager) return;
+    var subscription = await registration.pushManager.getSubscription();
+    if (!subscription || !subscription.endpoint) return;
+    var userResult = await client.auth.getUser();
+    if (userResult.error || !userResult.data || !userResult.data.user) return;
+    var update = await client.from('mm_staff_push_subscriptions')
+      .update({
+        preferred_language: language === 'mr' ? 'mr' : 'en',
+        updated_at: new Date().toISOString()
+      })
+      .eq('staff_user_id', userResult.data.user.id)
+      .eq('endpoint', subscription.endpoint);
+    if (update.error) {
+      console.info('[Mirch Masaala language] Push language will sync after the push SQL migration is applied.');
+    }
+  }
+  window.MM_UPDATE_STAFF_PUSH_LANGUAGE = updateStaffPushLanguage;
 
   function notifyCustomerOrderStatus(updated, previous) {
     if (!updated || !previous) return;
@@ -1201,7 +1224,7 @@
       notifySuccess('Order sent directly to kitchen!');
       refreshCustomerOrders();
     } catch (e) {
-      notifyError(e && e.message ? e.message : 'Could not send the order. Please ask your waiter.');
+      notifyError(window.mmFriendlyError ? window.mmFriendlyError(e, 'customer-order') : (e && e.message ? e.message : 'Could not send the order. Please ask your waiter.'));
     } finally {
       window.MM_ORDER_SENDING = false;
       if (orderButton) {
@@ -1251,7 +1274,7 @@
       notifySuccess('Ticket ' + order.id + ' sent · Table ' + order.table);
       await refreshStaffOrders();
     } catch (e) {
-      notifyError(e && e.message ? e.message : 'Could not send the waiter order.');
+      notifyError(window.mmFriendlyError ? window.mmFriendlyError(e, 'waiter-order') : (e && e.message ? e.message : 'Could not send the waiter order.'));
     } finally {
       window.MM_ORDER_SENDING = false;
     }
