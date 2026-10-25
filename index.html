@@ -3881,11 +3881,17 @@ function readWaiterStaffCode() {
 var waiterDirectoryCache = [];
 var waiterIdentityPromise = null;
 var waiterIdentityResolve = null;
-function waiterNameForCode(code) {
+function waiterNameForCode(code, assignedAt) {
   code = String(code || '').trim().toUpperCase();
   var rows = Array.isArray(window.MM_WAITER_DIRECTORY) && window.MM_WAITER_DIRECTORY.length
     ? window.MM_WAITER_DIRECTORY : waiterDirectoryCache;
   var row = rows.find(function(w) { return w && String(w.waiter_code || '').toUpperCase() === code; });
+  // Do not retroactively assign a newly created display name to a visit from before the roster existed.
+  if (row && assignedAt && row.created_at) {
+    var visitMs = new Date(assignedAt).getTime();
+    var rosterMs = new Date(row.created_at).getTime();
+    if (Number.isFinite(visitMs) && Number.isFinite(rosterMs) && visitMs < rosterMs) return '';
+  }
   return row ? String(row.display_name || '') : '';
 }
 function openWaiterIdentityChooser(rows, currentCode) {
@@ -3988,7 +3994,7 @@ function renderWaiterVisitControl() {
   });
   var startedAt = visit.started_at ? new Date(visit.started_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
   var assignedId = String(visit.assigned_waiter_code || 'not assigned');
-  var assignedName = waiterNameForCode(assignedId);
+  var assignedName = waiterNameForCode(assignedId, visit.started_at);
   var assignedLabel = assignedName ? esc(assignedName) + ' (' + esc(assignedId) + ')' : esc(assignedId);
   host.innerHTML = '<div class="waiter-visit-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><b>Visit in progress</b><small>' +
     (startedAt ? 'Started at ' + esc(startedAt) + ' · ' : '') +
@@ -6005,6 +6011,11 @@ async function beginOwnerResetWithBackup() {
     }
     var payload = await window.MM_ADMIN_EXPORT_BACKUP();
     downloadOwnerBackupFile(payload);
+    // Record a completed export before the destructive step. The reset itself adds
+    // a fresh backup marker in the same transaction as RESET_COMPLETED.
+    if (typeof window.MM_ADMIN_RECORD_BACKUP === 'function') {
+      await window.MM_ADMIN_RECORD_BACKUP();
+    }
     setOwnerResetProgress('Backup download started. Resetting the app data…', true);
     await executeOwnerReset(true);
   } catch (e) {
