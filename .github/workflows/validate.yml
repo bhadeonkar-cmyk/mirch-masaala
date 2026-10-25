@@ -103,6 +103,29 @@ jobs:
               RAISE EXCEPTION 'QA failed: rerunning the visit migration lost a required notification type';
             END IF;
           END \$qa\$;"
+           psql -v ON_ERROR_STOP=1 -c "DO \$qa\$ BEGIN
+             IF NOT EXISTS (
+               SELECT 1 FROM public.orders
+               WHERE ticket_id='MM-GUEST-LEGACY-001' AND approval_status='PENDING'
+                 AND status='NEW' AND customer_session_id IS NOT NULL
+             ) THEN
+               RAISE EXCEPTION 'QA failed: rerun did not backfill an unresolved legacy guest order';
+             END IF;
+             IF NOT EXISTS (
+               SELECT 1 FROM public.mm_restaurant_notifications
+               WHERE ticket_id='MM-GUEST-LEGACY-001' AND target_role='admin'
+                 AND notification_type='ORDER_APPROVAL' AND resolved_at IS NULL
+             ) THEN
+               RAISE EXCEPTION 'QA failed: backfilled guest order has no open owner approval alert';
+             END IF;
+             IF EXISTS (
+               SELECT 1 FROM public.mm_restaurant_notifications
+               WHERE ticket_id='MM-GUEST-LEGACY-001' AND target_role='kitchen'
+                 AND notification_type='NEW_ORDER' AND resolved_at IS NULL
+             ) THEN
+               RAISE EXCEPTION 'QA failed: backfilled pending guest order still alerts the kitchen';
+             END IF;
+           END \$qa\$;"
       - name: Verify accounting migration is safe to re-run
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/order-management-accounting.sql
