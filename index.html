@@ -1569,6 +1569,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <div class="staff-top-actions"><button type="button" class="staff-bell" aria-label="Alert options" title="Alert options" onclick="enableRoleNotifications()">🔔</button><button type="button" class="back" id="open-btn" onclick="toggleOpen()">OPEN</button></div>
   </div>
   <div id="a-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
+  <div id="a-maintenance-reminder" aria-live="polite"></div>
   <div class="tabs">
     <button type="button" class="on" data-t="orders" onclick="tab(this,'orders')">Orders</button>
     <button type="button" data-t="alerts" onclick="tab(this,'alerts')">Alerts</button>
@@ -1616,6 +1617,28 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <p class="muted" id="scan-st" style="margin:8px 0;min-height:18px" aria-live="polite">Allow camera access when your browser asks.</p>
     <div class="scan-manual-panel"><label for="manual-t">Camera not working? Enter your table number</label><div class="scan-manual-row"><input id="manual-t" type="number" min="1" max="50" step="1" inputmode="numeric" pattern="[0-9]*" placeholder="Table no. (e.g. 5)" aria-label="Table number"><button type="button" class="btn btn-soft" onclick="useManualScanTable()">Open table</button></div><p class="scan-fallback-help">You can also scan the sticker with your phone’s built-in Camera app.</p></div>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeScan()">Close scanner</button>
+  </div>
+</div>
+<div class="modal" id="waiter-identity-modal" aria-labelledby="waiter-identity-title">
+  <div class="box">
+    <h3 class="gold" id="waiter-identity-title">Who is attending this table?</h3>
+    <p class="muted" style="margin:8px 0 12px">Choose your name. The app assigns the internal waiter ID automatically.</p>
+    <label for="waiter-identity-choice" class="muted" style="font-size:12px">Your name</label>
+    <select id="waiter-identity-choice" aria-label="Choose waiter name"></select>
+    <button type="button" class="btn btn-main" style="margin-top:8px" onclick="confirmWaiterIdentitySelection()">Continue</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="cancelWaiterIdentitySelection()">Cancel</button>
+  </div>
+</div>
+<div class="modal" id="owner-reset-modal" aria-labelledby="owner-reset-title">
+  <div class="box">
+    <h3 class="gold" id="owner-reset-title">Backup & reset</h3>
+    <p class="muted" style="margin:8px 0 12px">This clears orders, payments, notifications, bookings, reviews, customer profiles and settings. Menu prices, tables, waiter names and staff logins stay. This cannot be undone without an external backup.</p>
+    <label for="owner-reset-confirmation" class="muted" style="font-size:12px">Type RESET MIRCH MASAALA to confirm</label>
+    <input id="owner-reset-confirmation" type="text" autocomplete="off" autocapitalize="characters" placeholder="RESET MIRCH MASAALA">
+    <div id="owner-reset-status" class="muted" aria-live="polite" style="margin:6px 0"></div>
+    <button type="button" class="btn btn-main" id="owner-backup-reset-btn" style="margin-top:6px" onclick="beginOwnerResetWithBackup()">📦 Download backup & reset</button>
+    <button type="button" class="btn btn-bad" id="owner-no-backup-reset-btn" style="margin-top:8px" onclick="confirmOwnerResetWithoutBackup()">Reset without backup</button>
+    <button type="button" class="btn btn-soft" id="owner-reset-cancel-btn" style="margin-top:8px" onclick="closeOwnerResetOptions()">Cancel</button>
   </div>
 </div>
 <div class="modal" id="party-modal">
@@ -5380,7 +5403,6 @@ function defaultSettings() {
     restaurantName: 'MIRCH MASAALA',
     tagline: 'INDIAN RESTAURANT',
     adminPhone: '+91 9657076450',
-    dataUrl: '',
     closedMessage: 'Restaurant is closed',
     tableCount: 20,
     upiId: '',
@@ -5405,6 +5427,7 @@ function defaultSettings() {
   };
 }
 var SETTINGS = Object.assign(defaultSettings(), load('mm_settings', {}));
+delete SETTINGS.dataUrl;
 if (SETTINGS.upiId === 'mirchmasaala@upi') SETTINGS.upiId = '';
 // Replace the old demo contact only; retain any real number the owner already configured.
 if (SETTINGS.adminPhone === '+91 98765 43210') SETTINGS.adminPhone = '+91 9657076450';
@@ -5665,6 +5688,9 @@ function drawSettings() {
     '<div class="settings-row"><label>Google Maps directions URL</label><input id="set-visit-directions" type="url" placeholder="https://maps.app.goo.gl/…" value="' + esc(s.directionsUrl || '') + '"></div>' +
     '<div class="settings-row"><label>Short visit message (optional)</label><input id="set-visit-note" placeholder="Dine in with us" value="' + esc(s.visitNote || '') + '"></div>' +
     '<div class="settings-row"><label>Admin contact phone</label><input id="set-phone" value="' + esc(s.adminPhone) + '"></div>' +
+    '<div class="setup"><h3>🧑‍🍳 Waiter names</h3><p>Add staff by name here. The app assigns stable IDs such as W01 automatically; waiter devices choose a name instead of typing an ID. This is an operational label, not a separate login.</p></div>' +
+    '<div style="display:flex;gap:8px;align-items:center;margin:8px 0 10px"><input id="owner-waiter-new-name" maxlength="80" placeholder="New waiter name" style="flex:1;min-width:0;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff"><button type="button" class="btn btn-main btn-sm" onclick="saveOwnerWaiterName()" style="flex-shrink:0">Add</button></div>' +
+    '<div id="owner-waiter-list" class="setup" style="margin-bottom:14px">Loading waiter names…</div>' +
     '<div class="setup"><h3>🔐 Staff accounts</h3><p>Create staff users in Supabase Authentication and assign each account a role. Do not store staff passwords in this browser.</p></div>' +
     '<div class="settings-row"><label>Closed message</label><input id="set-closed" value="' + esc(s.closedMessage) + '"></div>' +
     '<div class="settings-row"><label>Number of tables (1–50)</label><input id="set-tables" type="number" min="1" max="50" value="' + (s.tableCount || 20) + '"></div>' +
@@ -5685,12 +5711,12 @@ function drawSettings() {
     '<div class="settings-row"><label><input type="checkbox" id="set-card" ' + (s.acceptCard !== false ? 'checked' : '') + '> Accept card</label></div>' +
     '<div class="settings-row"><label><input type="checkbox" id="set-cash" ' + (s.acceptCash !== false ? 'checked' : '') + '> Accept cash</label></div>' +
 
-    '<div class="settings-row"><label>Online data URL (optional JSON)</label><input id="set-url" placeholder="https://...json or public Drive link" value="' + esc(s.dataUrl || '') + '"></div>' +
-    '<p class="muted" style="font-size:11px;margin-bottom:10px">UPI QR is shown when guest requests bill. Tables update on Save. Online URL can override menu & settings.</p>' +
+    '<p class="muted" style="font-size:11px;margin-bottom:10px">Menu and order data sync from the shared database. UPI QR is shown when the guest requests a bill.</p>' +
     '<button type="button" class="btn btn-main" onclick="saveSettings()">Save settings</button>' +
-    '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="loadRemoteData()">Load from URL now</button>' +
-    '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="exportConfig()">Export config JSON</button>' +
-    '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="showPayQR(null, null)">Preview payment QR</button>';
+    '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="showPayQR(null, null)">Preview payment QR</button>' +
+    '<div class="setup" style="margin-top:14px"><h3>📦 Backup & reset</h3><p>Get a downloadable JSON data backup. The owner is reminded every 10 days. Reset clears service and transaction records and returns customer-facing settings to defaults; menu prices, tables, waiter names and staff sign-ins are kept.</p><div id="owner-backup-status" style="margin:10px 0">Checking backup status…</div><button type="button" class="btn btn-soft" onclick="downloadOwnerBackup()">Download data backup</button><button type="button" class="btn btn-bad" style="margin-top:8px" onclick="showOwnerResetOptions()">Reset app data & settings</button></div>';
+  refreshOwnerWaiterDirectory();
+  refreshOwnerMaintenanceStatus();
 }
 function safeDirectionsURL(raw) {
   try {
@@ -5768,7 +5794,6 @@ function saveSettings() {
   SETTINGS.tagline = document.getElementById('set-tag').value.trim() || 'INDIAN RESTAURANT';
   SETTINGS.adminPhone = document.getElementById('set-phone').value.trim();
   SETTINGS.closedMessage = document.getElementById('set-closed').value.trim();
-  SETTINGS.dataUrl = document.getElementById('set-url').value.trim();
   SETTINGS.tableCount = parseInt(document.getElementById('set-tables').value, 10) || 20;
   if (SETTINGS.tableCount < 1) SETTINGS.tableCount = 1;
   if (SETTINGS.tableCount > 50) SETTINGS.tableCount = 50;
