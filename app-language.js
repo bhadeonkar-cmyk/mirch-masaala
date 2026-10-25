@@ -397,15 +397,30 @@
 
   // Also reverse-map the original home/waiter dictionary, which may already
   // have replaced its labels before this file loads.
-  function addExistingTranslations(map) {
-    if (!map || typeof map !== 'object') return;
-    Object.keys(map).forEach(function (id) {
-      var en = map[id];
-      if (typeof en !== 'string') return;
-      // The exposed pairs are supplied below via data attributes if available.
+  function addTranslationPairs(enMap, mrMap) {
+    if (!enMap || !mrMap || typeof enMap !== 'object' || typeof mrMap !== 'object') return;
+    Object.keys(enMap).forEach(function (id) {
+      var en = enMap[id];
+      var mr = mrMap[id];
+      if (typeof en !== 'string' || typeof mr !== 'string' || !clean(en) || !clean(mr)) return;
+      if (!forward[key(en)]) forward[key(en)] = mr;
+      if (!reverse[key(mr)]) reverse[key(mr)] = en;
     });
   }
-  addExistingTranslations(window.MM_TRANSLATIONS && window.MM_TRANSLATIONS.en);
+  function addBasicPairs(map) {
+    if (!map || typeof map !== 'object') return;
+    Object.keys(map).forEach(function (en) {
+      var mr = map[en];
+      if (typeof mr !== 'string' || !clean(mr)) return;
+      if (!forward[key(en)]) forward[key(en)] = mr;
+      if (!reverse[key(mr)]) reverse[key(mr)] = en;
+    });
+  }
+  addTranslationPairs(
+    window.MM_TRANSLATIONS && window.MM_TRANSLATIONS.en,
+    window.MM_TRANSLATIONS && window.MM_TRANSLATIONS.mr
+  );
+  addBasicPairs(window.MM_MR_BASIC);
 
   var textState = new WeakMap();
   var attributeState = new WeakMap();
