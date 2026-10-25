@@ -1209,7 +1209,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .dish-photo{display:block;width:100%;height:100%;min-height:0;object-fit:cover;border-radius:10px;background:#2a201b}.dish-photo-menu{aspect-ratio:1/1}.dish-photo-special{max-width:72px;max-height:58px;aspect-ratio:1/1;object-fit:cover;border-radius:12px;margin:auto}.dish-photo-modal{width:88px;height:70px;object-fit:cover;border-radius:14px;margin:auto}.pic{overflow:hidden;align-items:stretch;justify-content:stretch}.dish-photo-fallback{display:flex;width:100%;height:100%;min-height:48px;align-items:center;justify-content:center;font-size:25px;border-radius:10px;background:linear-gradient(135deg,#33231a,#1d1713);color:#d9b65d}.dish-name-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.dish-title-text{min-width:0}.dish-spice-button{flex:0 0 auto;border:1px solid rgba(212,168,75,.35);border-radius:8px;background:rgba(212,168,75,.08);color:var(--gold2);font-size:10px;font-weight:750;line-height:1.2;padding:4px 6px;cursor:pointer}.dish-line-preference{display:block;font-size:10px;color:var(--gold2);margin-top:2px}.dish-photo-credit{display:inline-block;color:#b8aa92;font-size:9px;line-height:1.2;margin-top:3px;text-decoration:underline;text-underline-offset:2px}.checkout-code-field{text-align:left;border:1px solid var(--line);border-radius:12px;padding:10px;margin:0 0 10px;background:rgba(212,168,75,.045)}.checkout-code-field label{display:block;margin-bottom:5px}.checkout-code-field input{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#140f0d;color:var(--text);font-size:16px;letter-spacing:3px;font-weight:800}.checkout-code-field input::placeholder{font-size:12px;letter-spacing:0;font-weight:400;color:var(--muted)}.seating-capacity-settings{border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0;background:rgba(212,168,75,.045)}.seating-capacity-controls{display:grid;grid-template-columns:minmax(110px,1fr) 80px;gap:8px;margin-top:8px}.seating-capacity-controls select,.seating-capacity-controls input{width:100%;min-width:0;padding:10px;border-radius:9px;background:#140f0d;color:var(--text);border:1px solid var(--line)}.seating-capacity-controls .btn{grid-column:1/-1;margin-top:0}.table-seat-capacity,.home-locked-caption{display:block;font-size:9px;color:var(--muted);font-weight:700;margin-top:2px}.home-locked-caption{white-space:normal}@media(max-width:360px){.dish-spice-button{font-size:9px;padding:4px}.checkout-code-field{padding:8px}}
 
 /* Customer table selection is QR-only. Staff table selectors are separate and remain available. */
-#home-choose-table, #table-swipe-guide, #tables, #table-continue, #scan-table-btn { display: none !important; }
+#home-choose-table, #table-swipe-guide, #tables, #table-continue { display: none !important; }
 .onkarfx-credit { margin:18px 12px 8px; padding-top:12px; border-top:1px solid var(--line); text-align:center; font-size:10px; line-height:1.6; color:var(--muted); opacity:.78; }
 .onkarfx-credit a { color:var(--muted); text-decoration:underline; text-underline-offset:3px; }
 </style>
@@ -1318,8 +1318,12 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
     <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
     <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 <span id="home-scan-label">Scan table QR</span></button>
-    <p class="muted" id="home-no-install" style="margin-top:10px;font-size:12px">Scan the QR sticker on your table to order. No table selection or code needed. If the QR is missing, ask your waiter.</p>
+    <p class="muted" id="home-no-install" style="margin-top:10px;font-size:12px">Scan the QR sticker on your table, or tap Scan table QR to use the in-app scanner. No table selection or code needed. If the sticker is missing, ask your waiter to share the exact table link.</p>
     <div class="home-shortcuts" aria-label="Helpful links">
+      <div class="home-shortcut">
+        <button type="button" class="home-icon-btn" id="home-table-qr-help" aria-label="Table QR help" title="Table QR help" onclick="openTableQRHelp()"><span aria-hidden="true">📱</span></button>
+        <span class="home-shortcut-label">Table QR</span>
+      </div>
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" aria-label="How to use this app" title="How to use this app" onclick="openGuide()"><span aria-hidden="true">📖</span></button>
         <span class="home-shortcut-label" id="home-how-to-use">How to use</span>
@@ -1701,9 +1705,21 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <h3>MIRCH MASAALA</h3>
     <p class="muted">TABLE <b id="qr-lab"></b></p>
     <div id="qr-code" style="display:flex;justify-content:center;margin:10px 0;min-height:250px;align-items:center"></div>
+    <p class="muted" style="font-size:12px;margin:0 0 4px">Share this exact table link with guests, or print the QR and place it on that table.</p>
+    <input id="qr-table-url" type="url" readonly aria-label="Direct link for this table" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text);font-size:12px;margin:4px 0 8px">
+    <div style="display:flex;gap:8px;margin-bottom:8px"><button type="button" class="btn btn-soft" style="flex:1" onclick="copyCurrentTableLink()">Copy table link</button><button type="button" class="btn btn-main" style="flex:1" onclick="shareCurrentTableLink()">Share link</button></div>
     <a id="qr-open-link" class="btn btn-soft" href="#" target="_blank" rel="noopener" style="display:none;margin-bottom:8px;text-decoration:none">Open QR image · Save on iPhone</a>
     <button type="button" class="btn btn-main" id="qr-download-btn" onclick="dlQR()" disabled>Preparing QR…</button>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="document.getElementById('qr-modal').classList.remove('on')">Close</button>
+  </div>
+</div>
+<div class="modal" id="table-qr-help-modal">
+  <div class="box">
+    <h3 class="gold center">📱 Table QR help</h3>
+    <p style="margin:10px 0 8px">At your table, scan the printed QR with your phone camera, or tap <b>Scan table QR</b> on Home to use the in-app scanner. The QR opens the exact table menu automatically.</p>
+    <p class="muted" style="font-size:12px;margin-bottom:10px">No sticker? Ask your waiter to share the correct table link. Staff can sign in, open Owner/Admin → QR, select the table, and copy/share its link or print the QR sheet. Please do not select a different table.</p>
+    <button type="button" class="btn btn-main" onclick="closeTableQRHelp();openScan()">Scan table QR now</button>
+    <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeTableQRHelp()">Close</button>
   </div>
 </div>
 
@@ -3582,6 +3598,15 @@ function ensureHtml5Qrcode() {
   ],'Html5Qrcode',function(q){return typeof q==='function';});
 }
 
+function openTableQRHelp() {
+  var modal = document.getElementById('table-qr-help-modal');
+  if (modal) modal.classList.add('on');
+}
+function closeTableQRHelp() {
+  var modal = document.getElementById('table-qr-help-modal');
+  if (modal) modal.classList.remove('on');
+}
+
 /* Scan */
 function openScan() {
   document.getElementById('scan-modal').classList.add('on');
@@ -4673,7 +4698,12 @@ function drawAlerts() {
           : '<button type="button" class="btn btn-ok btn-sm" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button>';
     return '<div class="card shared-admin-alert" style="justify-content:space-between"><div><b>' + name + (n.table_number ? ' · TABLE ' + esc(n.table_number) : '') + '</b><div>' + esc(type === 'PARTY_BOOKING' ? (n.message || n.item_name || '') : (n.item_name || n.message || '')) + '</div><div class="muted">' + new Date(n.created_at).toLocaleTimeString() + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">' + action + '</div></div>';
   }).join('');
-  host.innerHTML = '<div class="admin-alert-group"><h3>Important alerts</h3>' + (sharedHtml || '<p class="muted">No open shared alerts.</p>') + '</div>' + (localHtml ? '<div class="admin-alert-group"><h3>Device alerts</h3>' + localHtml + '</div>' : '');
+  var notificationSetupWarning = '';
+  var notificationSetupError = String(window.MM_ROLE_NOTIFICATIONS_SETUP_ERROR || '');
+  if (notificationSetupError) {
+    notificationSetupWarning = '<div class="setup" style="border-color:rgba(232,106,106,.6);margin-bottom:12px"><h3>⚠️ Shared notifications need setup</h3><p>Cross-device staff alerts could not be loaded. In Supabase SQL Editor, apply <b>supabase/role-notifications.sql</b> after <b>supabase/setup-live.sql</b>. For lock-screen push alerts, also apply <b>supabase/staff-push-notifications.sql</b>, configure the push secrets, and deploy the <code>send-staff-push</code> Edge Function.</p><p class="muted" style="font-size:11px;margin-top:5px">Details: ' + esc(notificationSetupError.slice(0,220)) + '</p></div>';
+  }
+  host.innerHTML = notificationSetupWarning + '<div class="admin-alert-group"><h3>Important alerts</h3>' + (sharedHtml || '<p class="muted">No open shared alerts.</p>') + '</div>' + (localHtml ? '<div class="admin-alert-group"><h3>Device alerts</h3>' + localHtml + '</div>' : '');
 }
 function doneNotif(id) {
   var n = notifs.find(function(x){ return x.id === id; });
@@ -4737,6 +4767,7 @@ function showQR(t) {
   currentQRCodeTable=String(t).padStart(2,'0');
   document.getElementById('qr-lab').textContent=currentQRCodeTable;
   var url=tableURL(currentQRCodeTable),box=document.getElementById('qr-code');
+  var linkInput=document.getElementById('qr-table-url');if(linkInput)linkInput.value=url;
   var button=document.getElementById('qr-download-btn'),openLink=document.getElementById('qr-open-link');
   if(button){button.disabled=true;button.textContent='Preparing QR…';}
   if(openLink){openLink.style.display='none';openLink.href='#';}
@@ -4761,6 +4792,29 @@ function showQR(t) {
     box.innerHTML='<p class="muted" style="padding:22px 8px">QR could not be generated. Check internet and retry.</p>';
     if(button){button.disabled=false;button.textContent='Retry QR';}
   });
+}
+function copyCurrentTableLink() {
+  if (!currentQRCodeTable) { toast('Choose a table QR first.'); return; }
+  var url = tableURL(currentQRCodeTable);
+  var field = document.getElementById('qr-table-url');
+  function fallbackCopy() {
+    if (field) { field.value = url; field.focus(); field.select(); }
+    var copied = false;
+    try { copied = !!document.execCommand('copy'); } catch (e) {}
+    toast(copied ? 'Table link copied' : 'Table link is ready above — select and copy it.');
+  }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(url).then(function(){ toast('Table link copied'); }).catch(fallbackCopy);
+  } else fallbackCopy();
+}
+function shareCurrentTableLink() {
+  if (!currentQRCodeTable) { toast('Choose a table QR first.'); return; }
+  var url = tableURL(currentQRCodeTable);
+  if (navigator.share) {
+    navigator.share({title:'Mirch Masaala · Table ' + currentQRCodeTable, text:'Open the menu for this table:', url:url}).catch(function(e) {
+      if (!e || e.name !== 'AbortError') copyCurrentTableLink();
+    });
+  } else copyCurrentTableLink();
 }
 function dlQR() {
   var img=document.getElementById('qr-image');
