@@ -425,7 +425,9 @@
   var textState = new WeakMap();
   var attributeState = new WeakMap();
   var attributeNames = ['placeholder', 'title', 'aria-label', 'alt'];
-  var skipTags = { SCRIPT: true, STYLE: true, NOSCRIPT: true, TEXTAREA: true, INPUT: true, CODE: true, PRE: true, SVG: true };
+  // Skip executable/code/graphic content, but still translate input placeholders and labels.
+  var skipContentTags = { SCRIPT: true, STYLE: true, NOSCRIPT: true, CODE: true, PRE: true, SVG: true };
+  var noTranslateTextTags = { INPUT: true, TEXTAREA: true };
 
   function translatedSourceText(source) {
     var normalized = clean(source);
@@ -471,7 +473,7 @@
   function translateTextNode(node) {
     if (!node || !node.parentElement) return;
     var el = node.parentElement;
-    if (skipTags[el.tagName] || el.isContentEditable || el.closest('[contenteditable="true"],[data-no-translate]')) return;
+    if (skipContentTags[el.tagName] || noTranslateTextTags[el.tagName] || el.isContentEditable || el.closest('[contenteditable="true"],[data-no-translate]')) return;
     var current = node.nodeValue;
     var source = sourceForTextNode(node);
     var result = translate(source);
@@ -487,7 +489,7 @@
   }
 
   function translateAttributes(el) {
-    if (!el || !el.getAttribute || skipTags[el.tagName] || el.isContentEditable || el.closest('[data-no-translate]')) return;
+    if (!el || !el.getAttribute || skipContentTags[el.tagName] || el.isContentEditable || el.closest('[data-no-translate]')) return;
     var states = attributeState.get(el) || Object.create(null);
     attributeNames.forEach(function (name) {
       if (!el.hasAttribute(name)) return;
@@ -508,8 +510,9 @@
     }
     if (root.nodeType !== 1 && root.nodeType !== 9 && root.nodeType !== 11) return;
     if (root.nodeType === 1) {
-      if (skipTags[root.tagName] || root.isContentEditable || (root.closest && root.closest('[data-no-translate]'))) return;
+      if (skipContentTags[root.tagName] || root.isContentEditable || (root.closest && root.closest('[data-no-translate]'))) return;
       translateAttributes(root);
+      if (noTranslateTextTags[root.tagName]) return;
     }
     var children = root.childNodes;
     for (var i = 0; i < children.length; i++) scan(children[i]);
