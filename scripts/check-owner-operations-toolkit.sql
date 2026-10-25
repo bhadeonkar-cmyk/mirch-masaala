@@ -71,6 +71,21 @@ BEGIN
   FROM public.orders WHERE restaurant_id='a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid;
   IF v_order_count < 1 THEN RAISE EXCEPTION 'QA failed: reset test expected some seeded orders'; END IF;
 
+  v_rejected := false;
+  BEGIN
+    PERFORM public.mm_admin_reset_business_data('NOT THE CONFIRMATION',true);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'Reset confirmation did not match%' THEN
+      v_rejected := true;
+    ELSE
+      RAISE;
+    END IF;
+  END;
+  IF NOT v_rejected THEN RAISE EXCEPTION 'QA failed: reset accepted a missing/incorrect typed confirmation'; END IF;
+  IF (SELECT count(*) FROM public.orders WHERE restaurant_id='a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid) <> v_order_count THEN
+    RAISE EXCEPTION 'QA failed: incorrect reset confirmation changed business data';
+  END IF;
+
   v_backup := public.mm_admin_export_backup();
   IF v_backup->>'application' <> 'Mirch Masaala'
      OR v_backup->>'restaurant_id' <> 'a3702d10-6673-4c06-9783-1d61c945ecd5'
@@ -100,8 +115,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.orders WHERE restaurant_id='a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid) THEN
     RAISE EXCEPTION 'QA failed: orders remained after reset';
   END IF;
-  IF EXISTS (SELECT 1 FROM public.order_items i JOIN public.orders o ON o.id=i.order_id
-             WHERE o.restaurant_id='a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid) THEN
+  IF EXISTS (SELECT 1 FROM public.order_items) THEN
     RAISE EXCEPTION 'QA failed: order line items remained after reset';
   END IF;
   IF EXISTS (SELECT 1 FROM public.order_payments WHERE restaurant_id='a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid) THEN
