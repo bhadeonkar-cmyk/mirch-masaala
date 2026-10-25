@@ -3,6 +3,7 @@
 DO $qa$
 DECLARE
   v_visit_id uuid;
+  v_visit7 uuid;
   v_visit8 uuid;
   v_guest_session uuid := 'bbbbbbbb-0000-4000-8000-000000000006'::uuid;
   v_pin text;
@@ -130,6 +131,31 @@ BEGIN
       AND notification_type='NEW_ORDER'
   ) THEN
     RAISE EXCEPTION 'QA failed: approved ticket did not notify the kitchen';
+  END IF;
+
+  -- Rejection must use the owner-only cancellation guard and keep the ticket out of the kitchen.
+  v_result := public.mm_staff_set_table_visit_status('07','START','W07');
+  v_visit7 := (v_result->>'visit_id')::uuid;
+  v_pin := v_result->>'guest_order_code';
+  PERFORM set_config('app.qa_role','',false);
+  v_result := public.mm_place_order(
+    'a3702d10-6673-4c06-9783-1d61c945ecd5','07','MM-GUEST-REJECT-001','',v_items,
+    v_visit7,'bbbbbbbb-0000-4000-8000-000000000007'::uuid,v_pin
+  );
+  IF v_result->>'approvalStatus' <> 'PENDING' THEN
+    RAISE EXCEPTION 'QA failed: reject test ticket was not pending: %',v_result;
+  END IF;
+  PERFORM set_config('app.qa_role','admin',false);
+  v_result := public.mm_admin_review_customer_order('MM-GUEST-REJECT-001','REJECT','QA owner rejection');
+  IF v_result->>'approvalStatus' <> 'REJECTED' OR v_result->>'status' <> 'CANCELLED' THEN
+    RAISE EXCEPTION 'QA failed: owner rejection did not cancel and reject the ticket: %',v_result;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.mm_restaurant_notifications
+    WHERE ticket_id='MM-GUEST-REJECT-001' AND target_role='kitchen'
+      AND notification_type='NEW_ORDER'
+  ) THEN
+    RAISE EXCEPTION 'QA failed: rejected ticket was sent to the kitchen';
   END IF;
 
   -- Staff cannot release a table with an active kitchen ticket.
