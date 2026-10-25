@@ -59,6 +59,26 @@ After setup, the workflow is simple:
 3. Select branch **main** and folder **/(root)**, then click **Save**.
 4. Use the URL shown by GitHub Pages. A table QR link is formed by adding `?table=01`, `?table=02`, and so on.
 
+## Whole-app language and live-order readiness
+
+The English/Marathi switch applies across customer checkout, order progress, waiter/kitchen/owner screens, notifications, accessibility labels and order-setup errors. Shared database event types remain language-neutral; each staff device renders those events in its selected language. Background push alerts use the language saved on that device's push subscription.
+
+If order placement reports a missing SQL function or table, the browser cannot install database functions itself. In Supabase SQL Editor, re-apply the existing migrations in this order; they are designed to be re-runnable and preserve order/payment history:
+
+1. `supabase/setup-live.sql`
+2. `supabase/order-management-accounting.sql`
+3. `supabase/role-notifications.sql`
+4. `supabase/party-bookings.sql`
+5. `supabase/customer-payment-confirmation.sql`
+6. `supabase/table-visits.sql`
+7. `supabase/visit-billing-upgrade.sql`
+8. `supabase/customer-cash-counter.sql`
+9. `supabase/visit-service-controls.sql`
+10. `supabase/direct-kitchen-qr-orders.sql`
+11. Optional for lock-screen/background staff alerts and device language: `supabase/staff-push-notifications.sql`
+
+Then run `supabase/app-readiness-check.sql` in the same SQL Editor. Fix each **ACTION REQUIRED** row before placing a live order. **OPTIONAL — NOT CONFIGURED** affects background push delivery only; in-app alerts still require the role-notification setup. If background push alerts are enabled, deploy `supabase/functions/send-staff-push/index.ts` after the updated push SQL is applied.
+
 ## Important limitations before real service
 
 - The live app uses Supabase for the shared menu, orders/status, customer cancellation, staff roles, notifications, and—after applying the migrations—payment, accounting and persistent table-visit status. Customer order access tokens remain on the browser that created each ticket; a generated device ID alone would not identify the same person.
