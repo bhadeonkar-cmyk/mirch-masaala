@@ -4318,6 +4318,13 @@ function renderAdminTicketLookupResult() {
   var itemRows = Array.isArray(result.items) ? result.items : [];
   var paymentRows = Array.isArray(result.payments) ? result.payments : [];
   var status = String(result.status || 'UNKNOWN').toUpperCase();
+  var approvalStatus = String(result.approval_status || result.approvalStatus || 'APPROVED').toUpperCase();
+  var safeApprovalTicket = String(result.ticket_id || '').replace(/'/g, '');
+  var approvalPanel = approvalStatus === 'PENDING'
+    ? '<div style="border:1px solid var(--gold2);border-radius:10px;padding:10px"><b class="gold">AWAITING OWNER APPROVAL</b><p class="muted" style="font-size:11px;margin:5px 0">This customer order has not been sent to the kitchen yet.</p><div style="display:flex;gap:7px"><button type="button" class="btn btn-ok btn-sm" onclick="reviewCustomerOrderFromAdmin(\'' + safeApprovalTicket + '\',\'APPROVE\')">✓ Approve &amp; send to kitchen</button><button type="button" class="btn btn-bad btn-sm" onclick="reviewCustomerOrderFromAdmin(\'' + safeApprovalTicket + '\',\'REJECT\')">✕ Reject</button></div></div>'
+    : approvalStatus === 'REJECTED'
+      ? '<b style="color:var(--bad)">OWNER REJECTED</b>'
+      : '';
   var flags = [];
   if (result.is_test_order || result.archived_at) flags.push('<span style="color:var(--warn);font-size:10px;font-weight:800">TEST / ARCHIVED · excluded from live accounts</span>');
   if (result.is_complimentary) flags.push('<span style="color:var(--ok);font-size:10px;font-weight:800">COMPLIMENTARY · ' + esc(result.complimentary_reason || 'free meal') + '</span>');
@@ -4326,6 +4333,7 @@ function renderAdminTicketLookupResult() {
   host.innerHTML = '<div class="card" style="flex-direction:column;align-items:stretch;margin-top:10px;gap:7px">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><b class="gold">Ticket ' + esc(result.ticket_id || '') + '</b><div class="muted" style="font-size:11px;margin-top:3px">Table ' + esc(result.table || '—') + (detailsDate ? ' · ' + esc(detailsDate) : '') + '</div></div><b style="font-size:12px">' + esc(status) + '</b></div>' +
     (flags.length ? '<div style="display:flex;flex-direction:column;gap:4px">' + flags.join('') + '</div>' : '') +
+     approvalPanel +
     (itemRows.length ? itemRows.map(function(item) {
       var qty = Number(item.quantity) || 1;
       return '<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:7px;font-size:12px"><span>' + qty + '× ' + esc(item.name || 'Dish') +
@@ -4369,6 +4377,12 @@ async function lookupAdminTicket() {
   renderAdminTicketLookupResult();
   try {
     adminTicketLookupResult = await window.MM_ADMIN_GET_ORDER_DETAILS(ticket);
+    var matchedOrder = (Array.isArray(orders) ? orders : []).find(function (o) {
+      return String(o && o.id || '').toUpperCase() === ticket;
+    });
+    if (matchedOrder) {
+      adminTicketLookupResult.approval_status = String(matchedOrder.approvalStatus || 'APPROVED').toUpperCase();
+    }
   } catch (e) {
     console.error('[Mirch Masaala owner ticket lookup]', e);
     adminTicketLookupResult = {error:e && e.message ? e.message : 'Could not find that ticket. Check the number and connection.'};
@@ -4397,6 +4411,8 @@ function openOrderApprovalFromAlert() {
   refreshAdminOrderQueue();
 }
 function refreshAdminOrderQueue() {
+  var lookupInput = document.getElementById('admin-ticket-lookup');
+  if (lookupInput && document.activeElement === lookupInput) lookupInput.blur();
   if (typeof window.MM_REFRESH_STAFF_ORDERS !== 'function') {
     toast('Shared order sync is not connected. Refresh the app and sign in again.');
     return;
