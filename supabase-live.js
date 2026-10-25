@@ -2064,6 +2064,81 @@
     return result.data || {};
   }
 
+  // Owner-managed waiter directory and maintenance operations. These RPCs are separate from
+  // optional alert/WhatsApp migrations, so missing notification tables do not block setup.
+  async function listWaiters(includeInactive) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
+    if (['admin','waiter'].indexOf(String(window.role || '')) < 0) throw new Error('Staff sign-in required.');
+    var result = await client.rpc('mm_list_waiters', { p_include_inactive: !!includeInactive });
+    if (result.error) throw new Error(result.error.message || 'Waiter names are not set up yet.');
+    var rows = Array.isArray(result.data) ? result.data : [];
+    window.MM_WAITER_DIRECTORY = rows;
+    return rows;
+  }
+
+  async function saveWaiterDirectoryEntry(displayName, waiterCode) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
+    if (window.role !== 'admin') throw new Error('Only the Owner/Admin can manage waiter names.');
+    var result = await client.rpc('mm_admin_save_waiter', {
+      p_display_name: String(displayName || '').trim(),
+      p_waiter_code: waiterCode ? String(waiterCode).trim().toUpperCase() : null
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not save the waiter name.');
+    var saved = rpcPayload(result.data);
+    await listWaiters(true);
+    return saved;
+  }
+
+  async function setWaiterDirectoryActive(waiterCode, isActive) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
+    if (window.role !== 'admin') throw new Error('Only the Owner/Admin can manage waiter names.');
+    var result = await client.rpc('mm_admin_set_waiter_active', {
+      p_waiter_code: String(waiterCode || '').trim().toUpperCase(),
+      p_active: !!isActive
+    });
+    if (result.error) throw new Error(result.error.message || 'Could not update this waiter.');
+    var saved = rpcPayload(result.data);
+    await listWaiters(true);
+    return saved;
+  }
+
+  async function exportOwnerBackup() {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
+    if (window.role !== 'admin') throw new Error('Only the Owner/Admin can create a backup.');
+    var result = await client.rpc('mm_admin_export_backup');
+    if (result.error) throw new Error(result.error.message || 'Backup export failed.');
+    var payload = rpcPayload(result.data);
+    if (!payload || !payload.data || !payload.restaurant_id) throw new Error('The backup response was incomplete. No reset was started.');
+    return payload;
+  }
+
+  async function recordOwnerBackupExport() {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
+    if (window.role !== 'admin') throw new Error('Owner/Admin access required.');
+    var result = await client.rpc('mm_admin_record_backup_export');
+    if (result.error) throw new Error(result.error.message || 'The downloaded backup could not be recorded.');
+    return rpcPayload(result.data);
+  }
+
+  async function loadOwnerMaintenanceStatus() {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
+    if (window.role !== 'admin') throw new Error('Owner/Admin access required.');
+    var result = await client.rpc('mm_admin_maintenance_status');
+    if (result.error) throw new Error(result.error.message || 'Owner backup status is unavailable.');
+    return rpcPayload(result.data) || {};
+  }
+
+  async function resetOwnerBusinessData(backupMade) {
+    if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected.');
+    if (window.role !== 'admin') throw new Error('Only the Owner/Admin can reset restaurant data.');
+    var result = await client.rpc('mm_admin_reset_business_data', {
+      p_confirmation: 'RESET MIRCH MASAALA',
+      p_backup_made: !!backupMade
+    });
+    if (result.error) throw new Error(result.error.message || 'Reset failed. Existing data was not changed.');
+    return rpcPayload(result.data) || {};
+  }
+
   function start() {
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
       window.MM_SUPABASE_STATUS = 'library-missing';
@@ -2205,6 +2280,13 @@
     window.MM_REQUEST_VISIT_PAYMENT_VERIFICATION = requestVisitPaymentVerification;
     window.MM_RECORD_VISIT_PAYMENT = recordVisitPayment;
     window.MM_LOAD_ADMIN_ACCOUNTS_SUMMARY = loadAdminAccountsSummary;
+    window.MM_LIST_WAITERS = listWaiters;
+    window.MM_SAVE_WAITER = saveWaiterDirectoryEntry;
+    window.MM_SET_WAITER_ACTIVE = setWaiterDirectoryActive;
+    window.MM_ADMIN_EXPORT_BACKUP = exportOwnerBackup;
+    window.MM_ADMIN_RECORD_BACKUP = recordOwnerBackupExport;
+    window.MM_ADMIN_MAINTENANCE_STATUS = loadOwnerMaintenanceStatus;
+    window.MM_ADMIN_RESET_APP = resetOwnerBusinessData;
     window.MM_ADMIN_GET_ORDER_DETAILS = getAdminOrderDetails;
     window.MM_LOAD_ADMIN_PAYMENTS = loadAdminPayments;
     window.MM_REFRESH_STAFF_ORDERS = refreshStaffOrders;
