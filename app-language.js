@@ -559,6 +559,10 @@
 
   var originalI18n = typeof window.mmI18n === 'function' ? window.mmI18n : function (english) { return english; };
   window.mmI18n = function (english, marathi) {
+    if (typeof english === 'string' && typeof marathi === 'string' && marathi) {
+      if (!forward[key(english)]) forward[key(english)] = marathi;
+      if (!reverse[key(marathi)]) reverse[key(marathi)] = english;
+    }
     if (window.MM_HOME_LANGUAGE !== 'mr') return String(english == null ? '' : english);
     if (typeof marathi === 'string' && marathi) return marathi;
     var local = translatedSourceText(english);
