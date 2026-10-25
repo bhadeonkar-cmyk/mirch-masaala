@@ -247,10 +247,18 @@ requireText(visitServiceControlsMigration, "ADD COLUMN IF NOT EXISTS approval_st
 requireText(visitServiceControlsMigration, "THEN 'PENDING' ELSE 'APPROVED' END", 'Guest orders can wait for owner approval');
 requireText(visitServiceControlsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_review_customer_order', 'Only owner/admin can approve or reject customer orders');
 requireText(visitServiceControlsMigration, "'ORDER_APPROVAL'", 'Pending customer orders create owner alerts');
-requireText(html, 'Needs your approval', 'Owner Orders tab shows pending approval tickets');
+if (html.includes('Needs your approval') || html.includes('Awaiting approval') || html.includes('Owner approval is not connected')) {
+  fail('Retired owner approval UI should not appear in direct-kitchen flow');
+} else {
+  console.log('✓ Owner Orders is observer-only; approval UI removed');
+}
 requireText(live, 'window.MM_ADMIN_REVIEW_CUSTOMER_ORDER = reviewCustomerOrder', 'Owner approval buttons call the shared database');
 requireText(staffPushEdge, '"ORDER_APPROVAL"', 'Background push sender supports owner order approval alerts');
-requireText(html, 'id="customer-order-code"', 'Customer table code is entered visibly at checkout');
+if (html.includes('id="customer-order-code"') || html.includes('6-digit table code from your waiter')) {
+  fail('Customer checkout must not request a table PIN');
+} else {
+  console.log('✓ Customer checkout does not request a table PIN');
+}
 requireText(html, 'function cycleDishSpice', 'Customer can choose spice per dish');
 requireText(html, 'dishImageMarkup(item', 'Menu cards and specials use available dish photos');
 requireText(html, 'function saveTableCapacity()', 'Owner can manage table seating capacity');
@@ -273,7 +281,7 @@ const sharedOrderEnd = live.indexOf('async function placeCustomerOrder(', shared
 if (sharedOrderStart < 0 || sharedOrderEnd < 0 || live.slice(sharedOrderStart, sharedOrderEnd).includes('window.prompt(')) {
   fail('Customer table code must not depend on a browser prompt');
 } else {
-  console.log('✓ Customer table-code entry is visible and mobile friendly');
+  console.log('✓ Customer ordering does not use a browser PIN prompt');
 }
 requireText(visitServiceControlsMigration, 'ADD COLUMN IF NOT EXISTS target_staff_code', 'Alerts can target the assigned waiter ID');
 requireText(visitServiceControlsMigration, "'GUEST_LEFT_UNPAID'", 'Unpaid abandoned visits create a distinct alert');
