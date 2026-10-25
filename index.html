@@ -4749,6 +4749,13 @@ function renderRoleNotifications(rows) {
         type === 'BILL_REQUEST' ? window.mmI18n('A guest needs help with the bill.','ग्राहकाला बिलासाठी मदत हवी आहे.') :
         type === 'NEW_ORDER' ? window.mmI18n('A new ticket is waiting in the kitchen queue.','किचनमध्ये नवीन ऑर्डर आली आहे.') :
         type === 'ORDER_READY' ? window.mmI18n('Please check the ready ticket.','तयार ऑर्डर तपासा.') : (n.item_name ? window.mmDishName(n.item_name) : (n.message || window.mmI18n('A menu item is unavailable.','हा पदार्थ सध्या उपलब्ध नाही.')));
+      if (window.MM_HOME_LANGUAGE === 'mr' && typeof window.MM_TRANSLATE_NOTIFICATION_MESSAGE === 'function') {
+        var localizedAlertLine = window.MM_TRANSLATE_NOTIFICATION_MESSAGE(n);
+        if (localizedAlertLine) line = localizedAlertLine;
+      }
+      if (window.MM_HOME_LANGUAGE === 'mr' && typeof window.MM_TRANSLATE_TEXT === 'function') {
+        title = window.MM_TRANSLATE_TEXT(title);
+      }
       var bigTable = isCall ? '<div class="urgent-table-number">' + esc(tableNo) + '</div><div class="urgent-table-caption">' + window.mmI18n('TABLE · GO NOW','टेबल · लगेच जा') + '</div>' :
         (tableNo && ['NEW_ORDER','ORDER_READY','BILL_REQUEST','CASH_AT_COUNTER','PAYMENT_CHECK','GUEST_LEFT_UNPAID','ORDER_APPROVAL'].indexOf(type)>=0 ? '<div class="role-alert-table-small">' + window.mmI18n('TABLE','टेबल') + ' ' + esc(tableNo) + '</div>' : '');
       var details = type === 'ITEM_SOLD_OUT' || visitPaymentAlert ? '' : (n.ticket_id ? (isParty ? 'Booking ' : 'Ticket #') + esc(n.ticket_id) : '');
