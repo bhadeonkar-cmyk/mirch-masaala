@@ -2439,7 +2439,7 @@ window.toggleItem = toggleItem;
 window.showQR = showQR;
 window.dlQR = dlQR;
 window.saveSettings = saveSettings;
-window.loadRemoteData = loadRemoteData;
+
 window.exportConfig = exportConfig;
 window.cookTap = cookTap;
 window.wAdd = wAdd;
@@ -4314,7 +4314,7 @@ window.toggleItem = toggleItem;
 window.showQR = showQR;
 window.dlQR = dlQR;
 window.saveSettings = saveSettings;
-window.loadRemoteData = loadRemoteData;
+
 window.exportConfig = exportConfig;
 window.cookTap = cookTap;
 window.wAdd = wAdd;
@@ -5504,6 +5504,7 @@ if (SETTINGS.whatsappNumber === '919876543210') SETTINGS.whatsappNumber = '91965
 if (!SETTINGS.whatsappOrderMessage) SETTINGS.whatsappOrderMessage = defaultSettings().whatsappOrderMessage;
 if (!SETTINGS.whatsappAnnouncementMessage) SETTINGS.whatsappAnnouncementMessage = defaultSettings().whatsappAnnouncementMessage;
 if (!SETTINGS.whatsappOfferMessage) SETTINGS.whatsappOfferMessage = defaultSettings().whatsappOfferMessage;
+try { var resetNotice = localStorage.getItem('mm_reset_notice'); if (resetNotice) { localStorage.removeItem('mm_reset_notice'); setTimeout(function(){ toast(resetNotice); }, 500); } } catch (e) {}
 
 function tableCount() {
   var n = parseInt(SETTINGS.tableCount, 10);
@@ -5787,6 +5788,245 @@ function drawSettings() {
   refreshOwnerWaiterDirectory();
   refreshOwnerMaintenanceStatus();
 }
+var ownerMaintenanceStatusCache = null;
+var ownerMaintenanceBusy = false;
+var ownerResetBusy = false;
+function formatOwnerDate(value) {
+  if (!value) return 'Never';
+  var date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString();
+}
+function ownerBackupIsDue(status) {
+  status = status || {};
+  if (!status.last_backup_at) return true;
+  var backupMs = new Date(status.last_backup_at).getTime();
+  var resetMs = status.last_reset_at ? new Date(status.last_reset_at).getTime() : 0;
+  if (!Number.isFinite(backupMs) || (resetMs && resetMs > backupMs)) return true;
+  return Date.now() - backupMs >= 10 * 24 * 60 * 60 * 1000;
+}
+function renderOwnerMaintenanceStatus(status, error) {
+  ownerMaintenanceStatusCache = status || null;
+  var banner = document.getElementById('a-maintenance-reminder');
+  var settingsHost = document.getElementById('owner-backup-status');
+  if (error) {
+    var warning = '<div class="setup" style="border-color:rgba(232,106,106,.6)"><h3>Backup tools need setup</h3><p>Ask the owner to apply <b>supabase/owner-operations-toolkit.sql</b> in Supabase SQL Editor after setup-live.sql. This migration does not depend on notification SQL.</p><p class="muted" style="font-size:11px">' + esc(error) + '</p></div>';
+    if (banner) banner.innerHTML = warning;
+    if (settingsHost) settingsHost.innerHTML = warning;
+    return;
+  }
+  var due = ownerBackupIsDue(status);
+  var last = status && status.last_backup_at;
+  if (banner) {
+    banner.innerHTML = due
+      ? '<div class="setup" style="border-color:rgba(240,160,75,.65)"><h3>📦 Owner backup reminder</h3><p>' + (!last ? 'No backup is recorded yet.' : 'Last backup: ' + esc(formatOwnerDate(last)) + '.') + ' Please download a data backup. Backups are due every 10 days.</p><button type="button" class="btn btn-main btn-sm" style="margin-top:8px" onclick="downloadOwnerBackup()">Download backup</button></div>'
+      : '';
+  }
+  if (settingsHost) {
+    settingsHost.innerHTML = '<p class="muted" style="font-size:12px">' +
+      (due ? '<b style="color:var(--warn)">Backup due now.</b> ' : '<b style="color:var(--ok)">Backup is current.</b> ') +
+      'Last backup: ' + esc(formatOwnerDate(last)) + '. Last reset: ' + esc(formatOwnerDate(status && status.last_reset_at)) + '.</p>';
+  }
+}
+async function refreshOwnerMaintenanceStatus() {
+  if (role !== 'admin' || ownerMaintenanceBusy) return;
+  if (typeof window.MM_ADMIN_MAINTENANCE_STATUS !== 'function') {
+    renderOwnerMaintenanceStatus(null, 'Owner maintenance SQL is not connected.');
+    return;
+  }
+  ownerMaintenanceBusy = true;
+  try {
+    var status = await window.MM_ADMIN_MAINTENANCE_STATUS();
+    renderOwnerMaintenanceStatus(status || {}, '');
+  } catch (e) {
+    renderOwnerMaintenanceStatus(null, e && e.message ? e.message : 'Could not load backup status.');
+  } finally {
+    ownerMaintenanceBusy = false;
+  }
+}
+async function refreshOwnerWaiterDirectory() {
+  var host = document.getElementById('owner-waiter-list');
+  if (!host || role !== 'admin') return;
+  if (typeof window.MM_LIST_WAITERS !== 'function') {
+    host.innerHTML = '<p>Waiter names need setup. Run <b>supabase/owner-operations-toolkit.sql</b> in Supabase SQL Editor after setup-live.sql.</p>';
+    return;
+  }
+  host.innerHTML = '<p class="muted">Loading waiter names…</p>';
+  try {
+    var rows = await window.MM_LIST_WAITERS(true);
+    waiterDirectoryCache = Array.isArray(rows) ? rows : [];
+    window.MM_WAITER_DIRECTORY = waiterDirectoryCache.slice();
+    if (!waiterDirectoryCache.length) {
+      host.innerHTML = '<p class="muted">No waiter names yet. Add the first name above.</p>';
+      return;
+    }
+    host.innerHTML = waiterDirectoryCache.map(function(w) {
+      var code = String(w.waiter_code || '').toUpperCase();
+      var active = w.active !== false;
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)"><div style="min-width:0"><b>' + esc(w.display_name || 'Waiter') + '</b><div class="muted" style="font-size:11px">' + esc(code) + ' · ' + (active ? 'Active' : 'Inactive') + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button type="button" class="btn btn-soft btn-sm" onclick="renameOwnerWaiter(\'' + esc(code) + '\')">Rename</button><button type="button" class="btn btn-soft btn-sm" onclick="setOwnerWaiterActive(\'' + esc(code) + '\',' + (!active) + ')">' + (active ? 'Deactivate' : 'Restore') + '</button></div></div>';
+    }).join('');
+  } catch (e) {
+    var detail = e && e.message ? String(e.message) : '';
+    host.innerHTML = '<div><b>Waiter list is not ready.</b><p class="muted" style="margin-top:6px">Apply <b>supabase/owner-operations-toolkit.sql</b> after setup-live.sql. This tool does not depend on notification SQL.</p><p class="muted" style="font-size:11px">' + esc(detail) + '</p></div>';
+  }
+}
+async function saveOwnerWaiterName(name, code) {
+  if (role !== 'admin') { toast('Owner/Admin access required.'); return; }
+  var input = document.getElementById('owner-waiter-new-name');
+  name = typeof name === 'string' ? name.trim() : (input ? input.value.trim() : '');
+  if (!name) { if (input) input.focus(); toast('Enter a waiter name first.'); return; }
+  try {
+    var saved = await window.MM_SAVE_WAITER(name, code || null);
+    if (input && !code) input.value = '';
+    toast((code ? 'Waiter name updated: ' : 'Waiter added: ') + saved.display_name + ' (' + saved.waiter_code + ').');
+    await refreshOwnerWaiterDirectory();
+  } catch (e) { toast(e && e.message ? e.message : 'Could not save waiter name.'); }
+}
+function renameOwnerWaiter(code) {
+  var row = waiterDirectoryCache.find(function(w) { return w && String(w.waiter_code || '').toUpperCase() === String(code || '').toUpperCase(); });
+  if (!row) { toast('Waiter not found. Refresh the list.'); return; }
+  var value = window.prompt('Rename waiter ' + code + ':', row.display_name || '');
+  if (value === null) return;
+  saveOwnerWaiterName(value, code);
+}
+async function setOwnerWaiterActive(code, active) {
+  try {
+    await window.MM_SET_WAITER_ACTIVE(code, active);
+    toast(active ? 'Waiter name restored.' : 'Waiter name deactivated.');
+    await refreshOwnerWaiterDirectory();
+  } catch (e) { toast(e && e.message ? e.message : 'Could not update waiter.'); }
+}
+function showOwnerResetOptions() {
+  if (role !== 'admin') { toast('Only Owner/Admin can reset app data.'); return; }
+  var modal = document.getElementById('owner-reset-modal');
+  var input = document.getElementById('owner-reset-confirmation');
+  var status = document.getElementById('owner-reset-status');
+  if (status) status.textContent = 'Choose whether to download a backup first. The reset is permanent.';
+  if (input) input.value = '';
+  if (modal) modal.classList.add('on');
+}
+function closeOwnerResetOptions() {
+  if (ownerResetBusy) return;
+  var modal = document.getElementById('owner-reset-modal');
+  if (modal) modal.classList.remove('on');
+}
+function ownerResetTypedConfirmation() {
+  var input = document.getElementById('owner-reset-confirmation');
+  if (!input || String(input.value || '').trim().toUpperCase() !== 'RESET MIRCH MASAALA') {
+    toast('Type RESET MIRCH MASAALA to confirm the reset.');
+    if (input) input.focus();
+    return false;
+  }
+  return true;
+}
+function setOwnerResetProgress(message, busy) {
+  ownerResetBusy = !!busy;
+  var status = document.getElementById('owner-reset-status');
+  if (status) status.textContent = message || '';
+  ['owner-backup-reset-btn','owner-no-backup-reset-btn','owner-reset-cancel-btn'].forEach(function(id) {
+    var button = document.getElementById(id);
+    if (button) button.disabled = !!busy;
+  });
+}
+function downloadOwnerBackupFile(payload) {
+  var fullPayload = Object.assign({}, payload || {}, {
+    browser_snapshot: {
+      settings: JSON.parse(JSON.stringify(SETTINGS || {})),
+      menu_categories: JSON.parse(JSON.stringify((MENU && MENU.categories) || [])),
+      menu_items: JSON.parse(JSON.stringify((MENU && MENU.menu_items) || [])),
+      tables: JSON.parse(JSON.stringify((MENU && MENU.tables) || []))
+    },
+    backup_notes: 'JSON export of available restaurant-scoped database rows plus a browser snapshot of menu/settings. It does not include passwords, Supabase auth sessions, database schema or application source, and it is not an automatic restore file.'
+  });
+  var blob = new Blob([JSON.stringify(fullPayload, null, 2)], {type:'application/json'});
+  var link = document.createElement('a');
+  var stamp = String(fullPayload.exported_at || new Date().toISOString()).replace(/[:.]/g,'-');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'mirch-masaala-data-backup-' + stamp + '.json';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(function(){ URL.revokeObjectURL(link.href); }, 30000);
+}
+async function downloadOwnerBackup() {
+  if (role !== 'admin') { toast('Owner/Admin access required.'); return; }
+  try {
+    if (typeof window.MM_ADMIN_EXPORT_BACKUP !== 'function' || typeof window.MM_ADMIN_RECORD_BACKUP !== 'function') {
+      throw new Error('Apply supabase/owner-operations-toolkit.sql after setup-live.sql first.');
+    }
+    var payload = await window.MM_ADMIN_EXPORT_BACKUP();
+    downloadOwnerBackupFile(payload);
+    try {
+      await window.MM_ADMIN_RECORD_BACKUP();
+      toast('Data backup downloaded. The 10-day reminder has been updated.');
+      await refreshOwnerMaintenanceStatus();
+    } catch (recordError) {
+      toast('Backup file downloaded, but the app could not record its date. The reminder may still show.');
+      await refreshOwnerMaintenanceStatus();
+    }
+  } catch (e) {
+    toast(e && e.message ? e.message : 'Backup failed. Nothing was reset.');
+  }
+}
+async function executeOwnerReset(backupMade) {
+  setOwnerResetProgress('Reset in progress… please keep this page open.', true);
+  try {
+    if (typeof window.MM_ADMIN_RESET_APP !== 'function') throw new Error('Apply supabase/owner-operations-toolkit.sql after setup-live.sql first.');
+    var result = await window.MM_ADMIN_RESET_APP(!!backupMade);
+    if (result && result.ok === false) throw new Error(result.message || 'The server did not confirm the reset.');
+    var retainedTableCount = Math.max(1, (MENU && Array.isArray(MENU.tables) && MENU.tables.length) ? MENU.tables.length : tableCount());
+    try {
+      var keys = [];
+      for (var i=0; i<localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key && key.indexOf('mm_') === 0) keys.push(key);
+      }
+      keys.forEach(function(key){ localStorage.removeItem(key); });
+      SETTINGS = defaultSettings();
+      SETTINGS.tableCount = retainedTableCount;
+      localStorage.setItem('mm_settings', JSON.stringify(SETTINGS));
+      localStorage.setItem('mm_reset_notice', 'App data and customer-facing settings were reset. Menu, tables, waiter names and staff logins were kept.');
+    } catch (storageError) {}
+    ownerResetBusy = false;
+    var modal = document.getElementById('owner-reset-modal');
+    if (modal) modal.classList.remove('on');
+    window.location.reload();
+  } catch (e) {
+    setOwnerResetProgress('', false);
+    toast(e && e.message ? e.message : 'Reset failed. Existing data was not changed.');
+  }
+}
+async function beginOwnerResetWithBackup() {
+  if (ownerResetBusy || !ownerResetTypedConfirmation()) return;
+  if (!confirm('A JSON data backup will be downloaded first. Only after the export succeeds will the reset run. Continue?')) return;
+  setOwnerResetProgress('Creating the backup…', true);
+  try {
+    if (typeof window.MM_ADMIN_EXPORT_BACKUP !== 'function' || typeof window.MM_ADMIN_RESET_APP !== 'function') {
+      throw new Error('Apply supabase/owner-operations-toolkit.sql after setup-live.sql first.');
+    }
+    var payload = await window.MM_ADMIN_EXPORT_BACKUP();
+    downloadOwnerBackupFile(payload);
+    setOwnerResetProgress('Backup download started. Resetting the app data…', true);
+    await executeOwnerReset(true);
+  } catch (e) {
+    setOwnerResetProgress('', false);
+    toast(e && e.message ? e.message : 'Backup failed. Reset was cancelled; existing data was not changed.');
+  }
+}
+async function confirmOwnerResetWithoutBackup() {
+  if (ownerResetBusy) return;
+  if (!confirm('Reset WITHOUT making a new backup? This permanently removes order and payment history, bookings, reviews, customer profiles and notifications.')) {
+    if (confirm('Would you like to download a backup and then reset instead? Choose OK for backup & reset, or Cancel to leave all data unchanged.')) {
+      beginOwnerResetWithBackup();
+    } else {
+      closeOwnerResetOptions();
+      toast('Reset cancelled. No data was changed.');
+    }
+    return;
+  }
+  if (!ownerResetTypedConfirmation()) return;
+  if (!confirm('Final confirmation: erase the listed service data and reset customer-facing settings now?')) return;
+  await executeOwnerReset(false);
+}
 function safeDirectionsURL(raw) {
   try {
     var u=new URL(String(raw||'').trim());
@@ -5946,54 +6186,6 @@ bindStaffSecrets();
 
   toast('Settings saved · ' + SETTINGS.tableCount + ' tables');
 }
-function driveToDirect(url) {
-  if (!url) return url;
-  // Google Drive file share → direct download
-  var m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-  if (m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
-  m = url.match(/[?&]id=([^&]+)/);
-  if (m && url.indexOf('drive.google.com') >= 0) return 'https://drive.google.com/uc?export=download&id=' + m[1];
-  return url;
-}
-function fetchWithTimeout(url, options, timeoutMs) {
-  timeoutMs = timeoutMs || 8000;
-  var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  var opts = options || {};
-  if (controller) opts.signal = controller.signal;
-  var timer = setTimeout(function(){ if (controller) controller.abort(); }, timeoutMs);
-  return fetch(url, opts).then(function(r){ clearTimeout(timer); return r; }, function(err){ clearTimeout(timer); throw err; });
-}
-function loadRemoteData() {
-  var url = (document.getElementById('set-url') && document.getElementById('set-url').value.trim()) || SETTINGS.dataUrl;
-  if (!url) { toast('Enter a JSON URL first'); return; }
-  url = driveToDirect(url);
-  toast('Loading menu…');
-  fetchWithTimeout(url, { mode: 'cors', cache: 'no-store' }, 8000).then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  }).then(function(data) {
-    if (data.restaurantName) SETTINGS.restaurantName = data.restaurantName;
-    if (data.tagline) SETTINGS.tagline = data.tagline;
-    if (data.adminPhone) SETTINGS.adminPhone = data.adminPhone;
-    if (data.closedMessage) SETTINGS.closedMessage = data.closedMessage;
-    if (data.menu && data.menu.menu_items) {
-      MENU.menu_items = data.menu.menu_items;
-      if (data.menu.categories) MENU.categories = data.menu.categories;
-      if (data.menu.tables) MENU.tables = data.menu.tables;
-      save('mm_remote_menu', data.menu);
-    }
-    if (data.categories) MENU.categories = data.categories;
-    if (data.menu_items) { MENU.menu_items = data.menu_items; save('mm_remote_menu', { menu_items: data.menu_items, categories: data.categories, tables: data.tables }); }
-    SETTINGS.dataUrl = document.getElementById('set-url') ? document.getElementById('set-url').value.trim() : SETTINGS.dataUrl;
-    save('mm_settings', SETTINGS);
-    applySettings();
-    toast('Loaded from URL');
-    drawSettings();
-  }).catch(function(err) {
-    console.warn(err);
-    toast('Could not load online menu — using saved menu');
-  });
-}
 function exportConfig() {
   var cfg = {
     restaurantName: SETTINGS.restaurantName,
@@ -6013,36 +6205,12 @@ function exportConfig() {
   a.click();
   toast('Config downloaded — upload to Drive & use share link');
 }
-// Restore remote menu if saved
-(function() {
-  var rm = load('mm_remote_menu', null);
-  if (rm && rm.menu_items) {
-    MENU.menu_items = rm.menu_items;
-    if (rm.categories) MENU.categories = rm.categories;
-    if (rm.tables) MENU.tables = rm.tables;
-  }
-  if (SETTINGS.dataUrl) {
-    // Optional background sync. Never block first paint or menu startup.
-    setTimeout(function() {
-      var u = driveToDirect(SETTINGS.dataUrl);
-      fetchWithTimeout(u, { mode: 'cors', cache: 'no-store' }, 7000).then(function(r){
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      }).then(function(data) {
-        if (data.menu_items || (data.menu && data.menu.menu_items)) {
-          var menu = data.menu || data;
-          if (menu.menu_items) MENU.menu_items = menu.menu_items;
-          if (menu.categories) MENU.categories = menu.categories;
-          if (menu.tables) MENU.tables = menu.tables;
-          save('mm_remote_menu', menu);
-          try { if (document.getElementById('home').classList.contains('on')) renderHomeTables(); } catch(e) {}
-        }
-        if (data.restaurantName) { SETTINGS.restaurantName = data.restaurantName; applySettings(); }
-      }).catch(function(err){ console.warn('Background menu sync skipped:', err); });
-    }, 1200);
-  }
 })();
 
+
+setInterval(function() {
+  if (role === 'admin') refreshOwnerMaintenanceStatus();
+}, 60 * 60 * 1000);
 
 setInterval(function() {
   if (!window.MM_SUPABASE_REQUIRED) orders = load('mm_o', []);
@@ -6113,7 +6281,7 @@ window.toggleItem = toggleItem;
 window.showQR = showQR;
 window.dlQR = dlQR;
 window.saveSettings = saveSettings;
-window.loadRemoteData = loadRemoteData;
+
 window.exportConfig = exportConfig;
 window.cookTap = cookTap;
 window.wAdd = wAdd;
