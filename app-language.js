@@ -379,7 +379,21 @@
     'The menu changed while you were ordering. Please refresh the menu before trying again.':'तुम्ही ऑर्डर देत असताना मेनूमध्ये बदल झाला. पुन्हा प्रयत्न करण्यापूर्वी मेनू रिफ्रेश करा.',
     'The order could not be confirmed. Please check My orders before retrying.':'ऑर्डरची खात्री होऊ शकली नाही. पुन्हा प्रयत्न करण्यापूर्वी माझ्या ऑर्डर्स तपासा.',
     'This phone is not linked to an active table visit. Please ask staff for the bill.':'हा फोन सध्या सुरू असलेल्या टेबल भेटीशी जोडलेला नाही. बिलासाठी कर्मचाऱ्यांना सांगा.',
-    'A restaurant update needs your attention.':'रेस्टॉरंटमधील नवीन सूचनेकडे लक्ष द्या.'
+    'A restaurant update needs your attention.':'रेस्टॉरंटमधील नवीन सूचनेकडे लक्ष द्या.',
+    'Order sent to kitchen':'ऑर्डर किचनला पाठवली',
+    'Your order is now in the kitchen queue.':'तुमची ऑर्डर किचनमध्ये आहे.',
+    'Order cancelled':'ऑर्डर रद्द केली',
+    'This order was cancelled. Please ask your waiter for help.':'ही ऑर्डर रद्द झाली आहे. मदतीसाठी वेटरला सांगा.',
+    'Your order is ready':'तुमची ऑर्डर तयार आहे',
+    'Your food is ready. Please check with the restaurant team.':'तुमचे जेवण तयार आहे. कृपया रेस्टॉरंटच्या कर्मचाऱ्यांशी संपर्क साधा.',
+    'Your order is being prepared':'तुमची ऑर्डर तयार केली जात आहे',
+    'The kitchen has started preparing your order.':'किचनमध्ये तुमची ऑर्डर बनवायला सुरुवात झाली आहे.',
+    'A guest is leaving and will pay at the counter.':'ग्राहक काउंटरवर पैसे देणार आहे.',
+    'Guests have left before settlement. Please collect the outstanding balance.':'ग्राहक बिल भरण्यापूर्वी निघून गेले. कृपया बाकी रक्कम वसूल करा.',
+    'Please attend the table bill request.':'कृपया टेबलवरील बिलाची विनंती हाताळा.',
+    'A new kitchen ticket has arrived.':'किचनमध्ये नवीन ऑर्डर आली आहे.',
+    'Please check the ready ticket.':'तयार ऑर्डर तपासा.',
+    'Kitchen changed menu availability.':'किचनने पदार्थाची उपलब्धता बदलली आहे.'
   };
 
   function clean(value) {
@@ -447,6 +461,30 @@
     if (match) return match[1] + ' पाहुणे';
     match = normalized.match(/^table\s+([0-9]{1,3})\s+(is\s+)?(available|busy|in service)$/i);
     if (match) return 'टेबल ' + match[1] + (match[3].toLowerCase() === 'available' ? ' उपलब्ध आहे' : match[3].toLowerCase() === 'busy' ? ' व्यस्त आहे' : ' सेवेत आहे');
+    match = normalized.match(/^cash at counter\s*[·-]\s*table\s+([0-9]{1,3})$/i);
+    if (match) return 'काउंटरवर रोख पैसे · टेबल ' + match[1];
+    match = normalized.match(/^guest left\s*[·-]\s*balance due\s*[·-]\s*table\s+([0-9]{1,3})$/i);
+    if (match) return 'ग्राहक बिल न भरता निघून गेला · बाकी रक्कम · टेबल ' + match[1];
+    match = normalized.match(/^payment verification\s*[·-]\s*table\s+([0-9]{1,3})$/i);
+    if (match) return 'पेमेंट तपासा · टेबल ' + match[1];
+    match = normalized.match(/^waiter needed\s*[·-]\s*table\s+([0-9]{1,3})$/i);
+    if (match) return 'वेटर हवा · टेबल ' + match[1];
+    match = normalized.match(/^bill request\s*[·-]\s*table\s+([0-9]{1,3})$/i);
+    if (match) return 'बिलाची विनंती · टेबल ' + match[1];
+    match = normalized.match(/^new order\s*[·-]\s*table\s+([0-9]{1,3})$/i);
+    if (match) return 'नवीन ऑर्डर · टेबल ' + match[1];
+    match = normalized.match(/^order ready\s*[·-]\s*table\s+([0-9]{1,3})$/i);
+    if (match) return 'ऑर्डर तयार · टेबल ' + match[1];
+    match = normalized.match(/^table\s+([0-9]{1,3})\s*·\s*(.*)$/i);
+    if (match) {
+      var inner = translatedSourceText(match[2]);
+      if (inner) return 'टेबल ' + match[1] + ' · ' + inner;
+    }
+    match = normalized.match(/^table\s+([0-9]{1,3})\s*·\s*ticket\s+([a-z0-9-]+)\s*·\s*(.*)$/i);
+    if (match) {
+      var ticketMessage = translatedSourceText(match[3]);
+      if (ticketMessage) return 'टेबल ' + match[1] + ' · ऑर्डर ' + match[2] + ' · ' + ticketMessage;
+    }
     return null;
   }
 
