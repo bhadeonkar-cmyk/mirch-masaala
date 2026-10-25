@@ -1046,6 +1046,8 @@ BEGIN
   IF v_decision = 'APPROVE' THEN
     UPDATE public.orders SET approval_status = 'APPROVED' WHERE id = v_order.id;
   ELSE
+    -- Route rejection through the same audited owner-cancellation guard as the existing order controls.
+    PERFORM pg_catalog.set_config('app.mm_owner_order_cancel', 'on', true);
     UPDATE public.orders
     SET approval_status = 'REJECTED',
         status = 'CANCELLED',
