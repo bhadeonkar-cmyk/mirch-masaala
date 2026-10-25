@@ -14,6 +14,7 @@ const cashCounterMigration = fs.readFileSync('supabase/customer-cash-counter.sql
 const visitServiceControlsMigration = fs.readFileSync('supabase/visit-service-controls.sql', 'utf8');
 const directKitchenMigration = fs.readFileSync('supabase/direct-kitchen-qr-orders.sql', 'utf8');
 const menuOptionsMigration = fs.readFileSync('supabase/menu-item-options-and-table-capacity.sql', 'utf8');
+const ownerToolkitMigration = fs.readFileSync('supabase/owner-operations-toolkit.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
 const staffPushEdge = fs.readFileSync('supabase/functions/send-staff-push/index.ts', 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
@@ -90,8 +91,15 @@ try {
   ['function requestPaymentVerification()', 'Payment verification button never self-confirms a payment'],
   ['id="pay-cash-leave-btn"', 'Customer can release the table after choosing cash at counter'],
   ['function releaseTableForCash()', 'Cash checkout notifies staff and returns the customer Home'],
-  ['function getWaiterStaffCode(forcePrompt)', 'Waiters can set their traceable staff ID'],
+  ['async function getWaiterStaffCode(forcePrompt)', 'Waiters choose a name with a stable internal ID'],
   ['function releaseAbandonedTableVisit()', 'Waiters can release a table after guests leave'],
+  ['id="waiter-identity-choice"', 'Waiters select a name instead of typing an ID'],
+  ['function refreshOwnerWaiterDirectory()', 'Owner manages a central named waiter roster'],
+  ['function downloadOwnerBackup()', 'Owner can download a restaurant data backup'],
+  ['Backups are due every 10 days.', 'Owner backup reminder has a 10-day cadence'],
+  ['function confirmOwnerResetWithoutBackup()', 'Reset asks for a backup or explicit no-backup confirmation'],
+  ['RESET MIRCH MASAALA', 'Reset requires a typed confirmation'],
+  ['supabase/owner-operations-toolkit.sql', 'UI explains the one-time owner toolkit SQL setup'],
   ['Guest left · free table', 'Waiter sees an explicit abandoned-table action'],
   ['Customers scan the table QR; orders go straight to the kitchen while this visit is open.', 'Waiter sees direct QR-to-kitchen visit instructions'],
   ['This phone is not linked to the current table visit', 'Customer payment verification requires a verified visit'],
@@ -234,6 +242,20 @@ checkSqlDollarQuotes(paymentConfirmationMigration, 'Customer payment verificatio
 checkSqlDollarQuotes(cashCounterMigration, 'Customer cash-at-counter migration');
 checkSqlDollarQuotes(visitServiceControlsMigration, 'Waiter assignment and secure ordering migration');
 checkSqlDollarQuotes(menuOptionsMigration, 'Per-dish options and seating capacity migration');
+checkSqlDollarQuotes(ownerToolkitMigration, 'Owner waiter directory and backup/reset migration');
+requireText(live, 'window.MM_LIST_WAITERS = listWaiters', 'Waiter name roster RPC is connected');
+requireText(live, 'window.MM_ADMIN_EXPORT_BACKUP = exportOwnerBackup', 'Owner data backup export RPC is connected');
+requireText(live, 'window.MM_ADMIN_RESET_APP = resetOwnerBusinessData', 'Owner reset RPC is connected');
+requireText(ownerToolkitMigration, 'CREATE TABLE IF NOT EXISTS public.mm_waiter_directory', 'Waiter directory is shared across devices');
+requireText(ownerToolkitMigration, "SELECT 'W' || lpad(g.n::text, 2, '0')", 'Waiter IDs are generated from the shared directory');
+requireText(ownerToolkitMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_export_backup()', 'Owner JSON backup export RPC exists');
+requireText(ownerToolkitMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_reset_business_data(', 'Owner reset RPC exists');
+requireText(ownerToolkitMigration, "p_confirmation IS DISTINCT FROM 'RESET MIRCH MASAALA'", 'Database reset has a second typed confirmation gate');
+if (html.includes('window.loadRemoteData') || html.includes('id="set-url"') || html.includes('mm_remote_menu')) {
+  fail('Legacy remote JSON menu override should be removed to keep one source of truth');
+} else {
+  console.log('✓ Legacy remote menu override removed');
+}
 checkSqlDollarQuotes(fs.readFileSync('scripts/check-cash-counter-release.sql', 'utf8'), 'Cash counter checkout QA script');
 requireText(paymentConfirmationMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_request_payment_check', 'Customer payment verification RPC exists');
 requireText(cashCounterMigration, 'CREATE OR REPLACE FUNCTION public.mm_guest_cash_counter_release', 'Cash checkout is authorized and committed server-side');
