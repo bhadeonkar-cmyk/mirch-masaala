@@ -4394,7 +4394,19 @@ function reviewCustomerOrderFromAdmin(ticketId, decision) {
 function openOrderApprovalFromAlert() {
   var ordersTab = document.querySelector('[data-t="orders"]');
   if (ordersTab) tab(ordersTab, 'orders');
-  if (typeof window.MM_REFRESH_STAFF_ORDERS === 'function') window.MM_REFRESH_STAFF_ORDERS();
+  refreshAdminOrderQueue();
+}
+function refreshAdminOrderQueue() {
+  if (typeof window.MM_REFRESH_STAFF_ORDERS !== 'function') {
+    toast('Shared order sync is not connected. Refresh the app and sign in again.');
+    return;
+  }
+  window.MM_REFRESH_STAFF_ORDERS().then(function () {
+    if (typeof drawAdminOrders === 'function') drawAdminOrders();
+  }).catch(function (err) {
+    console.error('[Mirch Masaala owner order refresh]', err);
+    toast(err && err.message ? err.message : 'Could not refresh orders. Check the database connection.');
+  });
 }
 
 function drawAdminOrders() {
@@ -4411,7 +4423,10 @@ function drawAdminOrders() {
   var N = kitchenOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'NEW'; });
   var P = kitchenOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'PREPARING'; });
   var R = kitchenOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'READY'; });
-  var html = '<div class="stats"><div class="stat"><b>' + awaitingApproval.length + '</b>Awaiting approval</div><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + kitchenOrders.filter(function(o){return String(o.status || '').toUpperCase()==='SERVED';}).length + '</b>Served</div></div>';
+  var setupWarning = window.MM_ORDER_APPROVAL_SETUP_ERROR
+    ? '<div class="card" role="alert" style="margin:10px 12px;display:block;border:1px solid var(--bad)"><b style="color:var(--bad)">Owner approval is not connected</b><p class="muted" style="font-size:12px;line-height:1.5;margin:6px 0">' + esc(window.MM_ORDER_APPROVAL_SETUP_ERROR) + '</p><button type="button" class="btn btn-main btn-sm" onclick="refreshAdminOrderQueue()">Check again</button></div>'
+    : '';
+  var html = setupWarning + '<div style="display:flex;justify-content:flex-end;padding:8px 12px 0"><button type="button" class="btn btn-soft btn-sm" onclick="refreshAdminOrderQueue()">↻ Refresh orders</button></div><div class="stats"><div class="stat"><b>' + awaitingApproval.length + '</b>Awaiting approval</div><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + kitchenOrders.filter(function(o){return String(o.status || '').toUpperCase()==='SERVED';}).length + '</b>Served</div></div>';
   function sec(title, list) {
     if (!list.length) return '';
     return '<h3 class="gold" style="font-size:12px;padding:8px 12px">' + title + '</h3>' + list.map(function(o) {
