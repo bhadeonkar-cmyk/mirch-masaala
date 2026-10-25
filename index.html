@@ -4579,7 +4579,13 @@ function drawAdminOrders() {
   var N = kitchenOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'NEW'; });
   var P = kitchenOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'PREPARING'; });
   var R = kitchenOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'READY'; });
-  var html = '<p class="muted" style="padding:8px 12px 0">Orders go straight to the kitchen. Use this screen to monitor tickets and verify order details.</p><div style="display:flex;justify-content:flex-end;padding:8px 12px 0"><button type="button" class="btn btn-soft btn-sm" onclick="refreshAdminOrderQueue()">↻ Refresh orders</button></div><div class="stats"><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + kitchenOrders.filter(function(o){return String(o.status || '').toUpperCase()==='SERVED';}).length + '</b>Served</div></div>';
+  var qrGuide = '';
+  try {
+    if (localStorage.getItem('mm_qr_guide_hidden') !== 'true') {
+      qrGuide = '<section class="owner-qr-quickstart"><div class="owner-qr-quickstart-copy"><span class="owner-qr-eyebrow">CORE WORKFLOW</span><h3>Table QR → customer order → kitchen</h3><p>Print the table labels once. During service, the waiter opens a visit and the guest scans that table’s QR to order.</p></div><button type="button" class="btn btn-main btn-sm" onclick="openOwnerQRSetup()">Set up Table QR</button><button type="button" class="owner-qr-quickstart-dismiss" aria-label="Hide setup guide" title="Hide setup guide" onclick="dismissOwnerQRGuide()">×</button></section>';
+    }
+  } catch (e) {}
+  var html = qrGuide + '<p class="muted" style="padding:8px 12px 0">Orders go straight to the kitchen. Use this screen to monitor tickets and verify order details.</p><div style="display:flex;justify-content:flex-end;padding:8px 12px 0"><button type="button" class="btn btn-soft btn-sm" onclick="refreshAdminOrderQueue()">↻ Refresh orders</button></div><div class="stats"><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + kitchenOrders.filter(function(o){return String(o.status || '').toUpperCase()==='SERVED';}).length + '</b>Served</div></div>';
   function sec(title, list) {
     if (!list.length) return '';
     return '<h3 class="gold" style="font-size:12px;padding:8px 12px">' + title + '</h3>' + list.map(function(o) {
@@ -4596,6 +4602,14 @@ function drawAdminOrders() {
     '<button type="button" class="btn btn-main" onclick="lookupAdminTicket()" ' + (adminTicketLookupBusy ? 'disabled' : '') + '>Find</button></div><div id="admin-ticket-lookup-result" aria-live="polite"></div></div>';
   document.getElementById('a-orders').innerHTML = html;
   renderAdminTicketLookupResult();
+}
+function openOwnerQRSetup() {
+  var button = document.querySelector('.tabs button[data-t="qr"]');
+  tab(button, "qr");
+}
+function dismissOwnerQRGuide() {
+  try { localStorage.setItem("mm_qr_guide_hidden", "true"); } catch (e) {}
+  drawAdminOrders();
 }
 function enableRoleNotifications() {
   if (typeof window.MM_ENABLE_BROWSER_NOTIFICATIONS === 'function') {
@@ -4745,16 +4759,23 @@ function doneNotif(id) {
   if (n) { n.done = true; save('mm_n', notifs); drawAlerts(); }
 }
 function drawQR() {
-  document.getElementById('a-qr').innerHTML = '<p class="muted" style="margin-bottom:10px">Each QR opens the exact table menu directly. Print all table stickers or download an individual QR.</p>' +
-    '<div class="seating-capacity-settings"><b>Table seating capacity</b><p class="muted" style="font-size:11px;margin-top:3px">Default is 4 seats until you set each table’s actual capacity. Set 1–30 seats.</p><div class="seating-capacity-controls">' +
-    '<select id="capacity-table-select" aria-label="Choose table for seating capacity" onchange="loadSelectedTableCapacity()">' + MENU.tables.map(function(t){return '<option value="' + t.number + '">Table ' + t.number + '</option>';}).join('') + '</select>' +
-    '<input id="capacity-seats-input" type="number" min="1" max="30" step="1" value="4" inputmode="numeric" aria-label="Number of seats at table"><button type="button" class="btn btn-main" id="capacity-save-button" onclick="saveTableCapacity()">Save capacity</button></div><p class="muted" id="capacity-save-status" style="font-size:11px;margin-top:7px" aria-live="polite"></p></div>' +
-    '<div class="qr-actions"><button type="button" class="btn btn-main" onclick="downloadAllQRCodes()">🖨️ Open / print QR sheet</button></div><div class="table-grid">' +
+  document.getElementById('a-qr').innerHTML =
+    '<section class="qr-setup-hero"><span class="qr-setup-eyebrow">START HERE · TABLE QR ORDERING</span><h2>Prepare your table QR codes</h2><p>One QR belongs to one table. Print the sheet, place each label on its matching table, then let your waiter start the visit before guests order.</p>' +
+      '<div class="qr-setup-steps">' +
+        '<div class="qr-setup-step"><span>1</span><div><b>Generate &amp; print</b><small>Open the QR sheet and print or save it as PDF.</small></div></div>' +
+        '<div class="qr-setup-step"><span>2</span><div><b>Place &amp; test</b><small>Put each label on the matching table and test one scan.</small></div></div>' +
+        '<div class="qr-setup-step"><span>3</span><div><b>Start service</b><small>Waiter starts the visit. Guests scan and orders go straight to the kitchen.</small></div></div>' +
+      '</div>' +
+      '<button type="button" class="btn btn-main" onclick="downloadAllQRCodes()">🖨️ Generate &amp; print all table QRs</button>' +
+      '<p class="qr-setup-note">Check the table number before sticking each label. If the camera scanner is unavailable, the phone camera can open the printed link.</p></section>' +
+    '<section class="qr-table-picker"><h3>Replace or share a single table QR</h3><p>Choose one table to preview its code, copy the table link, or share it with the waiter.</p><div class="qr-table-grid">' +
     MENU.tables.map(function(t) {
-      return '<button type="button" class="tbtn" style="font-size:12px;flex-direction:column" onclick="showQR(\'' + t.number + '\')">' + t.number + '<br>QR</button>';
-    }).join('') + '</div>';
+      return '<button type="button" class="qr-table-card" onclick="showQR(\'' + t.number + '\')"><b>' + esc(t.number) + '</b><small>View / share QR</small></button>';
+    }).join('') + '</div></section>' +
+    '<details class="qr-advanced"><summary>Advanced · table seating capacity</summary><div class="seating-capacity-settings"><b>Seats per table</b><p class="muted" style="font-size:11px;margin-top:3px">Set 1–30 seats if your tables have different capacities.</p><div class="seating-capacity-controls">' +
+    '<select id="capacity-table-select" aria-label="Choose table for seating capacity" onchange="loadSelectedTableCapacity()">' + MENU.tables.map(function(t){return '<option value="' + t.number + '">Table ' + t.number + '</option>';}).join('') + '</select>' +
+    '<input id="capacity-seats-input" type="number" min="1" max="30" step="1" value="4" inputmode="numeric" aria-label="Number of seats at table"><button type="button" class="btn btn-main" id="capacity-save-button" onclick="saveTableCapacity()">Save capacity</button></div><p class="muted" id="capacity-save-status" style="font-size:11px;margin-top:7px" aria-live="polite"></p></div></details>';
 }
-
 function loadSelectedTableCapacity() {
  var selector=document.getElementById('capacity-table-select'),input=document.getElementById('capacity-seats-input');if(selector&&input)input.value=String(tableCapacityFor(selector.value));
 }
