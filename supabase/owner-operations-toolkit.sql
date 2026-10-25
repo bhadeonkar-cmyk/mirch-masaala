@@ -141,14 +141,14 @@ DECLARE
   v_row public.mm_waiter_directory%ROWTYPE;
 BEGIN
   IF v_role IS DISTINCT FROM 'admin' THEN RAISE EXCEPTION 'Only the Owner/Admin can manage waiter names'; END IF;
-  IF to_regclass('public.restaurant_table_visits') IS NOT NULL
-     AND EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.restaurant_table_visits'::regclass
-       AND attname='assigned_waiter_code' AND NOT attisdropped)
-     AND NOT coalesce(p_active,false) THEN
-    EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.restaurant_table_visits WHERE restaurant_id=$1 AND status=''OPEN'' AND upper(assigned_waiter_code)=$2)'
-      INTO v_has_open_visit
-      USING 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid, v_code;
-    IF v_has_open_visit THEN RAISE EXCEPTION 'This waiter has an open table visit. Finish those visits before deactivating this name.'; END IF;
+  IF NOT coalesce(p_active,false) AND to_regclass('public.restaurant_table_visits') IS NOT NULL THEN
+    IF EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass('public.restaurant_table_visits')
+       AND attname='assigned_waiter_code' AND NOT attisdropped) THEN
+      EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.restaurant_table_visits WHERE restaurant_id=$1 AND status=''OPEN'' AND upper(assigned_waiter_code)=$2)'
+        INTO v_has_open_visit
+        USING 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid, v_code;
+      IF v_has_open_visit THEN RAISE EXCEPTION 'This waiter has an open table visit. Finish those visits before deactivating this name.'; END IF;
+    END IF;
   END IF;
   UPDATE public.mm_waiter_directory
   SET active = coalesce(p_active,false), updated_at = now()
