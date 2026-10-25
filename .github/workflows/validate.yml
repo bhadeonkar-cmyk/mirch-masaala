@@ -126,6 +126,23 @@ jobs:
                RAISE EXCEPTION 'QA failed: backfilled pending guest order still alerts the kitchen';
              END IF;
            END \$qa\$;"
+      - name: Switch to direct QR-to-kitchen ordering
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/direct-kitchen-qr-orders.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/check-direct-kitchen-orders.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/direct-kitchen-qr-orders.sql
+          psql -v ON_ERROR_STOP=1 -c "DO \$qa\$ BEGIN
+            IF (SELECT count(*) FROM public.mm_restaurant_notifications
+                WHERE ticket_id='MM-QRO-DIRECT-001' AND target_role='kitchen'
+                  AND notification_type='NEW_ORDER' AND resolved_at IS NULL) <> 1 THEN
+              RAISE EXCEPTION 'QA failed: rerunning direct-kitchen migration duplicated or lost kitchen alert';
+            END IF;
+            IF EXISTS (SELECT 1 FROM public.orders
+                       WHERE restaurant_id='a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+                         AND approval_status='PENDING') THEN
+              RAISE EXCEPTION 'QA failed: rerunning migration left pending tickets';
+            END IF;
+          END \$qa\$;"
       - name: Verify accounting migration is safe to re-run
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/order-management-accounting.sql

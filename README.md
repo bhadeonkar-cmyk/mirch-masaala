@@ -4,8 +4,8 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 
 ## Customer and staff experience
 
-- Customers can scan a printed table QR with the in-app camera scanner or their phone camera. If not scanning, swipe horizontally through animated table cards, tap one to center/highlight it, and confirm the selected table.
-- The scanner no longer offers manual table-number typing. If the scanner library does not load, the UI explains how to use the phone's camera app or select a table card.
+- Customers scan the printed table QR with their phone camera; the QR opens that exact table automatically. Customers cannot manually select a table or enter a table code.
+- Customer ordering is QR-only. If the QR sticker is missing or damaged, ask a waiter; staff can still select tables in the Waiter Pad.
 - QR stickers encode a table-specific link such as `?table=01`; scanning with the phone's camera should open the menu for that table.
 - Admin → QR creates individual codes and a printable sheet for Tables 01–20 from the bundled `qr-matrices.js` asset, so those standard table QR images do not depend on a third-party QR service. These codes encode the current GitHub Pages URL; regenerate them if the public site URL changes. Tables beyond 20 use the online fallback.
 - Customer and waiter menus have **All foods**, **Veg only**, and **Non-veg only** filters.
@@ -19,9 +19,9 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 
 ## Simplified role workflows
 
-- **Customer:** scan the table QR with the phone camera, add dishes, use the cart to submit one ticket, and use the single **Help & orders** menu for calling a waiter, billing, tracking, or instructions.
+- **Customer:** scan the table QR with the phone camera, add dishes and submit a ticket. The active visit routes the order straight to the kitchen; use **Help & orders** for a waiter call, bill, tracking, or instructions.
 - **Groups at one table:** the QR is a table identifier, not a lock or customer identity. Each submission gets its own ticket. Supabase shares the live tickets with staff screens, while each customer device tracks the tickets created on that device.
-- **Waiter:** select a table, add items, and send a ticket. The table selection is visibly highlighted and the confirmation shows the ticket number.
+- **Waiter:** select the table and start a visit when guests are seated. Customers scan that table's QR and submit orders directly to the kitchen without sharing a code. Staff-entered tickets still use the waiter's table selection.
 - **Kitchen:** each ticket is shown with its table number and ticket reference. On mobile, New / Cooking / Ready lanes stack vertically for easier reading.
 - **Owner/Admin:** everyday tools are Orders, Alerts, Menu, QR, and Settings. Reports, party bookings, reviews, and payment log are in **More tools**.
 - **Party bookings:** the animated **Party booking** circle opens a separate request form; no dine-in table is required. Name, Indian mobile number, occasion, date, time, and guest count are required. Successful requests are saved in the shared database with a reference such as `PARTY-00001`, and create an owner alert. The owner can mark requests Contacted, Confirmed, or Unavailable and open a prefilled WhatsApp message to the customer with the full booking details.
@@ -34,7 +34,8 @@ The existing single-file Mirch Masaala interface is preserved in `index.html`. I
 3. Apply `supabase/table-visits.sql` after the live setup/accounting and role-notification migrations, then apply `supabase/visit-billing-upgrade.sql`. These preserve ticket history and link each ticket to a specific table visit and customer browser session.
 4. Apply `supabase/customer-cash-counter.sql` after those migrations. It adds visit-specific bills, cash-at-counter release, and exact-visit payment collection.
 5. For lock-screen/background push alerts, apply `supabase/staff-push-notifications.sql`, configure push secrets, and deploy `supabase/functions/send-staff-push/index.ts`. Staff will enable alerts on their devices after setting their waiter ID. This step is optional; in-app alerts still appear on the staff screens while connected.
-6. **Apply `supabase/visit-service-controls.sql) after the above migrations.** This prevents opening Home or selecting a table from making it busy. A waiter must start a visit after guests are seated, use a staff ID such as `W01`, and share the six-digit order code shown for that visit. Customers can browse without a code, but an order cannot be submitted without the active visit’s code. Because waiters currently share one account, the ID is an operational label stored on each device—not separate authentication. For stronger accountability, give each waiter their own login later.
+6. **Apply `supabase/visit-service-controls.sql` after the above migrations.** A waiter must start the visit after guests are seated; opening Home never makes a table busy. Use a staff ID such as `W01`. Because waiters currently share one account, this ID is an operational label on each device, not separate authentication. For stronger accountability, give each waiter their own login later.
+7. **Apply `supabase/direct-kitchen-qr-orders.sql` after `visit-service-controls.sql`.** Customers order from the table QR without a six-digit code. New tickets are approved automatically and go directly to the kitchen. The kitchen gets the order alert; the owner monitors Orders without an order-approval alert. Existing order and payment history is retained; old approval alerts are resolved, not deleted.
 
 After setup, the workflow is simple:
 - **Cash at counter:** the customer sees “Please confirm at the counter,” taps **I’ll pay cash at the counter & leave the table**, and returns Home. The backend releases the table and alerts the owner/counter plus the assigned waiter ID. The waiter directs the guest to the counter and acknowledges their own alert; only the Owner/Counter using the Admin login can record the received cash. The admin/counter alert remains open until settlement.
@@ -56,7 +57,7 @@ After setup, the workflow is simple:
 - The live app uses Supabase for the shared menu, orders/status, customer cancellation, staff roles, notifications, and—after applying the migrations—payment, accounting and persistent table-visit status. Customer order access tokens remain on the browser that created each ticket; a generated device ID alone would not identify the same person.
 - Staff access uses Supabase Auth and database roles. Keep the Supabase publishable key in the browser only; never expose a service-role/secret key. Keep staff credentials private and review database permissions before production use.
 - Apply `supabase/order-management-accounting.sql` once in Supabase SQL Editor to enable owner table cleanup, complimentary/free meal tracking, the shared payment ledger, database-wide stats, cancellation audit records, and role-checked order status transitions. Cleanup preserves records rather than deleting history.
-- Apply `supabase/table-visits.sql`, `supabase/visit-billing-upgrade.sql`, `supabase/customer-cash-counter.sql`, and finally `supabase/visit-service-controls.sql` in that order. The final migration requires a staff-opened visit plus a six-digit guest code before a customer order can reach the kitchen. App browsing, Home navigation, and table selection alone do not create a busy visit.
+- Apply `supabase/table-visits.sql`, `supabase/visit-billing-upgrade.sql`, `supabase/customer-cash-counter.sql`, and finally `supabase/visit-service-controls.sql` in that order. The direct-kitchen workflow requires a waiter-opened visit. A customer who scans that table's QR can order while the visit is open; no customer code is needed. Orders route directly to the kitchen, and owner order notifications are disabled. App browsing and Home navigation alone never make a table busy.
 - A waiter ID such as `W01` is assigned on the waiter device and attached to the table visit. With the current shared waiter login, staff must enter the correct ID on each device; the ID is a label, not authentication proof.
 - Cash-at-counter and UPI-verification alerts are attached to the exact visit. If a customer or waiter releases a table with an unpaid balance, the physical table can be reused but the old balance remains due and alerts the owner and assigned waiter. Collect payment from that visit alert, never from the new party’s table total. Food tickets marked NEW/PREPARING/READY block table release so an active kitchen order cannot be orphaned.
 - Owner price and availability edits are saved to Supabase and sync across devices. Other preferences and drafts may remain device-local.
@@ -71,7 +72,7 @@ After setup, the workflow is simple:
 - `supabase/table-visits.sql` — guarded table visit lifecycle migration.
 - `supabase/visit-billing-upgrade.sql` — order-to-visit and customer-session linkage.
 - `supabase/customer-cash-counter.sql` — visit-specific cash-at-counter and payment ledger actions.
-- `supabase/visit-service-controls.sql` — waiter assignment, six-digit guest ordering codes, and safe table release.
+- `supabase/visit-service-controls.sql` — waiter assignment and safe table release. `supabase/direct-kitchen-qr-orders.sql` removes the guest PIN and owner order-approval alerts, and routes QR orders directly to the kitchen.
 - `manifest.webmanifest` — install metadata for supported browsers.
 - `icon.svg` — app icon.
 
@@ -88,6 +89,10 @@ Record received cash/card/UPI in **Owner → Payment log** by table. Opening a U
 ## Final menu options and seating capacity
 After `setup-live.sql`, `order-management-accounting.sql`, `table-visits.sql`, `visit-billing-upgrade.sql`, `customer-cash-counter.sql`, and `visit-service-controls.sql` are installed, run `supabase/menu-item-options-and-table-capacity.sql` once in Supabase SQL Editor. It stores a spice level for each dish line, returns those details to customer and owner ticket lookup, and adds owner-managed seating capacity (1–30). Existing orders, cancellations, payments, and audit history are preserved.
 
-At checkout, the customer enters the six-digit code shared by the waiter after starting the table visit. The app no longer depends on a browser prompt that mobile browsers may suppress; if a request fails, the dishes remain in the cart. The Mutton Biryani fallback photo is credited to Jayanthkumar101 on Wikimedia Commons under CC BY-SA 4.0; other menu items use their HTTPS `image_url` when the owner has added one.
+At checkout, the customer only needs to scan the table QR after the waiter has started the visit. No guest PIN is required; if a request fails, the dishes remain in the cart. The Mutton Biryani fallback photo is credited to Jayanthkumar101 on Wikimedia Commons under CC BY-SA 4.0; other menu items use their HTTPS `image_url` when the owner has added one.
 
 For test-heavy tables, use Owner/Admin → Accounts → Table cleanup, preview the affected tickets, then confirm. Test tickets are archived and remaining active test tickets cancelled, never deleted, so they can be audited but do not count as live sales. Use Complimentary only for genuinely free meals and record a reason so they do not inflate paid revenue. Customers can return Home → Recheck order / Track items & status on the same phone to verify each saved ticket and its ordered dish choices.
+
+
+## Built for restaurants, by Onkar FX
+The customer-facing home screen includes a small footer link to [Onkar FX](https://www.onkarfx.in) for businesses interested in similar digital ordering and workflow automation. Mirch Masaala remains the main brand of the restaurant app.

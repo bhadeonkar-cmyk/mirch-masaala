@@ -12,6 +12,7 @@ const partyBookingsMigration = fs.readFileSync('supabase/party-bookings.sql', 'u
 const paymentConfirmationMigration = fs.readFileSync('supabase/customer-payment-confirmation.sql', 'utf8');
 const cashCounterMigration = fs.readFileSync('supabase/customer-cash-counter.sql', 'utf8');
 const visitServiceControlsMigration = fs.readFileSync('supabase/visit-service-controls.sql', 'utf8');
+const directKitchenMigration = fs.readFileSync('supabase/direct-kitchen-qr-orders.sql', 'utf8');
 const menuOptionsMigration = fs.readFileSync('supabase/menu-item-options-and-table-capacity.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
 const staffPushEdge = fs.readFileSync('supabase/functions/send-staff-push/index.ts', 'utf8');
@@ -66,7 +67,7 @@ try {
   ['MM_RECORD_VISIT_PAYMENT', 'Counter payments are allocated to one table visit'],
   ['MM_REQUEST_VISIT_PAYMENT_VERIFICATION', 'UPI verification requests are scoped to the active visit'],
   ['MM_RELEASE_ABANDONED_VISIT', 'Staff can release an abandoned table visit without mixing balances'],
-  ['p_guest_order_code: guestOrderCode', 'Customer ordering requires the active visit PIN'],
+  ['p_guest_order_code: null', 'QR customer ordering does not require a guest PIN'],
   ["p_staff_code: String(window.role) === 'waiter' ? staffCode : null", "Staff alerts are filtered by the assigned waiter ID"],
   ['for (var i = 0; i < tokens.length; i++)', 'Every retained customer ticket gets status refresh'],
   [".select('ticket_id,status').maybeSingle()", 'Staff status change confirms a database row was updated'],
@@ -75,6 +76,9 @@ try {
 ].forEach(([needle, label]) => requireText(live, needle, label));
 
 [
+  ['#home-choose-table, #table-swipe-guide, #tables, #table-continue, #scan-table-btn', 'Customer table selection is QR-only'],
+  ['Scan the QR sticker on your table to order. No table selection or code needed. If the QR is missing, ask your waiter.', 'Customer instructions require QR-only ordering'],
+  ['Digital ordering &amp; business automation by', 'Subtle Onkar FX business enquiry credit is present'],
   ['function cancelOrder(id)', 'Customer cancellation UI exists'],
   ['class="customer-explore-shortcut"', 'Customer has a Places to Visit shortcut on the ordering screen'],
   ['function openExploreFromCustomer()', 'Customer explore shortcut preserves the selected table context'],
@@ -89,7 +93,7 @@ try {
   ['function getWaiterStaffCode(forcePrompt)', 'Waiters can set their traceable staff ID'],
   ['function releaseAbandonedTableVisit()', 'Waiters can release a table after guests leave'],
   ['Guest left · free table', 'Waiter sees an explicit abandoned-table action'],
-  ['guestCode', 'Waiter can show a six-digit guest ordering code'],
+  ['Customers scan the table QR; orders go straight to the kitchen while this visit is open.', 'Waiter sees direct QR-to-kitchen visit instructions'],
   ['This phone is not linked to the current table visit', 'Customer payment verification requires a verified visit'],
   ['function customerVisitContextForTable(tableNumber)', 'Customer checkout retains a verified visit/session pair'],
   ['function openCashCounterCollection(visitId, tableNumber, notificationId, method)', 'Staff cash alert opens the correct visit balance'],
@@ -109,6 +113,17 @@ try {
   ['/^[0-9]{1,2}$/.test(tableNumber)', 'Payment form validates table number']
 ].forEach(([needle, label]) => requireText(html, needle, label));
 
+[
+  ['CREATE OR REPLACE FUNCTION public.mm_place_order', 'Direct-kitchen migration replaces the order RPC'],
+  ['DROP TRIGGER IF EXISTS mm_notify_owner_pending_order_trigger', 'Owner approval trigger is removed'],
+  ["'New customer order received'", 'Legacy orders are surfaced to kitchen'],
+  ['Customer session is missing', 'Customer session validation remains active'],
+].forEach(([needle, label]) => requireText(directKitchenMigration, needle, label));
+if (live.includes('if (!actorRole) dispatchStaffPushForGuestRequest(created);')) {
+  fail('Guest orders must not dispatch owner order push notifications');
+} else {
+  console.log('✓ Guest orders do not dispatch owner order push notifications');
+}
 [
   ['CREATE OR REPLACE FUNCTION public.mm_cancel_public_order', 'Token-verified customer cancellation RPC exists'],
   ['CREATE OR REPLACE FUNCTION public.mm_admin_preview_table_cleanup', 'Owner preview function exists'],

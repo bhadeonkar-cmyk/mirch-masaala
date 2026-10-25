@@ -409,11 +409,11 @@
     var title = '';
     var message = '';
     if (approvalChanged && approval === 'APPROVED') {
-      title = 'Your order was accepted';
-      message = 'The owner accepted your order. The kitchen can start preparing it now.';
+      title = 'Order sent to kitchen';
+      message = 'Your order is now in the kitchen queue.';
     } else if (approvalChanged && approval === 'REJECTED') {
-      title = 'Your order was not accepted';
-      message = 'The owner could not accept this order. Please ask your waiter for help.';
+      title = 'Order cancelled';
+      message = 'This order was cancelled. Please ask your waiter for help.';
     } else if (status === 'READY') {
       title = 'Your order is ready';
       message = 'Your food is ready. Please check with the restaurant team.';
@@ -705,7 +705,7 @@
       var errText = String(e && e.message || e || 'Order sync failed.');
       if (errText.indexOf('OWNER_APPROVAL_SETUP_REQUIRED') >= 0 || /approval_status/i.test(errText)) {
         window.MM_ORDER_APPROVAL_SCHEMA_READY = false;
-        window.MM_ORDER_APPROVAL_SETUP_ERROR = 'Owner approval setup is not active in the database. Run the latest supabase/visit-service-controls.sql in Supabase SQL Editor, then refresh.';
+        window.MM_ORDER_APPROVAL_SETUP_ERROR = 'Order database setup is incomplete. Apply the required visit migrations and supabase/direct-kitchen-qr-orders.sql as documented in README.md, then refresh.';
         if (!window.MM_ORDER_APPROVAL_SETUP_NOTIFIED) {
           window.MM_ORDER_APPROVAL_SETUP_NOTIFIED = true;
           notifyError(window.MM_ORDER_APPROVAL_SETUP_ERROR);
@@ -1104,24 +1104,6 @@
     }
     // Each guest phone has a separate session ID tied to the current visit.
     var customerSessionId = !actorRole ? customerSessionIdForVisit(visit.visit_id) : null;
-    var guestOrderCode = null;
-    var guestOrderCodeKey = 'mm_customer_order_code_' + String(visit.visit_id);
-    if (!actorRole) {
-      var codeField = document.getElementById('customer-order-code');
-      try { guestOrderCode = String(codeField && codeField.value || '').trim(); } catch (e) {}
-      if (!/^[0-9]{6}$/.test(guestOrderCode)) {
-        try { guestOrderCode = String(localStorage.getItem(guestOrderCodeKey) || '').trim(); } catch (e) {}
-      }
-      if (!/^[0-9]{6}$/.test(guestOrderCode)) {
-        throw new Error(window.mmI18n
-          ? window.mmI18n(
-              'Enter the 6-digit table code given by your waiter. Your dishes are still in the cart.',
-              'वेटरने दिलेला ६ अंकी टेबल कोड भरा. तुमचे पदार्थ अजूनही कार्टमध्ये सुरक्षित आहेत.'
-            )
-          : 'Enter the 6-digit table code given by your waiter. Your dishes are still in the cart.');
-      }
-      if (codeField) codeField.value = guestOrderCode;
-    }
 
     var ticket = window.makeTicketId(tableNumber, new Date());
     var payload = buildOrderItems(cartItems);
@@ -1133,17 +1115,12 @@
       p_items: payload,
       p_table_visit_id: visit.visit_id,
       p_customer_session_id: customerSessionId,
-      p_guest_order_code: guestOrderCode
+      p_guest_order_code: null
     };
     var result = await client.rpc('mm_place_order', orderArgs);
     if (result.error) {
       var placeError = result.error;
       var placeMessage = String(placeError.message || '');
-      if (!actorRole && /6-digit table order code is incorrect/i.test(placeMessage)) {
-        try { localStorage.removeItem(guestOrderCodeKey); } catch (e) {}
-        var wrongCodeField = document.getElementById('customer-order-code');
-        if (wrongCodeField) wrongCodeField.value = '';
-      }
       if (!actorRole && /p_guest_order_code|mm_place_order/i.test(placeMessage) &&
           (placeError.code === 'PGRST202' || placeError.code === '42883')) {
         throw new Error('Secure table ordering is not activated yet. Please ask the owner to finish the table setup.');
@@ -1154,10 +1131,9 @@
     if (!created || !created.id || !created.publicToken || !created.visitId) {
       throw new Error('Supabase did not confirm the new order and table visit. Please refresh and check My Orders before trying again.');
     }
-    if (!actorRole) dispatchStaffPushForGuestRequest(created);
+    /* Kitchen receives an in-app NEW_ORDER alert from the database insert trigger. No owner order push is dispatched. */
     if (!actorRole) {
       try {
-        localStorage.setItem(guestOrderCodeKey, guestOrderCode);
         localStorage.setItem('mm_customer_active_visit_id', String(created.visitId));
         localStorage.setItem('mm_customer_active_session_id', String(customerSessionId));
         localStorage.setItem('mm_customer_active_table', String(created.table || tableNumber).padStart(2, '0'));
@@ -1217,13 +1193,12 @@
       if (stbl) stbl.textContent = order.table;
       if (typeof window.updCart === 'function') window.updCart();
       window.lastPlacedOrderId = order.id;
-      var isPendingApproval = String(order.approvalStatus || 'APPROVED').toUpperCase() === 'PENDING';
       window.go('success');
       var host = document.getElementById('success-progress-host');
-      if (host) host.innerHTML = window.progressMarkup(order) + '<p class="waiting-joke" id="waiting-joke">' + (isPendingApproval ? 'Your order is with the owner for approval. 🕒' : 'Chef has received your mission. 🍳') + '</p>';
+      if (host) host.innerHTML = window.progressMarkup(order) + '<p class="waiting-joke" id="waiting-joke">Your order has been sent directly to the kitchen. 🍳</p>';
       if (typeof window.startWaitFun === 'function') window.startWaitFun(order.id);
       if (typeof window.confetti === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) window.confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
-      notifySuccess(isPendingApproval ? 'Order sent to owner for approval.' : 'Order sent to kitchen!');
+      notifySuccess('Order sent directly to kitchen!');
       refreshCustomerOrders();
     } catch (e) {
       notifyError(e && e.message ? e.message : 'Could not send the order. Please ask your waiter.');

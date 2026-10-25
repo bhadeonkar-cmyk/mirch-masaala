@@ -1207,6 +1207,11 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   .customer-bottom .customer-help-btn { padding: 11px 7px; font-size: 11px; }
 }
 .dish-photo{display:block;width:100%;height:100%;min-height:0;object-fit:cover;border-radius:10px;background:#2a201b}.dish-photo-menu{aspect-ratio:1/1}.dish-photo-special{max-width:72px;max-height:58px;aspect-ratio:1/1;object-fit:cover;border-radius:12px;margin:auto}.dish-photo-modal{width:88px;height:70px;object-fit:cover;border-radius:14px;margin:auto}.pic{overflow:hidden;align-items:stretch;justify-content:stretch}.dish-photo-fallback{display:flex;width:100%;height:100%;min-height:48px;align-items:center;justify-content:center;font-size:25px;border-radius:10px;background:linear-gradient(135deg,#33231a,#1d1713);color:#d9b65d}.dish-name-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.dish-title-text{min-width:0}.dish-spice-button{flex:0 0 auto;border:1px solid rgba(212,168,75,.35);border-radius:8px;background:rgba(212,168,75,.08);color:var(--gold2);font-size:10px;font-weight:750;line-height:1.2;padding:4px 6px;cursor:pointer}.dish-line-preference{display:block;font-size:10px;color:var(--gold2);margin-top:2px}.dish-photo-credit{display:inline-block;color:#b8aa92;font-size:9px;line-height:1.2;margin-top:3px;text-decoration:underline;text-underline-offset:2px}.checkout-code-field{text-align:left;border:1px solid var(--line);border-radius:12px;padding:10px;margin:0 0 10px;background:rgba(212,168,75,.045)}.checkout-code-field label{display:block;margin-bottom:5px}.checkout-code-field input{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#140f0d;color:var(--text);font-size:16px;letter-spacing:3px;font-weight:800}.checkout-code-field input::placeholder{font-size:12px;letter-spacing:0;font-weight:400;color:var(--muted)}.seating-capacity-settings{border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0;background:rgba(212,168,75,.045)}.seating-capacity-controls{display:grid;grid-template-columns:minmax(110px,1fr) 80px;gap:8px;margin-top:8px}.seating-capacity-controls select,.seating-capacity-controls input{width:100%;min-width:0;padding:10px;border-radius:9px;background:#140f0d;color:var(--text);border:1px solid var(--line)}.seating-capacity-controls .btn{grid-column:1/-1;margin-top:0}.table-seat-capacity,.home-locked-caption{display:block;font-size:9px;color:var(--muted);font-weight:700;margin-top:2px}.home-locked-caption{white-space:normal}@media(max-width:360px){.dish-spice-button{font-size:9px;padding:4px}.checkout-code-field{padding:8px}}
+
+/* Customer table selection is QR-only. Staff table selectors are separate and remain available. */
+#home-choose-table, #table-swipe-guide, #tables, #table-continue, #scan-table-btn { display: none !important; }
+.onkarfx-credit { margin:18px 12px 8px; padding-top:12px; border-top:1px solid var(--line); text-align:center; font-size:10px; line-height:1.6; color:var(--muted); opacity:.78; }
+.onkarfx-credit a { color:var(--muted); text-decoration:underline; text-underline-offset:3px; }
 </style>
 <script src="./qr-matrices.js"></script>
 <style>
@@ -1305,7 +1310,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <p class="muted" id="home-tagline" style="font-size:13px;margin:6px 0 8px">Good food, easy ordering.</p>
     <div class="tip-banner" id="home-tip">
       <span class="ic">👋</span>
-      <div class="tx"><b id="home-welcome">Welcome!</b> <span id="home-welcome-text">Scan the QR sticker on your table with your phone camera, or swipe below to choose your table.</span></div>
+      <div class="tx"><b id="home-welcome">Welcome!</b> <span id="home-welcome-text">Scan the QR sticker on your table with your phone camera. Your table is selected automatically.</span></div>
       <button type="button" class="x" onclick="this.parentElement.style.display='none'">×</button>
     </div>
     <p class="muted" style="margin-bottom:4px"><b id="home-choose-table" style="color:var(--text)">Choose your table</b></p>
@@ -1313,7 +1318,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
     <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
     <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">📷 <span id="home-scan-label">Scan table QR</span></button>
-    <p class="muted" id="home-no-install" style="margin-top:10px;font-size:12px">Browse freely · To order, use the code from your waiter at an open table</p>
+    <p class="muted" id="home-no-install" style="margin-top:10px;font-size:12px">Scan the QR sticker on your table to order. No table selection or code needed. If the QR is missing, ask your waiter.</p>
     <div class="home-shortcuts" aria-label="Helpful links">
       <div class="home-shortcut">
         <button type="button" class="home-icon-btn" aria-label="How to use this app" title="How to use this app" onclick="openGuide()"><span aria-hidden="true">📖</span></button>
@@ -1359,8 +1364,8 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
         <button type="button" class="btn btn-soft" id="home-hide-staff" style="margin-top:8px" onclick="hideStaffPanel()">Hide</button>
       </div>
     </div>
-
-    
+ 
+    <p class="onkarfx-credit">Digital ordering &amp; business automation by <a href="https://www.onkarfx.in" target="_blank" rel="noopener noreferrer">Onkar FX</a>. Need a similar solution? <a href="https://www.onkarfx.in" target="_blank" rel="noopener noreferrer" aria-label="Business enquiries at Onkar FX">Business enquiries</a>.</p>
   </div>
 </div>
 
@@ -1450,11 +1455,6 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   </div>
   <div class="body" id="cart-list"></div>
   <div class="foot">
-    <div class="checkout-code-field" id="customer-order-code-field">
-      <label for="customer-order-code" class="muted" style="font-size:12px;font-weight:750">6-digit table code from your waiter</label>
-      <input id="customer-order-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" placeholder="Enter table code" aria-describedby="customer-order-code-help" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)">
-      <p class="muted" id="customer-order-code-help" style="font-size:10px;margin-top:4px">Your waiter must start the table visit and share this code. Your cart stays safe if ordering cannot be completed.</p>
-    </div>
     <label class="muted" id="cart-note-label" style="font-size:12px">Special requirements (optional)</label>
     <textarea id="notes" class="search" maxlength="1000" style="margin:6px 0;min-height:66px" placeholder="Less oil, no onion, allergies or other requests…"></textarea>
     <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:800;margin:10px 0">
@@ -2004,17 +2004,7 @@ bindStaffSecrets();
 
 
 function goManualHomeTable() {
-  var input = document.getElementById('home-manual-table');
-  var v = (input && input.value ? input.value : '').trim();
-  var n = parseInt(v.replace(/^0+/, '') || v, 10);
-  var max = 16;
-  try { max = tableCount(); } catch (e) {}
-  if (!n || n < 1 || n > max) {
-    toast('Enter a table number from 1 to ' + max);
-    if (input) input.focus();
-    return;
-  }
-  startTable(n);
+  toast('Please scan the QR sticker on your table with your phone camera.');
 }
 function dismissTip(id) {
   var el = document.getElementById(id);
@@ -2524,14 +2514,10 @@ function dishPhotoCreditMarkup(item) {
  var info=dishPhotoInfo(item);return info.credit?'<a class="dish-photo-credit" href="https://commons.wikimedia.org/wiki/File:Hyderabadi_Mutton_Biryani.jpg" target="_blank" rel="noopener noreferrer">Photo: Jayanthkumar101 · CC BY-SA 4.0</a>':'';
 }
 function updateCheckoutLabels() {
- var codeLabel=document.querySelector('label[for="customer-order-code"]'),codeHelp=document.getElementById('customer-order-code-help'),codeInput=document.getElementById('customer-order-code'),noteLabel=document.getElementById('cart-note-label'),noteInput=document.getElementById('notes');
- if(codeLabel)codeLabel.textContent=window.mmI18n('6-digit table code from your waiter','वेटरकडून मिळालेला ६ अंकी टेबल कोड');
- if(codeHelp)codeHelp.textContent=window.mmI18n('Your waiter must start the table visit and share this code. Your cart stays safe if ordering cannot be completed.','वेटरने टेबल सुरू करून हा कोड द्यावा. ऑर्डर न झाल्यास तुमचे पदार्थ कार्टमध्ये सुरक्षित राहतील.');
- if(codeInput)codeInput.placeholder=window.mmI18n('Enter table code','टेबल कोड भरा');
- if(noteLabel)noteLabel.textContent=window.mmI18n('Special requirements (optional)','विशेष सूचना (ऐच्छिक)');
- if(noteInput)noteInput.placeholder=window.mmI18n('Less oil, no onion, allergies or other requests…','कमी तेल, कांदा नको, अॅलर्जी किंवा इतर सूचना…');
+  var noteLabel=document.getElementById('cart-note-label'),noteInput=document.getElementById('notes');
+  if(noteLabel)noteLabel.textContent=window.mmI18n('Special requirements (optional)','विशेष सूचना (ऐच्छिक)');
+  if(noteInput)noteInput.placeholder=window.mmI18n('Less oil, no onion, allergies or other requests…','कमी तेल, कांदा नको, अॅलर्जी किंवा इतर सूचना…');
 }
-
 function drawMenu() {
   var menuHost = document.getElementById('menu');
   if (!menuHost) return;
@@ -2612,8 +2598,8 @@ function drawCart() {
 function orderProgressState(o) {
   var approval = String((o && o.approvalStatus) || 'APPROVED').toUpperCase();
   var s = String((o && o.status) || 'NEW').toUpperCase();
-  if (approval === 'PENDING') return {percent:8,title:window.mmI18n('Waiting for owner approval','मालकाच्या मंजुरीची प्रतीक्षा'),caption:window.mmI18n('Your order has reached the owner. The kitchen will receive it only after approval.','तुमची ऑर्डर मालकाकडे पोहोचली आहे. मंजुरीनंतरच ती किचनला पाठवली जाईल.'),emoji:'🕒'};
-  if (approval === 'REJECTED') return {percent:0,title:window.mmI18n('Order not accepted','ऑर्डर स्वीकारली नाही'),caption:window.mmI18n('The owner could not accept this order. Please ask your waiter for help.','मालकाने ही ऑर्डर स्वीकारली नाही. कृपया वेटरची मदत घ्या.'),emoji:'❌'};
+  if (approval === 'PENDING') return {percent:8,title:window.mmI18n('Preparing your kitchen ticket','किचनची ऑर्डर तयार होत आहे'),caption:window.mmI18n('Your order is being added to the kitchen queue.','तुमची ऑर्डर किचनच्या रांगेत जोडली जात आहे.'),emoji:'🕒'};
+  if (approval === 'REJECTED') return {percent:0,title:window.mmI18n('Order cancelled','ऑर्डर रद्द झाली'),caption:window.mmI18n('This order was cancelled. Please ask your waiter for help.','ही ऑर्डर रद्द झाली आहे. कृपया वेटरची मदत घ्या.'),emoji:'❌'};
   if (s === 'CANCELLED') return {percent:0,title:window.mmI18n('Order cancelled','ऑर्डर रद्द झाली'),caption:window.mmI18n('The kitchen has stopped this ticket. Ask your waiter if you need help.','किचनने ही ऑर्डर थांबवली आहे. मदतीसाठी वेटरला सांगा.'),emoji:'🙈'};
   if (s === 'PREPARING' || s === 'COOKING') return {percent:55,title:window.mmI18n('Chef is cooking!','शेफ स्वयंपाक करत आहेत!'),caption:window.mmI18n('The kitchen is working on your order. Good things take a little sizzle. 🔥','किचनमध्ये तुमची ऑर्डर तयार होत आहे. थोडी वाट पाहा. 🔥'),emoji:'👨‍🍳'};
   if (s === 'READY') return {percent:85,title:window.mmI18n('Fresh and ready!','गरमागरम ऑर्डर तयार!'),caption:window.mmI18n('Your food is ready. Your waiter can bring it over now. 🍽️','तुमचे जेवण तयार आहे. वेटर ते तुमच्यापर्यंत आणेल. 🍽️'),emoji:'🍲'};
@@ -3913,10 +3899,9 @@ function renderWaiterVisitControl() {
   });
   var startedAt = visit.started_at ? new Date(visit.started_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
   var assignedId = String(visit.assigned_waiter_code || 'not assigned');
-  var guestCode = String(visit.guest_order_code || '');
   host.innerHTML = '<div class="waiter-visit-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><b>Visit in progress</b><small>' +
     (startedAt ? 'Started at ' + esc(startedAt) + ' · ' : '') +
-    'Assigned waiter: <b>' + esc(assignedId) + '</b><br>Guest order code: <b style="font-size:15px;letter-spacing:1.5px">' + esc(guestCode) + '</b><br>Share this code only with guests seated at this table.</small></div><button type="button" class="btn btn-soft btn-sm" onclick="changeWaiterStaffCode()" style="width:auto">Change ID</button></div>' +
+    'Assigned waiter: <b>' + esc(assignedId) + '</b><br>Customers scan the table QR; orders go straight to the kitchen while this visit is open.</small></div><button type="button" class="btn btn-soft btn-sm" onclick="changeWaiterStaffCode()" style="width:auto">Change ID</button></div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px"><button type="button" class="btn btn-soft btn-sm" onclick="finishTableVisit()" ' +
     (hasActiveTickets ? 'disabled title="Serve or cancel all active tickets first" ' : '') +
     'style="width:auto">Finish &amp; settle</button><button type="button" class="btn btn-main btn-sm" onclick="releaseAbandonedTableVisit()" ' +
@@ -3934,9 +3919,8 @@ async function startTableVisit() {
   if (!waiterCode) return;
   try {
     var result = await window.MM_SET_TABLE_VISIT_STATUS(wTable, 'START', waiterCode);
-    var code = result && result.guest_order_code ? String(result.guest_order_code) : '';
     var assigned = result && result.assigned_waiter_code ? String(result.assigned_waiter_code) : waiterCode;
-    toast('Table ' + wTable + ' is open · Waiter ' + assigned + (code ? ' · Guest order code ' + code : ''));
+    toast('Table ' + wTable + ' is open · Waiter ' + assigned + '. QR orders go straight to kitchen.');
     renderWaiterVisitControl();
   } catch (e) {
     toast(e && e.message ? e.message : 'Could not start the table visit.');
@@ -4048,8 +4032,7 @@ function drawK() {
   var time = document.getElementById('k-time');
   if (time) time.textContent = new Date().toLocaleTimeString();
   var operationalOrders = (Array.isArray(orders) ? orders : []).filter(function(o) {
-    return o && !o.is_test_order && !o.archived_at &&
-      ['APPROVED',''].indexOf(String(o.approvalStatus || 'APPROVED').toUpperCase()) >= 0;
+    return o && !o.is_test_order && !o.archived_at;
   });
   var qTitle = document.querySelector('.k-queue-title');
   if (qTitle) {
@@ -4434,15 +4417,11 @@ function drawAdminOrders() {
   var operationalOrders = (Array.isArray(orders) ? orders : []).filter(function(o) {
     return o && !o.is_test_order && !o.archived_at;
   });
-  var awaitingApproval = operationalOrders.filter(function(o){ return String(o.approvalStatus || 'APPROVED').toUpperCase() === 'PENDING'; });
-  var kitchenOrders = operationalOrders.filter(function(o){ return ['APPROVED',''].indexOf(String(o.approvalStatus || 'APPROVED').toUpperCase()) >= 0; });
+  var kitchenOrders = operationalOrders;
   var N = kitchenOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'NEW'; });
   var P = kitchenOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'PREPARING'; });
   var R = kitchenOrders.filter(function(o){ return String(o.status || '').toUpperCase() === 'READY'; });
-  var setupWarning = window.MM_ORDER_APPROVAL_SETUP_ERROR
-    ? '<div class="card" role="alert" style="margin:10px 12px;display:block;border:1px solid var(--bad)"><b style="color:var(--bad)">Owner approval is not connected</b><p class="muted" style="font-size:12px;line-height:1.5;margin:6px 0">' + esc(window.MM_ORDER_APPROVAL_SETUP_ERROR) + '</p><button type="button" class="btn btn-main btn-sm" onclick="refreshAdminOrderQueue()">Check again</button></div>'
-    : '';
-  var html = setupWarning + '<div style="display:flex;justify-content:flex-end;padding:8px 12px 0"><button type="button" class="btn btn-soft btn-sm" onclick="refreshAdminOrderQueue()">↻ Refresh orders</button></div><div class="stats"><div class="stat"><b>' + awaitingApproval.length + '</b>Awaiting approval</div><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + kitchenOrders.filter(function(o){return String(o.status || '').toUpperCase()==='SERVED';}).length + '</b>Served</div></div>';
+  var html = '<p class="muted" style="padding:8px 12px 0">Orders go straight to the kitchen. Use this screen to monitor tickets and verify order details.</p><div style="display:flex;justify-content:flex-end;padding:8px 12px 0"><button type="button" class="btn btn-soft btn-sm" onclick="refreshAdminOrderQueue()">↻ Refresh orders</button></div><div class="stats"><div class="stat"><b>' + N.length + '</b>New</div><div class="stat"><b>' + P.length + '</b>Cooking</div><div class="stat"><b>' + R.length + '</b>Ready</div><div class="stat"><b>' + kitchenOrders.filter(function(o){return String(o.status || '').toUpperCase()==='SERVED';}).length + '</b>Served</div></div>';
   function sec(title, list) {
     if (!list.length) return '';
     return '<h3 class="gold" style="font-size:12px;padding:8px 12px">' + title + '</h3>' + list.map(function(o) {
@@ -4451,16 +4430,6 @@ function drawAdminOrders() {
         (o.items || []).map(function(i){ return '<div style="font-size:13px">' + (Number(i.qty)||1) + '× ' + esc(i.name || '') + '</div>'; }).join('') +
         '<b class="gold">' + money(o.total) + '</b><button type="button" class="btn btn-bad btn-sm" onclick="cancelAdminOrder(\'' + safeTicket + '\')">Cancel ticket</button></div>';
     }).join('');
-  }
-  if (awaitingApproval.length) {
-    html += '<h3 class="gold" style="font-size:13px;padding:8px 12px">Needs your approval</h3>' +
-      awaitingApproval.map(function(o) {
-        var safeTicket = String(o.id || '').replace(/'/g, '');
-        return '<div class="card" style="margin:8px 12px;flex-direction:column;border:1px solid var(--gold2)"><div style="display:flex;justify-content:space-between;gap:8px"><b class="gold">Table ' + esc(o.table || '--') + '</b><span class="gold">PENDING APPROVAL</span></div><div class="muted" style="font-size:11px">Ticket ' + esc(o.id || '') + '</div>' +
-          (o.items || []).map(function(i){ return '<div style="font-size:13px">' + (Number(i.qty)||1) + '× ' + esc(i.name || '') + '</div>'; }).join('') +
-          (o.notes ? '<div class="muted" style="font-size:12px">Note: ' + esc(o.notes) + '</div>' : '') +
-          '<b class="gold">' + money(o.total) + '</b><div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn btn-ok btn-sm" onclick="reviewCustomerOrderFromAdmin(\'' + safeTicket + '\',\'APPROVE\')">✓ Approve &amp; send to kitchen</button><button type="button" class="btn btn-bad btn-sm" onclick="reviewCustomerOrderFromAdmin(\'' + safeTicket + '\',\'REJECT\')">✕ Reject</button></div></div>';
-      }).join('');
   }
   html += sec('New', N) + sec('Cooking', P) + sec('Ready', R);
   if (!operationalOrders.length) html += '<p class="muted center" style="padding:30px">No active orders — they appear automatically</p>';
@@ -4534,6 +4503,7 @@ async function openCashCounterCollection(visitId, tableNumber, notificationId, m
 function renderRoleNotifications(rows) {
   rows = Array.isArray(rows) ? rows : [];
   var currentRole = String(role || '');
+  if (currentRole === 'admin') rows = rows.filter(function(n) { return String(n && n.notification_type || '').toUpperCase() !== 'ORDER_APPROVAL'; });
   function renderRows(hostId, items, roleKind) {
     var host = document.getElementById(hostId);
     if (!host) return;
@@ -5505,7 +5475,7 @@ function syncCenteredHomeTable() {
   });
   if(best){var n=best.getAttribute('data-table-number');if(n&&n!==selectedHomeTable)selectHomeTable(n,best,true);}
 }
-function continueHomeTable(){if(!selectedHomeTable){toast('Swipe and select a table first');return;}startTable(selectedHomeTable);}
+function continueHomeTable(){toast('Please scan the QR sticker on your table with your phone camera.');}
 function customerOrderTokensById() {
   var tokens = [];
   try { tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || []; } catch (e) {}
@@ -6184,7 +6154,7 @@ window.setWDietFilter = setWDietFilter;
     en: {
       'home-tagline': 'Good food, easy ordering.',
       'home-welcome': 'Welcome!',
-      'home-welcome-text': 'Scan the QR sticker on your table with your phone camera, or swipe below to choose your table.',
+      'home-welcome-text': 'Scan the QR sticker on your table with your phone camera. Your table is selected automatically.',
       'home-choose-table': 'Choose your table',
       'home-swipe-label': 'Swipe sideways to find your table',
       'table-continue': 'Continue to table →',
