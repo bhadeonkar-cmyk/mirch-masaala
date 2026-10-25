@@ -160,3 +160,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f scripts/check-menu-item-options.sql
       - name: Verify menu options migration is re-runnable
         run: psql -v ON_ERROR_STOP=1 -f supabase/menu-item-options-and-table-capacity.sql
+      - name: Compile and test owner waiter, backup and reset tools
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/owner-operations-toolkit.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/check-owner-operations-toolkit.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/owner-operations-toolkit.sql
