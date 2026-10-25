@@ -619,13 +619,19 @@
         ]);
       }
       var fetches = await fetchOrderRows(orderColumns);
-      if (fetches.some(function (q) { return q.error && /approval_status|column/i.test(String(q.error.message || '')); })) {
-        // Keep existing staff views usable until the approval migration has been applied.
-        orderColumns = orderColumns.replace(',approval_status', '');
-        fetches = await fetchOrderRows(orderColumns);
+      var approvalColumnMissing = fetches.some(function (q) {
+        return q.error && /approval_status/i.test(String(q.error.message || '') + ' ' + String(q.error.details || ''));
+      });
+      if (approvalColumnMissing) {
+        // Do not silently treat guest orders as approved: that made the owner queue falsely show zero.
+        var setupError = new Error('OWNER_APPROVAL_SETUP_REQUIRED: Run the latest supabase/visit-service-controls.sql in Supabase SQL Editor, then refresh the app.');
+        setupError.code = 'OWNER_APPROVAL_SETUP_REQUIRED';
+        throw setupError;
       }
       if (fetches[0].error) throw fetches[0].error;
       if (fetches[1].error) throw fetches[1].error;
+      window.MM_ORDER_APPROVAL_SCHEMA_READY = true;
+      window.MM_ORDER_APPROVAL_SETUP_ERROR = '';
       var rowsById = Object.create(null);
       (fetches[0].data || []).concat(fetches[1].data || []).forEach(function (row) {
         if (row && row.id) rowsById[String(row.id)] = row;
@@ -696,8 +702,21 @@
         window.refreshAdminAccountsSummary();
       }
     } catch (e) {
-      notifyError('Order sync failed. Check staff account permissions in Supabase.');
-      console.error('[Mirch Masaala order sync]', e);
+      var errText = String(e && e.message || e || 'Order sync failed.');
+      if (errText.indexOf('OWNER_APPROVAL_SETUP_REQUIRED') >= 0 || /approval_status/i.test(errText)) {
+        window.MM_ORDER_APPROVAL_SCHEMA_READY = false;
+        window.MM_ORDER_APPROVAL_SETUP_ERROR = 'Owner approval setup is not active in the database. Run the latest supabase/visit-service-controls.sql in Supabase SQL Editor, then refresh.';
+        if (!window.MM_ORDER_APPROVAL_SETUP_NOTIFIED) {
+          window.MM_ORDER_APPROVAL_SETUP_NOTIFIED = true;
+          notifyError(window.MM_ORDER_APPROVAL_SETUP_ERROR);
+        }
+        console.error('[Mirch Masaala owner approval setup]', e);
+        if (document.getElementById('admin') && document.getElementById('admin').classList.contains('on') &&
+            window.role === 'admin' && typeof window.drawAdminOrders === 'function') window.drawAdminOrders();
+      } else {
+        notifyError('Order sync failed. Check staff account permissions in Supabase.');
+        console.error('[Mirch Masaala order sync]', e);
+      }
     } finally {
       staffRefreshBusy = false;
     }
