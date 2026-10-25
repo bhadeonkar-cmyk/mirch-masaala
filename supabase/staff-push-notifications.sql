@@ -168,6 +168,27 @@ CREATE TABLE IF NOT EXISTS public.mm_staff_push_subscriptions (
 ALTER TABLE public.mm_staff_push_subscriptions
   ADD COLUMN IF NOT EXISTS staff_code text NOT NULL DEFAULT '';
 
+ALTER TABLE public.mm_staff_push_subscriptions
+  ADD COLUMN IF NOT EXISTS preferred_language text NOT NULL DEFAULT 'en';
+
+UPDATE public.mm_staff_push_subscriptions
+SET preferred_language = 'en'
+WHERE preferred_language IS NULL OR preferred_language NOT IN ('en', 'mr');
+
+DO $
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.mm_staff_push_subscriptions'::regclass
+      AND conname = 'mm_staff_push_subscriptions_language_check'
+  ) THEN
+    ALTER TABLE public.mm_staff_push_subscriptions
+      ADD CONSTRAINT mm_staff_push_subscriptions_language_check
+      CHECK (preferred_language IN ('en', 'mr'));
+  END IF;
+END
+$;
+
 CREATE INDEX IF NOT EXISTS ix_mm_staff_push_role
   ON public.mm_staff_push_subscriptions (target_role, updated_at DESC);
 
