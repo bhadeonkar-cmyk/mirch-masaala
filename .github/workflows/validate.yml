@@ -24,6 +24,8 @@ jobs:
         run: node scripts/check-inline-js.cjs
       - name: Parse the Supabase integration JavaScript
         run: node --check supabase-live.js
+      - name: Parse the app-wide English/Marathi language layer
+        run: node --check app-language.js
 
   sql-integration:
     name: Exercise accounting functions in PostgreSQL
