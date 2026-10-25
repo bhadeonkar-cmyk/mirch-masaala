@@ -196,3 +196,121 @@ window.MM_QR_MATRICES = {"baseURL":"https://bhadeonkar-cmyk.github.io/mirch-masa
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
   else install();
 })();
+
+
+/* Recovery path for the printable QR sheet.
+ * A single bad QR source must never prevent the complete print sheet from opening.
+ */
+(function () {
+  function installQrSheetRecovery() {
+    if (window.MM_QR_SHEET_RECOVERY || typeof window.downloadAllQRCodes !== 'function') return;
+    window.MM_QR_SHEET_RECOVERY = true;
+
+    window.downloadAllQRCodes = function () {
+      var win = window.open('', '_blank');
+      if (!win) {
+        if (window.toast) window.toast('Pop-up blocked. Allow pop-ups for this site to create the printable QR sheet.');
+        return;
+      }
+
+      win.document.open();
+      win.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mirch Masaala · Table QR codes</title><style>body{font-family:Arial,sans-serif;color:#21160f;padding:22px;margin:0}h1{text-align:center;margin:0 0 4px}p{text-align:center;color:#665}.actions{text-align:center;margin:14px 0}.actions button{padding:10px 18px;font-size:15px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.item{border:1px solid #b9a889;border-radius:12px;padding:10px;text-align:center;break-inside:avoid;overflow:hidden}.item img{width:100%;max-width:190px;aspect-ratio:1;object-fit:contain;display:block;margin:8px auto;background:#fff}.item strong{font-size:19px;letter-spacing:2px}.url{font-size:9px;overflow-wrap:anywhere;color:#555}.help{font-size:12px;color:#555}@media(max-width:650px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media print{body{padding:0}.actions{display:none}.grid{gap:8px}.item{padding:6px}}</style></head><body><h1>MIRCH MASAALA</h1><p>Scan each QR to open the matching table menu · Print and place on the correct table</p><div class="actions"><button id="qr-sheet-print" type="button">Print / Save as PDF</button></div><p id="qr-sheet-status">Preparing QR codes…</p><div id="qr-sheet-grid" class="grid"></div><p class="help">Before placing stickers, scan one test QR to confirm it opens the correct table.</p></body></html>');
+      win.document.close();
+
+      var status = win.document.getElementById('qr-sheet-status');
+      var grid = win.document.getElementById('qr-sheet-grid');
+      var printButton = win.document.getElementById('qr-sheet-print');
+      if (printButton) printButton.addEventListener('click', function () { win.focus(); win.print(); });
+
+      var tables = window.MENU && Array.isArray(window.MENU.tables) ? window.MENU.tables.slice() : [];
+      if (!tables.length) {
+        if (status) status.textContent = 'No tables are configured. Check Owner → Settings → Number of tables.';
+        return;
+      }
+
+      function normalizedNumber(table, index) {
+        var candidate = table && (table.number || table.table_number || table.tableNumber);
+        if (!candidate && table && /^\d{1,2}$/.test(String(table.id || ''))) candidate = table.id;
+        if (!candidate) candidate = index + 1;
+        return String(candidate).padStart(2, '0');
+      }
+      function urlFor(number) {
+        try {
+          if (typeof window.tableURL === 'function') return window.tableURL(number);
+        } catch (e) {}
+        return window.location.origin + window.location.pathname + '?table=' + encodeURIComponent(number);
+      }
+      function qrSource(number) {
+        var target = urlFor(number);
+        return Promise.resolve().then(function () {
+          if (typeof window.makeTableQRImage === 'function') return window.makeTableQRImage(number, 240);
+          if (typeof window.makeQRImage === 'function') return window.makeQRImage(target, 240);
+          throw new Error('QR generator is not available');
+        }).then(function (source) {
+          if (!source) throw new Error('QR source is empty');
+          return { number: number, url: target, src: source };
+        }).catch(function () {
+          var urls = typeof window.qrApiURLs === 'function' ? window.qrApiURLs(target, 240) : [];
+          return { number: number, url: target, src: urls[0] || '', fallbackUrls: urls, failed: !urls.length };
+        });
+      }
+
+      Promise.all(tables.map(function (table, index) {
+        var number = normalizedNumber(table, index);
+        return qrSource(number).catch(function () {
+          var target = urlFor(number);
+          var urls = typeof window.qrApiURLs === 'function' ? window.qrApiURLs(target, 240) : [];
+          return { number: number, url: target, src: urls[0] || '', fallbackUrls: urls, failed: !urls.length };
+        });
+      })).then(function (items) {
+        if (win.closed) return;
+        grid.innerHTML = '';
+        items.forEach(function (item) {
+          var card = win.document.createElement('div');
+          card.className = 'item';
+          var title = win.document.createElement('strong');
+          title.textContent = 'TABLE ' + item.number;
+          var img = win.document.createElement('img');
+          img.alt = 'QR for Table ' + item.number;
+          var url = win.document.createElement('div');
+          url.className = 'url';
+          url.textContent = item.url;
+          var note = win.document.createElement('div');
+          note.className = 'help';
+          note.style.minHeight = '14px';
+          card.appendChild(title);
+          card.appendChild(img);
+          card.appendChild(url);
+          card.appendChild(note);
+          grid.appendChild(card);
+
+          var fallbackList = item.fallbackUrls || (typeof window.qrApiURLs === 'function' ? window.qrApiURLs(item.url, 240) : []);
+          var nextFallback = 0;
+          img.onerror = function () {
+            if (nextFallback < fallbackList.length) {
+              img.src = fallbackList[nextFallback++];
+            } else {
+              img.onerror = null;
+              note.textContent = 'QR image unavailable — check internet, then retry this sheet.';
+              img.style.display = 'none';
+            }
+          };
+          if (item.src) img.src = item.src;
+          else {
+            img.style.display = 'none';
+            note.textContent = 'QR generator unavailable. Check internet and reopen the sheet.';
+          }
+        });
+        if (status) status.textContent = items.length + ' table QR codes listed. The sheet remains available if one image source fails.';
+        if (window.toast) window.toast('QR sheet opened. Use Print / Save as PDF in the new tab.');
+        win.focus();
+      }).catch(function (error) {
+        if (status) status.textContent = 'The QR sheet could not be prepared. Close this tab and retry; existing orders and settings were not changed.';
+        if (window.toast) window.toast('QR sheet could not be prepared');
+        if (window.console && console.error) console.error('[Mirch Masaala QR sheet]', error);
+      });
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installQrSheetRecovery, { once: true });
+  else installQrSheetRecovery();
+})();
