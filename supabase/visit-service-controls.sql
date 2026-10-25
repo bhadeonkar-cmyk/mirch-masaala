@@ -930,6 +930,21 @@ WHERE o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
       AND n.ticket_id = o.ticket_id
   );
 
+-- Pending tickets must not leave stale kitchen alerts from the pre-approval workflow.
+UPDATE public.mm_restaurant_notifications n
+SET resolved_at = now()
+FROM public.orders o
+WHERE n.restaurant_id = o.restaurant_id
+  AND n.ticket_id = o.ticket_id
+  AND n.target_role = 'kitchen'
+  AND n.notification_type = 'NEW_ORDER'
+  AND n.resolved_at IS NULL
+  AND o.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+  AND upper(coalesce(o.approval_status, '')) = 'PENDING'
+  AND upper(coalesce(o.status, '')) = 'NEW'
+  AND coalesce(o.is_test_order, false) = false
+  AND o.archived_at IS NULL;
+
 -- Ensure every remaining pending ticket has an owner-visible alert, including older tickets backfilled above.
 INSERT INTO public.mm_restaurant_notifications (
   restaurant_id, target_role, notification_type, table_number, ticket_id, message, push_dispatch_token
