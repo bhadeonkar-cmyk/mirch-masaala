@@ -3666,7 +3666,6 @@ function enterWaiter() {
     if (role === 'admin' || role === 'kitchen') { toast('This screen is for waiter accounts only.'); go(role); return; }
     openLogin('waiter'); return;
   }
-  if (typeof getWaiterStaffCode === 'function' && !getWaiterStaffCode(false)) return;
   go('waiter'); rebuildTables(); renderWaiterTables();
   wTable = ''; wCart = [];
   var area = document.getElementById('w-area'); if (area) area.style.display = 'none';
@@ -3674,6 +3673,11 @@ function enterWaiter() {
   var hint = document.getElementById('w-table-picker-hint'); if (hint) hint.style.display = 'block';
   var label = document.getElementById('w-tbl'); if (label) label.textContent = window.mmI18n('Choose table','टेबल निवडा');
   drawWaiterOrders();
+  if (typeof window.MM_LIST_WAITERS === 'function') window.MM_LIST_WAITERS(false).then(function(rows) {
+    waiterDirectoryCache = Array.isArray(rows) ? rows : [];
+    window.MM_WAITER_DIRECTORY = waiterDirectoryCache.slice();
+    if (wTable) renderWaiterVisitControl();
+  }).catch(function() {});
   if (typeof window.MM_REFRESH_ROLE_NOTIFICATIONS === 'function') window.MM_REFRESH_ROLE_NOTIFICATIONS();
 }
 function confirmWaiterSignOut() {
@@ -3874,28 +3878,88 @@ function wSend() {
 function readWaiterStaffCode() {
   try { return String(localStorage.getItem('mm_waiter_staff_code') || '').trim().toUpperCase(); } catch (e) { return ''; }
 }
-function getWaiterStaffCode(forcePrompt) {
-  var code = readWaiterStaffCode();
-  if (!forcePrompt && /^[A-Z0-9][A-Z0-9_-]{1,11}$/.test(code)) return code;
-  var entered = window.prompt(
-    'Enter your waiter ID (for example W01). This ID is attached to the table visit so the owner can identify who attended.',
-    code || ''
-  );
-  if (entered === null) return '';
-  entered = String(entered || '').trim().toUpperCase();
-  if (!/^[A-Z0-9][A-Z0-9_-]{1,11}$/.test(entered)) {
-    toast('Enter a waiter ID using 2–12 letters, numbers, - or _. Example: W01.');
-    return '';
-  }
-  try { localStorage.setItem('mm_waiter_staff_code', entered); } catch (e) {}
-  return entered;
+var waiterDirectoryCache = [];
+var waiterIdentityPromise = null;
+var waiterIdentityResolve = null;
+function waiterNameForCode(code) {
+  code = String(code || '').trim().toUpperCase();
+  var rows = Array.isArray(window.MM_WAITER_DIRECTORY) && window.MM_WAITER_DIRECTORY.length
+    ? window.MM_WAITER_DIRECTORY : waiterDirectoryCache;
+  var row = rows.find(function(w) { return w && String(w.waiter_code || '').toUpperCase() === code; });
+  return row ? String(row.display_name || '') : '';
+}
+function openWaiterIdentityChooser(rows, currentCode) {
+  var modal = document.getElementById('waiter-identity-modal');
+  var select = document.getElementById('waiter-identity-choice');
+  if (!modal || !select) return Promise.resolve('');
+  select.innerHTML = rows.map(function(w) {
+    var code = String(w.waiter_code || '').toUpperCase();
+    var selected = code === String(currentCode || '').toUpperCase() ? ' selected' : '';
+    return '<option value="' + esc(code) + '"' + selected + '>' + esc(w.display_name || 'Waiter') + ' (' + esc(code) + ')</option>';
+  }).join('');
+  return new Promise(function(resolve) {
+    waiterIdentityResolve = resolve;
+    modal.classList.add('on');
+    setTimeout(function(){ try { select.focus(); } catch (e) {} }, 80);
+  });
+}
+function confirmWaiterIdentitySelection() {
+  var select = document.getElementById('waiter-identity-choice');
+  var code = select ? String(select.value || '').trim().toUpperCase() : '';
+  var row = waiterDirectoryCache.find(function(w) { return w && String(w.waiter_code || '').toUpperCase() === code && w.active !== false; });
+  if (!row) { toast('Choose an active waiter name. Ask the owner to add one in Settings if the list is empty.'); return; }
+  try { localStorage.setItem('mm_waiter_staff_code', code); } catch (e) {}
+  var modal = document.getElementById('waiter-identity-modal');
+  if (modal) modal.classList.remove('on');
+  var resolve = waiterIdentityResolve;
+  waiterIdentityResolve = null;
+  if (resolve) resolve(code);
+  toast('Waiter set to ' + row.display_name + ' (' + code + ').');
+  renderWaiterVisitControl();
+  if (typeof window.MM_REFRESH_ROLE_NOTIFICATIONS === 'function') window.MM_REFRESH_ROLE_NOTIFICATIONS(true);
+}
+function cancelWaiterIdentitySelection() {
+  var modal = document.getElementById('waiter-identity-modal');
+  if (modal) modal.classList.remove('on');
+  var resolve = waiterIdentityResolve;
+  waiterIdentityResolve = null;
+  if (resolve) resolve('');
+}
+async function getWaiterStaffCode(forcePrompt) {
+  if (waiterIdentityPromise) return waiterIdentityPromise;
+  waiterIdentityPromise = (async function() {
+    if (typeof window.MM_LIST_WAITERS !== 'function') {
+      toast('Waiter name setup is not connected. Ask the owner to apply supabase/owner-operations-toolkit.sql.');
+      return '';
+    }
+    var rows;
+    try {
+      rows = await window.MM_LIST_WAITERS(false);
+    } catch (e) {
+      var detail = e && e.message ? String(e.message) : '';
+      toast(detail.indexOf('mm_list_waiters') >= 0
+        ? 'Waiter names need setup. Ask the owner to apply supabase/owner-operations-toolkit.sql.'
+        : (detail || 'Could not load the waiter name list. Check the connection.'));
+      return '';
+    }
+    waiterDirectoryCache = Array.isArray(rows) ? rows.filter(function(w){ return w && w.active !== false; }) : [];
+    window.MM_WAITER_DIRECTORY = waiterDirectoryCache.slice();
+    if (!waiterDirectoryCache.length) {
+      toast('No active waiter names yet. The owner must add names in Owner → Settings → Waiter names.');
+      return '';
+    }
+    var current = readWaiterStaffCode();
+    var valid = waiterDirectoryCache.some(function(w){ return String(w.waiter_code || '').toUpperCase() === current; });
+    if (!forcePrompt && valid) return current;
+    return await openWaiterIdentityChooser(waiterDirectoryCache, valid ? current : '');
+  })();
+  try { return await waiterIdentityPromise; }
+  finally { waiterIdentityPromise = null; }
 }
 function changeWaiterStaffCode() {
-  var code = getWaiterStaffCode(true);
-  if (code) {
-    toast('Waiter ID set to ' + code + ' on this device.');
-    renderWaiterVisitControl();
-  }
+  getWaiterStaffCode(true).then(function(code) {
+    if (code) renderWaiterVisitControl();
+  }).catch(function(e) { toast(e && e.message ? e.message : 'Could not select a waiter name.'); });
 }
 
 function renderWaiterVisitControl() {
@@ -3910,9 +3974,11 @@ function renderWaiterVisitControl() {
   var num = String(wTable).padStart(2, '0');
   var visit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[num];
   var isOpen = !!(visit && String(visit.status || '').toUpperCase() === 'OPEN');
-  var deviceWaiterId = readWaiterStaffCode() || 'not set';
+  var deviceWaiterId = readWaiterStaffCode();
+  var deviceWaiterName = waiterNameForCode(deviceWaiterId);
+  var waiterIdentityLabel = deviceWaiterName ? esc(deviceWaiterName) + ' (' + esc(deviceWaiterId) + ')' : 'not selected';
   if (!isOpen) {
-    host.innerHTML = '<div class="waiter-visit-row"><div><b>Ready for next guest</b><small>Start only after guests are seated. Waiter ID on this device: <b>' + esc(deviceWaiterId) + '</b>.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button type="button" class="btn btn-soft btn-sm" onclick="changeWaiterStaffCode()" style="width:auto">Change ID</button><button type="button" class="btn btn-main btn-sm" onclick="startTableVisit()" style="width:auto">Start visit</button></div></div>';
+    host.innerHTML = '<div class="waiter-visit-row"><div><b>Ready for next guest</b><small>Start only after guests are seated. Waiter on this device: <b>' + waiterIdentityLabel + '</b>.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button type="button" class="btn btn-soft btn-sm" onclick="changeWaiterStaffCode()" style="width:auto">' + (deviceWaiterId ? 'Change name' : 'Choose name') + '</button><button type="button" class="btn btn-main btn-sm" onclick="startTableVisit()" style="width:auto">Start visit</button></div></div>';
     return;
   }
   var hasActiveTickets = (orders || []).some(function (o) {
@@ -3922,9 +3988,11 @@ function renderWaiterVisitControl() {
   });
   var startedAt = visit.started_at ? new Date(visit.started_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
   var assignedId = String(visit.assigned_waiter_code || 'not assigned');
+  var assignedName = waiterNameForCode(assignedId);
+  var assignedLabel = assignedName ? esc(assignedName) + ' (' + esc(assignedId) + ')' : esc(assignedId);
   host.innerHTML = '<div class="waiter-visit-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><b>Visit in progress</b><small>' +
     (startedAt ? 'Started at ' + esc(startedAt) + ' · ' : '') +
-    'Assigned waiter: <b>' + esc(assignedId) + '</b><br>Customers scan the table QR; orders go straight to the kitchen while this visit is open.</small></div><button type="button" class="btn btn-soft btn-sm" onclick="changeWaiterStaffCode()" style="width:auto">Change ID</button></div>' +
+    'Assigned waiter: <b>' + assignedLabel + '</b><br>Customers scan the table QR; orders go straight to the kitchen while this visit is open.</small></div></div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px"><button type="button" class="btn btn-soft btn-sm" onclick="finishTableVisit()" ' +
     (hasActiveTickets ? 'disabled title="Serve or cancel all active tickets first" ' : '') +
     'style="width:auto">Finish &amp; settle</button><button type="button" class="btn btn-main btn-sm" onclick="releaseAbandonedTableVisit()" ' +
@@ -3938,7 +4006,7 @@ async function startTableVisit() {
     toast('Table visit setup is not active yet. Ask the owner to apply supabase/visit-service-controls.sql.');
     return;
   }
-  var waiterCode = getWaiterStaffCode(false);
+  var waiterCode = await getWaiterStaffCode(false);
   if (!waiterCode) return;
   try {
     var result = await window.MM_SET_TABLE_VISIT_STATUS(wTable, 'START', waiterCode);
@@ -4180,6 +4248,7 @@ function enterAdmin() {
   try { go('admin'); } catch (e) { console.error(e); }
   if (typeof updOpenBtn === 'function') updOpenBtn();
   if (typeof drawAdminOrders === 'function') drawAdminOrders();
+  refreshOwnerMaintenanceStatus();
 }
 function updOpenBtn() {
   var b = document.getElementById('open-btn');
