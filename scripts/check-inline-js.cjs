@@ -345,6 +345,11 @@ requireText(appLanguage, 'new MutationObserver', 'Newly rendered UI and alerts a
 requireText(appLanguage, 'if (noTranslateTextTags[root.tagName]) return;', 'Form placeholders are translated without changing the guest typed text');
 requireText(appLanguage, 'window.mmFriendlyError', 'Order setup errors are presented in user-friendly language');
 requireText(appLanguage, 'window.MM_TRANSLATION_DICTIONARY', 'App-wide Marathi dictionary is available to the UI');
+requireText(appLanguage, 'window.MM_TRANSLATE_NOTIFICATION_MESSAGE = translateNotificationMessage', 'Dynamic staff alerts translate by event type while retaining payment and table details');
+requireText(live, 'window.MM_TRANSLATE_NOTIFICATION_MESSAGE(row)', 'Desktop staff alerts use the selected language');
+requireText(live, 'customerNotificationBody = window.MM_TRANSLATE_TEXT(customerNotificationBody)', 'Customer order-status notifications use the selected language');
+requireText(html, 'window.MM_TRANSLATE_NOTIFICATION_MESSAGE(n)', 'In-app staff alert cards translate database messages');
+requireText(appLanguage, 'owner approval required', 'Owner approval notification titles are localized');
 requireText(live, "preferred_language: window.MM_HOME_LANGUAGE === 'mr' ? 'mr' : 'en'", 'Push subscriptions save the staff device language');
 requireText(live, 'window.MM_UPDATE_STAFF_PUSH_LANGUAGE = updateStaffPushLanguage', 'A language switch updates the device push preference');
 requireText(staffPushSql, 'ADD COLUMN IF NOT EXISTS preferred_language', 'Push setup upgrades existing device subscriptions for language support');
