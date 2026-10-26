@@ -152,8 +152,7 @@ COMMIT;
     'dispatch_tokens', v_tokens
   );
 END
-$;
-
+  $$;
 CREATE TABLE IF NOT EXISTS public.mm_staff_push_subscriptions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   staff_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -187,8 +186,7 @@ BEGIN
       CHECK (preferred_language IN ('en', 'mr'));
   END IF;
 END
-$;
-
+  $$;
 CREATE INDEX IF NOT EXISTS ix_mm_staff_push_role
   ON public.mm_staff_push_subscriptions (target_role, updated_at DESC);
 
