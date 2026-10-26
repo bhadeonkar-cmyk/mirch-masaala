@@ -809,3 +809,161 @@ input, select, textarea {
     filter: none !important;
   }
 }
+
+
+/* 12 · Precision graphics and tactile micro-interactions — Midnight Ember v2.
+   All motion is decorative, low-amplitude, and disabled by the reduced-motion rule below. */
+@keyframes mmAmbientDrift {
+  0%, 100% { transform: translate3d(-1.2%, 0, 0) scale(1); opacity: .22; }
+  50% { transform: translate3d(1.2%, -3px, 0) scale(1.025); opacity: .34; }
+}
+@keyframes mmEmblemBreath {
+  0%, 100% { opacity: .62; transform: scale(.985) rotate(-1deg); }
+  50% { opacity: .9; transform: scale(1.015) rotate(1deg); }
+}
+@keyframes mmFoodImageSettle {
+  from { transform: scale(1.045); }
+  to { transform: scale(1); }
+}
+
+/* The warm light is a single blurred layer, not a stream of heavy particles. */
+#home .home-atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: -12% -8%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 24% 28%, rgba(184,109,67,.085), transparent 35%),
+    radial-gradient(ellipse at 74% 18%, rgba(196,163,106,.075), transparent 37%);
+  opacity: .8;
+  animation: mmAmbientDrift 24s ease-in-out infinite;
+}
+
+/* Refined brand medallion around the existing chef/food artwork; no external assets. */
+#home .cook-stage {
+  isolation: isolate;
+}
+#home .cook-stage::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 7px 7px 4px;
+  pointer-events: none;
+  border: 1px solid rgba(196,163,106,.18);
+  border-radius: 42% 58% 49% 51% / 45% 42% 58% 55%;
+  background:
+    radial-gradient(ellipse at 50% 52%, rgba(196,163,106,.10), rgba(184,109,67,.035) 48%, transparent 72%),
+    linear-gradient(145deg, rgba(255,255,255,.025), rgba(0,0,0,.06));
+  box-shadow: inset 0 1px rgba(255,255,255,.035), 0 8px 26px rgba(0,0,0,.10);
+  animation: mmEmblemBreath 8.8s ease-in-out infinite;
+}
+#home .cook-stage::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 29%;
+  right: 29%;
+  bottom: 7px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(ellipse, rgba(196,163,106,.22), rgba(184,109,67,.07) 55%, transparent 78%);
+  filter: blur(3px);
+}
+#home .cook-stage > * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Search gets a quiet inset instrument-panel treatment, not another oversized card. */
+#customer .menu-search-prime {
+  position: relative;
+  border: 1px solid rgba(196,163,106,.15);
+  border-radius: 14px;
+  background: linear-gradient(112deg, rgba(196,163,106,.055), rgba(29,21,17,.66) 58%, rgba(184,109,67,.025));
+  box-shadow: inset 0 1px rgba(255,255,255,.025);
+}
+#customer .menu-search-symbol {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(196,163,106,.18);
+  border-radius: 10px;
+  background: rgba(0,0,0,.12);
+  color: #d0b783;
+}
+#customer .search:focus-visible {
+  border-color: rgba(221,198,154,.62);
+  background: rgba(15,10,8,.68);
+  box-shadow: 0 0 0 3px rgba(196,163,106,.10), inset 0 1px 4px rgba(0,0,0,.18);
+}
+#customer #menu .card .price {
+  font-variant-numeric: tabular-nums;
+}
+#customer #menu .card .pic img {
+  display: block;
+  max-width: 100%;
+  object-fit: cover;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Fast, tactile interactions. These never alter document flow or delay checkout. */
+.btn:active:not(:disabled):not(#scan-table-btn),
+.add:active:not(:disabled),
+.qty button:active:not(:disabled),
+#home .home-icon-btn:active,
+#home .home-shortcut:active {
+  transform: translateY(1px) scale(.985);
+}
+#customer #menu .card:focus-within {
+  border-color: rgba(196,163,106,.34);
+  box-shadow: 0 0 0 2px rgba(196,163,106,.075), 0 8px 20px rgba(0,0,0,.14);
+}
+#home .qr-guide-mini,
+#home .tip-banner,
+#customer .menu-search-prime {
+  transition: border-color .22s ease, background .22s ease, box-shadow .22s ease;
+}
+#home .home-language-control button {
+  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s var(--mm-ease);
+}
+#home .home-language-control button:active {
+  transform: scale(.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #customer #menu .card .pic img {
+    transition: transform .42s var(--mm-ease), filter .42s ease;
+  }
+  #customer #menu .card:hover .pic img {
+    transform: translateZ(0) scale(1.025);
+    filter: saturate(1.035);
+  }
+  #customer .menu-search-prime:hover {
+    border-color: rgba(196,163,106,.25);
+    box-shadow: inset 0 1px rgba(255,255,255,.03), 0 5px 16px rgba(0,0,0,.08);
+  }
+  #home .home-language-control button:hover {
+    border-color: rgba(196,163,106,.42);
+    background: rgba(196,163,106,.075);
+  }
+}
+
+@media (max-width: 390px) {
+  #home .cook-stage::before {
+    inset: 10px 10px 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #home .home-atmosphere::after,
+  #home .cook-stage::before {
+    animation: none !important;
+  }
+  #customer #menu .card .pic img {
+    animation: none !important;
+    transition: none !important;
+  }
+}
