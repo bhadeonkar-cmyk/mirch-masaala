@@ -1368,7 +1368,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .customer-explore-arrow { font-size: 23px; line-height: 1; color: var(--gold2); }
 @media(prefers-reduced-motion:reduce) { .customer-explore-shortcut { transition: none; } }
 </style>
-<link rel="stylesheet" href="./ui-premium.css?v=20261026b">
+<link rel="stylesheet" href="./ui-premium.css?v=20261026c">
 </head>
 <body>
 
@@ -2682,11 +2682,47 @@ function dishPhotoInfo(item) {
  if(!url&&/mutton/i.test(String(item.name||''))&&/biryani/i.test(String(item.name||''))){url='https://upload.wikimedia.org/wikipedia/commons/e/e8/Hyderabadi_Mutton_Biryani.jpg';credit='Photo: Jayanthkumar101 · CC BY-SA 4.0';}
  try{var parsed=new URL(url,window.location.href);if(parsed.protocol!=='https:')return{url:'',credit:''};return{url:parsed.href,credit:credit};}catch(e){return{url:'',credit:''};}
 }
+function dishIllustrationType(item) {
+ var name=[item&&item.name,item&&item.category,item&&item.category_name,item&&item.menu_category].join(' ').toLowerCase();
+ if(/\b(tea|chai|coffee|espresso|cappuccino|latte|hot chocolate|hot cocoa)\b/.test(name))return 'drink';
+ if(/\b(juice|lassi|milkshake|shake|mocktail|soda|soft drink|water|cold coffee|ice cream|kulfi)\b/.test(name))return 'cool-drink';
+ if(/\b(ice cream|kulfi|gulab jamun|rasmalai|rasgulla|kheer|shrikhand|dessert|sweet|jalebi|modak|payasam|brownie|cake|halwa)\b/.test(name))return 'dessert';
+ if(/\b(biryani|pulao|pulav|fried rice|rice bowl|khichdi)\b/.test(name))return 'rice';
+ if(/\b(thali|platter|combo meal|meal plate|mini meal)\b/.test(name))return 'thali';
+ if(/\b(dosa|dosai|idli|uttapam|uttapam|appam|medu vada|sambar idli)\b/.test(name))return 'south';
+ if(/\b(roti|chapati|naan|paratha|parotta|kulcha|phulka|thepla|bhakri)\b/.test(name))return 'bread';
+ if(/\b(samosa|pakoda|pakora|vada pav|pav bhaji|chaat|bhel|pani puri|dahi puri|fries|tikka|kebab|cutlet|sandwich|burger|pizza|spring roll|manchurian)\b/.test(name))return 'snack';
+ if(/\b(curry|masala|paneer|dal|daal|makhani|korma|handi|butter chicken|kadai|gravy|kofta|sambar|rasam|shahi|bhaji)\b/.test(name))return 'curry';
+ return 'signature';
+}
+function dishIllustrationMarkup(item,variant,hidden) {
+ item=item||{};
+ var type=dishIllustrationType(item);
+ var title=window.mmDishName?window.mmDishName(item):(item.name||'dish');
+ var warmDish=type!=='dessert'&&type!=='cool-drink';
+ var steam=warmDish?'<g class="dish-art-steam" fill="none" stroke="#f6d9ac" stroke-width="2.35" stroke-linecap="round" opacity=".78"><path class="steam-a" d="M43 34 C37 28 48 25 43 18"/><path class="steam-b" d="M59 31 C53 25 64 21 59 14"/><path class="steam-c" d="M75 34 C69 28 80 25 75 18"/></g>':'';
+ var plate='<ellipse cx="60" cy="88" rx="37" ry="7" fill="#090706" opacity=".38"/><ellipse cx="60" cy="79" rx="37" ry="14" fill="#e7d4b1" stroke="#f6e8cd" stroke-width="1.5"/><ellipse cx="60" cy="77" rx="30.5" ry="9.5" fill="#382019" stroke="#b99565" stroke-width="1"/>';
+ var art={
+  'rice':'<path d="M31 75 Q35 57 49 54 Q60 49 71 55 Q84 60 89 75 Q63 84 31 75Z" fill="#e8b955"/><path d="M35 70 Q43 57 54 58 Q66 55 80 70 Q62 77 35 70Z" fill="#f5d987"/><g fill="#fff0c9"><ellipse cx="46" cy="64" rx="3" ry="1.2" transform="rotate(22 46 64)"/><ellipse cx="57" cy="59" rx="3" ry="1.2" transform="rotate(-28 57 59)"/><ellipse cx="68" cy="64" rx="3" ry="1.2" transform="rotate(15 68 64)"/><ellipse cx="53" cy="69" rx="3" ry="1.2" transform="rotate(-12 53 69)"/><ellipse cx="75" cy="70" rx="3" ry="1.2" transform="rotate(-25 75 70)"/></g><g fill="#6e8b44"><ellipse cx="48" cy="60" rx="1.7" ry="1"/><ellipse cx="66" cy="60" rx="1.6" ry="1"/><ellipse cx="61" cy="70" rx="1.7" ry="1"/></g><path d="M41 65l3-3M72 66l3-3" stroke="#c85b32" stroke-width="2.2" stroke-linecap="round"/>',
+  'curry':'<path d="M27 64 Q28 81 42 85 L78 85 Q92 81 93 64Z" fill="#d7b28a" stroke="#f1d6ad" stroke-width="1.2"/><ellipse cx="60" cy="64" rx="33" ry="13" fill="#b84e2c" stroke="#e2a15c" stroke-width="1.7"/><ellipse cx="60" cy="62" rx="28" ry="9" fill="#d56b35"/><g fill="#f0d09b" stroke="#a85b2a" stroke-width="1"><rect x="43" y="56" width="8" height="8" rx="2" transform="rotate(-8 47 60)"/><rect x="60" y="59" width="8" height="8" rx="2" transform="rotate(12 64 63)"/><rect x="73" y="55" width="7" height="7" rx="2" transform="rotate(15 76 58)"/></g><g fill="#6f8e43"><circle cx="54" cy="55" r="1.8"/><circle cx="69" cy="66" r="1.5"/><circle cx="38" cy="63" r="1.4"/></g>',
+  'bread':plate+'<g><ellipse cx="47" cy="69" rx="17" ry="10.5" fill="#c87932" transform="rotate(-14 47 69)"/><ellipse cx="47" cy="67" rx="15" ry="9" fill="#eebc64" transform="rotate(-14 47 67)"/><ellipse cx="70" cy="68" rx="17" ry="10.5" fill="#c87932" transform="rotate(13 70 68)"/><ellipse cx="70" cy="66" rx="15" ry="9" fill="#efc56d" transform="rotate(13 70 66)"/><g fill="#8b4c25"><circle cx="40" cy="64" r="1.4"/><circle cx="49" cy="69" r="1.3"/><circle cx="74" cy="63" r="1.4"/><circle cx="66" cy="69" r="1.2"/></g></g>',
+  'snack':plate+'<g stroke="#9b5422" stroke-width="1.25" stroke-linejoin="round"><path d="M32 72 L43 49 Q45 46 48 50 L61 74 Q48 81 32 72Z" fill="#e8ad4e"/><path d="M51 73 L65 50 Q67 47 70 51 L85 72 Q69 81 51 73Z" fill="#d98a35"/></g><path d="M40 69l5-10M59 70l7-11" stroke="#f7d58b" stroke-width="2" stroke-linecap="round"/><ellipse cx="78" cy="79" rx="7" ry="3" fill="#a84e2b"/><ellipse cx="78" cy="78" rx="5" ry="1.8" fill="#df8e47"/>',
+  'south':plate+'<path d="M26 77 Q39 52 49 51 Q69 57 89 77 Q88 82 80 83 L33 83 Q26 82 26 77Z" fill="#bd7a32"/><path d="M31 76 Q43 56 50 56 Q68 61 83 77 Q62 80 31 76Z" fill="#f0c56c"/><path d="M40 70 Q52 65 69 72" stroke="#fff0b1" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="38" cy="82" r="5" fill="#d9a95f"/><circle cx="55" cy="83" r="5" fill="#8a9c58"/><circle cx="72" cy="83" r="5" fill="#e4d4a9"/>',
+  'thali':'<ellipse cx="60" cy="78" rx="35" ry="13" fill="#e5d1ac" stroke="#f9e8c7" stroke-width="1.4"/><ellipse cx="60" cy="77" rx="29" ry="9" fill="#3b2118"/><g stroke="#e4ca9d" stroke-width="1.4"><circle cx="45" cy="69" r="10" fill="#c75c31"/><circle cx="68" cy="67" r="10" fill="#d8a84f"/><circle cx="78" cy="80" r="7" fill="#8a9b56"/><circle cx="48" cy="81" r="7" fill="#ead4a2"/></g><circle cx="45" cy="68" r="4" fill="#f4c56c"/><circle cx="68" cy="66" r="4" fill="#f0c87b"/><circle cx="77" cy="80" r="3" fill="#b3c178"/>',
+  'dessert':plate+'<ellipse cx="60" cy="70" rx="23" ry="9" fill="#f1d9aa"/><g fill="#b94e46" stroke="#e89a7b" stroke-width="1.2"><circle cx="48" cy="65" r="7"/><circle cx="62" cy="62" r="7"/><circle cx="75" cy="66" r="7"/></g><g fill="#ffd6a0"><circle cx="46" cy="63" r="1.6"/><circle cx="61" cy="60" r="1.5"/><circle cx="74" cy="64" r="1.5"/></g><path d="M39 73 Q60 81 81 73" stroke="#e8c078" stroke-width="2" fill="none" stroke-linecap="round"/>',
+  'drink':'<ellipse cx="60" cy="84" rx="30" ry="6" fill="#080605" opacity=".3"/><ellipse cx="58" cy="81" rx="29" ry="6.5" fill="#d9bf97" stroke="#f1dfc0" stroke-width="1.2"/><path d="M39 46 L80 46 L76 76 Q60 84 44 76Z" fill="#d9c49f" stroke="#f6e6ca" stroke-width="1.6"/><ellipse cx="59.5" cy="46" rx="20.5" ry="5.5" fill="#f3e3c6" stroke="#fff1d7" stroke-width="1.2"/><ellipse cx="59.5" cy="46" rx="16" ry="3.5" fill="#7a3c25"/><path d="M80 52 Q96 49 91 65 Q89 72 77 69" fill="none" stroke="#d6bf9c" stroke-width="5" stroke-linecap="round"/><path d="M80 52 Q92 51 87 63 Q85 66 78 65" fill="none" stroke="#58402d" stroke-width="2.2" stroke-linecap="round"/>',
+  'cool-drink':'<ellipse cx="60" cy="85" rx="27" ry="6" fill="#080605" opacity=".3"/><path d="M41 43 L79 43 L74 79 Q60 84 46 79Z" fill="#8eaf9a" stroke="#d6e4ca" stroke-width="1.5"/><ellipse cx="60" cy="43" rx="19" ry="5" fill="#b3d0aa" stroke="#e5edd8" stroke-width="1.2"/><path d="M62 38 L75 20" stroke="#e8d5a9" stroke-width="4" stroke-linecap="round"/><path d="M48 50l3 4M66 61l3 5M53 69l2 3" stroke="#f3eacb" stroke-width="2.3" stroke-linecap="round"/><circle cx="52" cy="43" r="2.5" fill="#eaf2d2"/><circle cx="66" cy="43" r="2.5" fill="#eaf2d2"/>',
+  'signature':plate+'<ellipse cx="60" cy="68" rx="27" ry="12" fill="#b84e2c"/><ellipse cx="60" cy="65" rx="23" ry="8.5" fill="#d9a447"/><g><circle cx="48" cy="62" r="5.2" fill="#ead19a"/><circle cx="62" cy="60" r="5.5" fill="#8eac68"/><circle cx="74" cy="65" r="5" fill="#e6b956"/><circle cx="55" cy="70" r="4" fill="#ca7240"/></g><path d="M39 65l3-4M69 58l3-3" stroke="#f4dfaf" stroke-width="2" stroke-linecap="round"/>'
+ };
+ var classVariant=String(variant||'menu').replace(/[^a-z-]/g,'');
+ return '<span class="dish-art dish-art-'+classVariant+' dish-art--'+type+'"'+(hidden?' style="display:none"':'')+' role="img" aria-label="'+esc('Illustration of '+title)+'"><svg viewBox="0 0 120 100" width="100%" height="100%" aria-hidden="true" focusable="false">'+steam+art[type]+'</svg></span>';
+}
 function dishImageMarkup(item,variant) {
- var info=dishPhotoInfo(item);if(!info.url)return'<span class="dish-photo-fallback" aria-label="Dish photo not added yet">🍽️</span>';
+ var info=dishPhotoInfo(item);
+ if(!info.url)return dishIllustrationMarkup(item,variant,false);
  var cls='dish-photo dish-photo-'+String(variant||'menu').replace(/[^a-z-]/g,'');
  var alt='Photo of '+(window.mmDishName?window.mmDishName(item):(item.name||'dish'));
- return '<img class="'+cls+'" src="'+esc(info.url)+'" alt="'+esc(alt)+'" loading="lazy" decoding="async" referrerpolicy="no-referrer" title="'+esc(info.credit||'Restaurant dish photo')+'" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'+'<span class="dish-photo-fallback" style="display:none" aria-hidden="true">🍽️</span>';
+ return '<img class="'+cls+'" src="'+esc(info.url)+'" alt="'+esc(alt)+'" loading="lazy" decoding="async" referrerpolicy="no-referrer" title="'+esc(info.credit||'Restaurant dish photo')+'" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'+dishIllustrationMarkup(item,variant,true);
 }
 function dishPhotoCreditMarkup(item) {
  var info=dishPhotoInfo(item);return info.credit?'<a class="dish-photo-credit" href="https://commons.wikimedia.org/wiki/File:Hyderabadi_Mutton_Biryani.jpg" target="_blank" rel="noopener noreferrer">Photo: Jayanthkumar101 · CC BY-SA 4.0</a>':'';
