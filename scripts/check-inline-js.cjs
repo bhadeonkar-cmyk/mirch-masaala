@@ -363,7 +363,7 @@ requireText(readinessCheck, 'public.mm_place_order(uuid, text, text, text, jsonb
 requireText(readinessCheck, 'mm_notify_kitchen_new_order_trigger', 'Readiness check verifies the kitchen order alert trigger');
 requireText(roleNotificationsMigration, 'mm_staff_notifications(\n  p_limit integer DEFAULT 30,\n  p_staff_code text DEFAULT NULL', 'Notification RPC signature matches the live staff client');
 requireText(roleNotificationsMigration, "'GUEST_LEFT_UNPAID','ORDER_APPROVAL'", 'Notification SQL accepts the full current event-type set');
-requireText(staffPushSql, 'AS $\nDECLARE', 'Staff push notification SQL has a valid PL/pgSQL dollar-quote opener');
+requireText(staffPushSql, 'AS $$\nDECLARE', 'Staff push notification SQL has a valid PL/pgSQL dollar-quote opener');
 requireText(cashCounterMigration, "Cash payment requested. Counter staff are notified; the table stays active until payment is recorded.", 'Cash request keeps the visit open until real payment is recorded');
 requireText(visitServiceControlsMigration, "Cash payment requested. Counter staff are notified; the table stays active until payment is recorded.", 'Final table-visit migration preserves the cash-payment state');
 requireText(html, 'class="scan-qr-visual"', 'Customer QR scanner has a prominent animated visual');
