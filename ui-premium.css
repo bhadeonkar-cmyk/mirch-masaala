@@ -1,0 +1,806 @@
+/*
+ * MIRCH MASAALA — Premium UI / Motion Layer
+ * A presentation-only layer over the existing app. Business logic is intentionally untouched.
+ * Palette: midnight cocoa, soft brass, ember copper, warm ivory.
+ */
+
+/* 01 · Design tokens and ambient canvas */
+:root {
+  --mm-ink: #100b09;
+  --mm-ink-soft: #17100e;
+  --mm-panel: rgba(31, 22, 18, .88);
+  --mm-panel-solid: #211713;
+  --mm-panel-raised: #2a1d17;
+  --mm-brass: #c4a36a;
+  --mm-brass-soft: #ddc69a;
+  --mm-copper: #b86d43;
+  --mm-red: #9f4538;
+  --mm-ivory: #f3ecdf;
+  --mm-copy-dim: #aa9a89;
+  --mm-edge: rgba(214, 178, 112, .20);
+  --mm-edge-soft: rgba(255, 239, 211, .075);
+  --mm-shadow: 0 18px 48px rgba(0, 0, 0, .28);
+  --mm-ease: cubic-bezier(.2, .75, .25, 1);
+  --mm-snap: cubic-bezier(.16, 1, .3, 1);
+  --mm-focus: 0 0 0 3px rgba(221, 198, 154, .24);
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+  scrollbar-color: rgba(196, 163, 106, .42) rgba(16, 11, 9, .6);
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 8% -10%, rgba(174, 83, 48, .12), transparent 38rem),
+    radial-gradient(ellipse at 100% 8%, rgba(196, 163, 106, .075), transparent 34rem),
+    radial-gradient(ellipse at 55% 110%, rgba(102, 42, 31, .12), transparent 40rem),
+    linear-gradient(155deg, #100b09 0%, #15100d 50%, #100b09 100%);
+  background-attachment: fixed;
+  isolation: isolate;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  opacity: .48;
+  background-image: radial-gradient(rgba(246, 224, 184, .13) .55px, transparent .7px);
+  background-size: 25px 25px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.5), transparent 72%);
+}
+
+button, input, select, textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: none;
+  box-shadow: var(--mm-focus) !important;
+  border-color: rgba(221, 198, 154, .76) !important;
+}
+
+/* 02 · Screen transitions — quick, composed, and not theatrical */
+@keyframes mmScreenIn {
+  from { opacity: 0; transform: translateY(7px); filter: saturate(.92); }
+  to { opacity: 1; transform: translateY(0); filter: saturate(1); }
+}
+@keyframes mmRiseSoft {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes mmHaloBreathe {
+  0%, 100% { opacity: .48; transform: scale(.97); }
+  50% { opacity: .72; transform: scale(1.025); }
+}
+@keyframes mmBeamSweep {
+  0%, 100% { transform: translateY(-2px); opacity: .52; }
+  50% { transform: translateY(24px); opacity: .82; }
+}
+@keyframes mmArrowNudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
+}
+@keyframes mmStatusPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(62, 207, 142, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(62, 207, 142, .055); }
+}
+
+.screen.on {
+  animation: mmScreenIn .32s var(--mm-snap) both;
+  transform-origin: 50% 0;
+}
+
+#home.screen.on {
+  position: relative;
+  isolation: isolate;
+}
+
+#home .wrap {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 560px);
+}
+
+#home .home-atmosphere {
+  height: 460px;
+  opacity: .82;
+  background:
+    radial-gradient(ellipse at 48% 4%, rgba(196,163,106,.115), transparent 42%),
+    radial-gradient(ellipse at 10% 35%, rgba(184,109,67,.09), transparent 36%),
+    radial-gradient(ellipse at 92% 30%, rgba(159,69,56,.055), transparent 39%);
+}
+
+#home .home-steam {
+  opacity: 0;
+  filter: blur(16px);
+}
+
+#home .home-ember {
+  width: 2px;
+  height: 2px;
+  box-shadow: 0 0 8px 1px rgba(221,198,154,.16);
+}
+
+/* 03 · Brand stage and home hierarchy */
+#home .home-utility-bar {
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+#home .home-language-control {
+  gap: 8px;
+}
+
+#home #status-pill {
+  box-shadow: inset 0 1px rgba(255,255,255,.035);
+  animation: mmStatusPulse 4.8s ease-in-out infinite;
+}
+
+#home .logo-row {
+  position: relative;
+  gap: 15px;
+  margin: 5px auto 7px;
+  padding: 12px 8px 7px;
+}
+
+#home .logo-row::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: min(92%, 350px);
+  height: 130px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: radial-gradient(ellipse, rgba(196,163,106,.10), rgba(184,109,67,.035) 44%, transparent 72%);
+  filter: blur(10px);
+  animation: mmHaloBreathe 8s ease-in-out infinite;
+}
+
+#home .brand-name {
+  font-size: clamp(1.8rem, 7vw, 2.2rem);
+  line-height: .98;
+  letter-spacing: .045em;
+  color: var(--mm-brass-soft);
+  text-shadow: 0 2px 18px rgba(196,163,106,.10);
+}
+
+#home .brand-sub {
+  color: #b69d7b;
+  letter-spacing: .23em;
+  font-size: 10px;
+  margin-top: 7px;
+}
+
+#home #home-tagline {
+  max-width: 350px;
+  margin: 7px auto 9px !important;
+  color: #b7a999;
+  letter-spacing: .01em;
+}
+
+#home .tip-banner {
+  background: linear-gradient(112deg, rgba(196,163,106,.075), rgba(255,255,255,.018) 62%, rgba(159,69,56,.04));
+  border-color: rgba(196,163,106,.17);
+  border-radius: 14px 19px 19px 19px;
+  box-shadow: inset 0 1px rgba(255,255,255,.028);
+}
+
+#home .tip-banner .ic {
+  filter: saturate(.76);
+}
+
+#home .qr-guide-mini {
+  margin-top: 12px;
+  background: linear-gradient(112deg, rgba(196,163,106,.055), rgba(30,21,18,.52));
+  border-color: rgba(196,163,106,.17);
+}
+
+#home .qr-mini-mascot {
+  background: rgba(196,163,106,.07);
+  border-color: rgba(196,163,106,.18);
+  box-shadow: inset 0 1px rgba(255,255,255,.035);
+}
+
+#home .qr-mini-arrow {
+  color: #c8b28a;
+  opacity: .68;
+}
+
+/* QR scanner: tactile, readable, and intentionally low-glare */
+#scan-table-btn,
+#scan-table-btn.btn-main,
+#scan-table-btn.scan-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 13px;
+  min-height: 72px !important;
+  margin-top: 8px !important;
+  padding: 11px 14px !important;
+  border: 1px solid rgba(196,163,106,.36) !important;
+  border-radius: 17px !important;
+  background:
+    linear-gradient(110deg, rgba(196,163,106,.075), transparent 42%),
+    linear-gradient(145deg, #29221c 0%, #211a16 58%, #1c1713 100%) !important;
+  color: var(--mm-ivory) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.21), inset 0 1px rgba(255,255,255,.035) !important;
+  text-align: left;
+  letter-spacing: 0;
+  transition: transform .2s var(--mm-ease), border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+
+#scan-table-btn::before,
+#scan-table-btn::after {
+  content: none !important;
+  animation: none !important;
+}
+
+#scan-table-btn:active {
+  transform: translateY(1px) scale(.992);
+}
+
+#scan-table-btn:hover {
+  border-color: rgba(196,163,106,.52) !important;
+  background:
+    linear-gradient(110deg, rgba(196,163,106,.105), transparent 46%),
+    linear-gradient(145deg, #2b231d 0%, #231b17 58%, #1e1814 100%) !important;
+  box-shadow: 0 10px 26px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.045) !important;
+}
+
+#scan-table-btn .scan-qr-visual {
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(196,163,106,.24);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(255,255,255,.035), rgba(0,0,0,.18));
+  box-shadow: inset 0 1px rgba(255,255,255,.025);
+}
+
+#scan-table-btn .scan-qr-corner {
+  border-color: #bca170;
+  opacity: .92;
+}
+
+#scan-table-btn .scan-qr-dot {
+  background: #bca170;
+  opacity: .78;
+}
+
+#scan-table-btn .scan-qr-beam {
+  background: #d0b783;
+  box-shadow: 0 0 5px rgba(196,163,106,.16);
+  animation: mmBeamSweep 3.2s ease-in-out infinite;
+}
+
+#scan-table-btn .scan-qr-copy {
+  gap: 4px;
+}
+
+#scan-table-btn .scan-qr-copy b {
+  color: #f1e8d8;
+  font-size: 14px;
+  letter-spacing: .005em;
+}
+
+#scan-table-btn .scan-qr-copy small {
+  color: #b7a999;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+#scan-table-btn .scan-cta-arrow {
+  display: grid;
+  place-items: center;
+  flex: 0 0 29px;
+  width: 29px;
+  height: 29px;
+  border: 1px solid rgba(196,163,106,.21);
+  border-radius: 10px;
+  color: #c7b087;
+  background: rgba(0,0,0,.12);
+  font-size: 17px;
+  animation: none;
+  transition: transform .2s var(--mm-ease), background .2s ease;
+}
+
+#scan-table-btn:hover .scan-cta-arrow {
+  transform: translateX(2px);
+  background: rgba(196,163,106,.075);
+}
+
+#home .qr-no-sticker {
+  color: #998b7d;
+  font-size: 10px;
+  letter-spacing: .01em;
+}
+
+/* 04 · Shortcuts and supporting actions */
+#home .home-shortcuts {
+  max-width: 360px;
+  gap: clamp(8px, 3vw, 18px);
+  margin-top: 13px;
+}
+
+#home .home-shortcut {
+  min-width: 56px;
+  flex: 1 1 62px;
+  transition: transform .2s var(--mm-ease);
+}
+
+#home .home-icon-btn {
+  width: 47px;
+  height: 47px;
+  border: 1px solid rgba(196,163,106,.19);
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
+  box-shadow: inset 0 1px rgba(255,255,255,.035), 0 5px 15px rgba(0,0,0,.13);
+  transition: transform .2s var(--mm-ease), border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+
+#home .home-icon-btn span {
+  filter: saturate(.78);
+}
+
+#home .home-shortcut-label {
+  color: #b3a394;
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: .005em;
+}
+
+#home .party-booking-btn {
+  border-color: rgba(196,163,106,.24);
+  background: linear-gradient(145deg, rgba(159,69,56,.14), rgba(196,163,106,.045));
+  box-shadow: inset 0 1px rgba(255,255,255,.035), 0 5px 15px rgba(0,0,0,.12);
+  animation: none;
+}
+
+#home .install-staff-btn,
+#home .big-link,
+#home .customer-explore-shortcut {
+  border-color: var(--mm-edge);
+  background: linear-gradient(120deg, rgba(196,163,106,.055), rgba(255,255,255,.015) 70%);
+  box-shadow: inset 0 1px rgba(255,255,255,.025);
+}
+
+/* 05 · Shared surfaces, controls, and content cards */
+.topbar {
+  background: rgba(18, 12, 10, .88);
+  border-bottom-color: rgba(196,163,106,.16);
+  box-shadow: 0 8px 22px rgba(0,0,0,.09);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+}
+
+.back {
+  border-color: rgba(196,163,106,.20);
+  border-radius: 11px;
+  background: linear-gradient(145deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+  color: #d8c49e;
+  transition: transform .18s var(--mm-ease), border-color .18s ease, background .18s ease;
+}
+
+.btn {
+  position: relative;
+  overflow: hidden;
+  border-radius: 13px;
+  transition: transform .18s var(--mm-ease), border-color .18s ease, background .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+
+.btn-main {
+  background: linear-gradient(135deg, #b18a45, #d0b677) !important;
+  color: #1b130c !important;
+  box-shadow: 0 5px 15px rgba(177,138,69,.14) !important;
+}
+
+.btn-soft {
+  background: linear-gradient(145deg, #241b17, #1d1613) !important;
+  border: 1px solid rgba(196,163,106,.17) !important;
+  color: #e4d7c2 !important;
+}
+
+.btn-ok {
+  box-shadow: 0 4px 14px rgba(62,207,142,.10);
+}
+
+.btn-warn {
+  box-shadow: 0 4px 14px rgba(240,160,75,.10);
+}
+
+.pill {
+  box-shadow: inset 0 1px rgba(255,255,255,.025);
+}
+
+.card {
+  position: relative;
+  border-color: rgba(196,163,106,.15);
+  background: linear-gradient(145deg, rgba(39,28,23,.96), rgba(29,21,17,.98));
+  box-shadow: 0 5px 15px rgba(0,0,0,.10), inset 0 1px rgba(255,255,255,.018);
+  transition: transform .2s var(--mm-ease), border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.card .pic {
+  overflow: hidden;
+  border: 1px solid rgba(196,163,106,.10);
+  background: linear-gradient(145deg, rgba(196,163,106,.08), rgba(0,0,0,.18));
+}
+
+.card .name {
+  letter-spacing: .005em;
+}
+
+.card .desc {
+  color: #b5a596;
+  line-height: 1.45;
+}
+
+.card .price {
+  color: #ddc69a;
+}
+
+.add {
+  border: 1px solid rgba(196,163,106,.22);
+  transition: transform .16s var(--mm-ease), background .16s ease, border-color .16s ease;
+}
+
+.qty {
+  border-color: rgba(196,163,106,.18);
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+.qty button {
+  transition: background .15s ease, transform .15s var(--mm-ease);
+}
+
+.big-link,
+.customer-explore-shortcut {
+  transition: transform .18s var(--mm-ease), border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.menu-search-prime {
+  border-bottom: 1px solid rgba(196,163,106,.10);
+}
+
+.menu-search-symbol {
+  color: #c9af7d;
+  opacity: .82;
+}
+
+.search,
+.scan-manual-row input,
+.login-box input,
+input, select, textarea {
+  accent-color: #c4a36a;
+}
+
+.search,
+.scan-manual-row input,
+.login-box input {
+  border-color: rgba(196,163,106,.20);
+  background: rgba(10,7,6,.32);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 4px rgba(0,0,0,.12);
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.cat {
+  border-color: rgba(196,163,106,.16);
+  background: rgba(255,255,255,.012);
+  transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s var(--mm-ease);
+}
+
+.cat.on {
+  background: rgba(196,163,106,.13);
+  border-color: rgba(196,163,106,.38);
+  color: #e5d3ad;
+  box-shadow: inset 0 1px rgba(255,255,255,.035);
+}
+
+/* 06 · Customer checkout and confirmation */
+.customer-table-lock {
+  border-color: rgba(196,163,106,.20);
+  background: rgba(196,163,106,.055);
+  box-shadow: inset 0 1px rgba(255,255,255,.025);
+}
+
+.customer-bottom {
+  background: rgba(18,12,10,.91);
+  border-top-color: rgba(196,163,106,.16);
+  box-shadow: 0 -10px 28px rgba(0,0,0,.14);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+}
+
+.bottom {
+  background: linear-gradient(transparent, rgba(16,11,9,.95) 32%);
+}
+
+.drawer {
+  background:
+    radial-gradient(ellipse at 90% 0%, rgba(196,163,106,.065), transparent 28rem),
+    #120c0a;
+}
+
+.drawer .body {
+  overscroll-behavior: contain;
+}
+
+.modal {
+  background: rgba(7,5,4,.76);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.modal .box {
+  border: 1px solid rgba(196,163,106,.22);
+  border-radius: 20px;
+  background: linear-gradient(145deg, #261b16, #19120f);
+  box-shadow: var(--mm-shadow), inset 0 1px rgba(255,255,255,.035);
+}
+
+.modal.on .box {
+  animation: mmRiseSoft .24s var(--mm-snap) both;
+}
+
+.drawer.on {
+  animation: mmScreenIn .25s var(--mm-snap) both;
+}
+
+#toast,
+.toast {
+  border: 1px solid rgba(196,163,106,.22);
+  border-radius: 13px;
+  background: rgba(35,25,20,.96);
+  box-shadow: 0 12px 32px rgba(0,0,0,.32);
+  backdrop-filter: blur(14px);
+}
+
+/* 07 · Table selection: distinct states without flashing */
+.tbtn {
+  border-color: rgba(196,163,106,.20);
+  background: linear-gradient(145deg, rgba(43,31,25,.92), rgba(27,20,16,.98));
+  box-shadow: inset 0 1px rgba(255,255,255,.025), 0 4px 10px rgba(0,0,0,.09);
+  transition: transform .18s var(--mm-ease), border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.tbtn:active {
+  transform: scale(.975);
+}
+
+.tbtn.on {
+  border-color: rgba(221,198,154,.70);
+  background: linear-gradient(145deg, rgba(196,163,106,.19), rgba(159,69,56,.055));
+  box-shadow: inset 0 0 0 1px rgba(221,198,154,.10), 0 7px 20px rgba(0,0,0,.14);
+}
+
+/* 08 · Staff, kitchen display, owner console */
+.login-box {
+  padding: 24px;
+  border: 1px solid rgba(196,163,106,.19);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(38,27,21,.95), rgba(25,18,14,.98));
+  box-shadow: var(--mm-shadow), inset 0 1px rgba(255,255,255,.025);
+}
+
+.tabs {
+  border-bottom-color: rgba(196,163,106,.16);
+  background: rgba(18,12,10,.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.tabs button {
+  border-radius: 10px 10px 0 0;
+  transition: color .16s ease, background .16s ease, border-color .16s ease;
+}
+
+.tabs button.on {
+  background: rgba(196,163,106,.09);
+  box-shadow: inset 0 -2px #c4a36a;
+}
+
+.stats {
+  gap: 9px;
+}
+
+.stat {
+  border-color: rgba(196,163,106,.16);
+  background: linear-gradient(145deg, rgba(39,28,22,.94), rgba(26,19,15,.98));
+  box-shadow: inset 0 1px rgba(255,255,255,.025);
+}
+
+.stat b {
+  color: #e0c796;
+  letter-spacing: -.025em;
+}
+
+.kds {
+  gap: 10px;
+}
+
+.kcol {
+  border: 1px solid rgba(196,163,106,.11);
+  background: linear-gradient(180deg, rgba(30,22,18,.96), rgba(19,14,12,.96));
+}
+
+.kcol h3 {
+  letter-spacing: .08em;
+  border-radius: 9px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.11);
+}
+
+.kcard {
+  border: 1px solid rgba(196,163,106,.14);
+  background: linear-gradient(145deg, #2a1f18, #211813);
+  box-shadow: 0 5px 14px rgba(0,0,0,.12);
+}
+
+.visit-card {
+  border-color: rgba(196,163,106,.22);
+  background: linear-gradient(135deg, rgba(196,163,106,.09), rgba(34,24,19,.96) 58%, rgba(159,69,56,.045));
+  box-shadow: 0 12px 28px rgba(0,0,0,.16), inset 0 1px rgba(255,255,255,.025);
+}
+
+.role-alert-host > * {
+  border-color: rgba(196,163,106,.23);
+  box-shadow: 0 8px 20px rgba(0,0,0,.12);
+}
+
+.admin-more {
+  border: 1px solid rgba(196,163,106,.18);
+  border-radius: 10px;
+  background: #211713;
+  color: #dfcda9;
+}
+
+.settings-row,
+.waiter-visit-row,
+.visit-detail,
+.place {
+  border-color: rgba(196,163,106,.15);
+}
+
+/* 09 · Entrance rhythm for static home and main navigation controls */
+#home.screen.on .home-utility-bar { animation: mmRiseSoft .34s .02s var(--mm-snap) both; }
+#home.screen.on .logo-row { animation: mmRiseSoft .42s .04s var(--mm-snap) both; }
+#home.screen.on #home-tagline { animation: mmRiseSoft .42s .08s var(--mm-snap) both; }
+#home.screen.on #home-tip { animation: mmRiseSoft .42s .11s var(--mm-snap) both; }
+#home.screen.on .qr-guide-mini { animation: mmRiseSoft .42s .14s var(--mm-snap) both; }
+#home.screen.on #scan-table-btn { animation: mmRiseSoft .46s .16s var(--mm-snap) both; }
+#home.screen.on .home-shortcuts { animation: mmRiseSoft .46s .19s var(--mm-snap) both; }
+
+#customer.screen.on .topbar,
+#waiter.screen.on .topbar,
+#kitchen.screen.on .topbar,
+#admin.screen.on .topbar {
+  animation: mmRiseSoft .26s var(--mm-snap) both;
+}
+
+/* 10 · Hover is progressive enhancement; touch users keep calm, tactile feedback */
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+  .btn-main:hover {
+    filter: brightness(1.035);
+    box-shadow: 0 8px 19px rgba(177,138,69,.17) !important;
+  }
+  .btn-soft:hover,
+  .back:hover {
+    border-color: rgba(196,163,106,.34);
+    background: rgba(196,163,106,.07);
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(196,163,106,.26);
+    box-shadow: 0 11px 24px rgba(0,0,0,.16), inset 0 1px rgba(255,255,255,.025);
+  }
+  .home-shortcut:hover {
+    transform: translateY(-2px);
+  }
+  .home-icon-btn:hover {
+    transform: translateY(-2px);
+    border-color: rgba(196,163,106,.38);
+    background: linear-gradient(145deg, rgba(196,163,106,.085), rgba(255,255,255,.02));
+  }
+  .tbtn:hover {
+    transform: translateY(-2px);
+    border-color: rgba(196,163,106,.38);
+  }
+  .cat:hover {
+    border-color: rgba(196,163,106,.34);
+    color: #e5d3ad;
+  }
+  .add:hover {
+    border-color: rgba(196,163,106,.45);
+    transform: translateY(-1px);
+  }
+}
+
+/* 11 · Responsive details */
+@media (min-width: 700px) {
+  #home .wrap {
+    padding-top: 24px;
+  }
+  #home .logo-row {
+    margin-top: 10px;
+  }
+  #home .home-shortcuts {
+    max-width: 420px;
+  }
+  .modal .box {
+    max-width: min(560px, calc(100vw - 40px));
+  }
+}
+
+@media (max-width: 390px) {
+  #home .logo-row {
+    gap: 8px;
+  }
+  #home .brand-name {
+    font-size: 1.68rem;
+  }
+  #scan-table-btn {
+    gap: 10px;
+    padding: 10px 11px !important;
+  }
+  #scan-table-btn .scan-qr-copy b {
+    font-size: 13px;
+  }
+  #scan-table-btn .scan-qr-copy small {
+    font-size: 10px;
+  }
+  #home .home-shortcuts {
+    gap: 7px;
+  }
+  #home .home-shortcut-label {
+    font-size: 9px;
+  }
+  .kds {
+    gap: 6px;
+  }
+  .kcol {
+    padding: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+  .screen.on,
+  #home.screen.on .home-utility-bar,
+  #home.screen.on .logo-row,
+  #home.screen.on #home-tagline,
+  #home.screen.on #home-tip,
+  #home.screen.on .qr-guide-mini,
+  #home.screen.on #scan-table-btn,
+  #home.screen.on .home-shortcuts {
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
