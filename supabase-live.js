@@ -1237,10 +1237,10 @@
       window.lastPlacedOrderId = order.id;
       window.go('success');
       var host = document.getElementById('success-progress-host');
-      if (host) host.innerHTML = window.progressMarkup(order) + '<p class="waiting-joke" id="waiting-joke">Your order has been sent directly to the kitchen. 🍳</p>';
+      if (host) host.innerHTML = window.progressMarkup(order) + '<p class="waiting-joke" id="waiting-joke">Your order is confirmed and sent directly to the kitchen. No approval is needed.</p>';
       if (typeof window.startWaitFun === 'function') window.startWaitFun(order.id);
       if (typeof window.confetti === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) window.confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
-      notifySuccess('Order sent directly to kitchen!');
+      notifySuccess('Your order is confirmed and sent directly to the kitchen. No approval is needed.');
       refreshCustomerOrders();
     } catch (e) {
       notifyError(window.mmFriendlyError ? window.mmFriendlyError(e, 'customer-order') : (e && e.message ? e.message : 'Could not send the order. Please ask your waiter.'));
