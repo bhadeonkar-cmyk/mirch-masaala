@@ -65,6 +65,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f scripts/check-accounting-behavior.sql
       - name: Compile and exercise party and payment-verification migrations
         run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/role-notifications.sql
           psql -v ON_ERROR_STOP=1 -f supabase/party-bookings.sql
           psql -v ON_ERROR_STOP=1 -f supabase/customer-payment-confirmation.sql
           psql -v ON_ERROR_STOP=1 -f scripts/check-party-bookings.sql
@@ -74,7 +75,6 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/table-visits.sql
           psql -v ON_ERROR_STOP=1 -f supabase/visit-billing-upgrade.sql
           psql -v ON_ERROR_STOP=1 -f supabase/customer-cash-counter.sql
-          psql -v ON_ERROR_STOP=1 -f scripts/check-cash-counter-release.sql
           # Re-running the older alert migrations must preserve the new cash alert type.
           psql -v ON_ERROR_STOP=1 -f supabase/party-bookings.sql
           psql -v ON_ERROR_STOP=1 -f supabase/customer-payment-confirmation.sql
@@ -94,6 +94,10 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/visit-service-controls.sql
           psql -v ON_ERROR_STOP=1 -f scripts/check-visit-service-controls.sql
           psql -v ON_ERROR_STOP=1 -f supabase/visit-service-controls.sql
+          # Compile the optional push migration against the complete notification schema.
+          psql -v ON_ERROR_STOP=1 -f supabase/staff-push-notifications.sql
+          # Exercise same-table diner orders and cash settlement against the final visit RPC.
+          psql -v ON_ERROR_STOP=1 -f scripts/check-cash-counter-release.sql
           psql -v ON_ERROR_STOP=1 -c "DO \$qa\$ BEGIN
             IF NOT EXISTS (
               SELECT 1 FROM pg_constraint
