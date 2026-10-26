@@ -20,6 +20,33 @@ CREATE TABLE IF NOT EXISTS public.mm_restaurant_notifications (
   resolved_by uuid REFERENCES auth.users(id) ON DELETE SET NULL
 );
 
+-- Keep this migration safe to re-run after payments, table visits and push setup.
+ALTER TABLE public.mm_restaurant_notifications
+  ADD COLUMN IF NOT EXISTS target_staff_code text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS push_dispatch_token text,
+  ADD COLUMN IF NOT EXISTS push_sent_at timestamptz;
+
+DO $$
+DECLARE c record;
+BEGIN
+  FOR c IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid='public.mm_restaurant_notifications'::regclass
+      AND contype='c'
+      AND pg_get_constraintdef(oid) ILIKE '%notification_type%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.mm_restaurant_notifications DROP CONSTRAINT %I', c.conname);
+  END LOOP;
+  ALTER TABLE public.mm_restaurant_notifications
+    ADD CONSTRAINT mm_restaurant_notifications_type_check
+    CHECK (notification_type IN (
+      'WAITER_CALL','BILL_REQUEST','NEW_ORDER','ORDER_READY','ITEM_SOLD_OUT',
+      'PARTY_BOOKING','PAYMENT_CHECK','CASH_AT_COUNTER','GUEST_LEFT_UNPAID','ORDER_APPROVAL'
+    ));
+END
+$$;
+
 CREATE INDEX IF NOT EXISTS ix_mm_restaurant_notifications_open
   ON public.mm_restaurant_notifications (restaurant_id, target_role, created_at DESC)
   WHERE resolved_at IS NULL;
@@ -102,8 +129,14 @@ $$;
 REVOKE ALL ON FUNCTION public.mm_create_guest_notification(uuid, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.mm_create_guest_notification(uuid, text, text) TO anon, authenticated;
 
--- Staff can only read unresolved notifications for their own role.
-CREATE OR REPLACE FUNCTION public.mm_staff_notifications(p_limit integer DEFAULT 30)
+-- Staff APIs match supabase-live.js directly, including assigned waiter filtering.
+DROP FUNCTION IF EXISTS public.mm_staff_notifications(integer);
+DROP FUNCTION IF EXISTS public.mm_resolve_staff_notification(bigint);
+
+CREATE OR REPLACE FUNCTION public.mm_staff_notifications(
+  p_limit integer DEFAULT 30,
+  p_staff_code text DEFAULT NULL
+)
 RETURNS TABLE (
   id bigint,
   target_role text,
@@ -121,6 +154,7 @@ SET search_path = 'pg_catalog, public, pg_temp'
 AS $$
 DECLARE
   v_role text := public.get_my_staff_role();
+  v_staff_code text := upper(trim(coalesce(p_staff_code, '')));
 BEGIN
   IF v_role IS NULL OR v_role NOT IN ('admin', 'waiter', 'kitchen') THEN
     RAISE EXCEPTION 'Staff sign-in required';
@@ -133,15 +167,23 @@ BEGIN
   WHERE n.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
     AND n.target_role = v_role
     AND n.resolved_at IS NULL
+    AND (
+      v_role <> 'waiter'
+      OR coalesce(n.target_staff_code, '') = ''
+      OR upper(n.target_staff_code) = v_staff_code
+    )
   ORDER BY n.created_at DESC
   LIMIT greatest(1, least(coalesce(p_limit, 30), 100));
 END
 $$;
 
-REVOKE ALL ON FUNCTION public.mm_staff_notifications(integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.mm_staff_notifications(integer) TO authenticated;
+REVOKE ALL ON FUNCTION public.mm_staff_notifications(integer, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mm_staff_notifications(integer, text) TO authenticated;
 
-CREATE OR REPLACE FUNCTION public.mm_resolve_staff_notification(p_notification_id bigint)
+CREATE OR REPLACE FUNCTION public.mm_resolve_staff_notification(
+  p_notification_id bigint,
+  p_staff_code text DEFAULT NULL
+)
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -149,24 +191,30 @@ SET search_path = 'pg_catalog, public, pg_temp'
 AS $$
 DECLARE
   v_role text := public.get_my_staff_role();
+  v_staff_code text := upper(trim(coalesce(p_staff_code, '')));
 BEGIN
   IF v_role IS NULL OR v_role NOT IN ('admin', 'waiter', 'kitchen') THEN
     RAISE EXCEPTION 'Staff sign-in required';
   END IF;
 
-  UPDATE public.mm_restaurant_notifications
+  UPDATE public.mm_restaurant_notifications n
   SET resolved_at = now(), resolved_by = auth.uid()
-  WHERE id = p_notification_id
-    AND restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
-    AND target_role = v_role
-    AND resolved_at IS NULL;
+  WHERE n.id = p_notification_id
+    AND n.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+    AND n.target_role = v_role
+    AND n.resolved_at IS NULL
+    AND (
+      v_role <> 'waiter'
+      OR coalesce(n.target_staff_code, '') = ''
+      OR upper(n.target_staff_code) = v_staff_code
+    );
 
   RETURN FOUND;
 END
 $$;
 
-REVOKE ALL ON FUNCTION public.mm_resolve_staff_notification(bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.mm_resolve_staff_notification(bigint) TO authenticated;
+REVOKE ALL ON FUNCTION public.mm_resolve_staff_notification(bigint, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mm_resolve_staff_notification(bigint, text) TO authenticated;
 
 -- Every new ticket produces one kitchen alert; tickets themselves remain the source of truth.
 CREATE OR REPLACE FUNCTION public.mm_notify_kitchen_new_order()
