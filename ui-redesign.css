@@ -50,8 +50,13 @@ textarea:focus-visible {
 }
 ::selection { color: #21160a; background: var(--gold2); }
 .screen { position: relative; isolation: isolate; }
-.screen.on { animation: mmScreenEnter .36s var(--mm-ease) both; }
+.screen.on { animation: mmScreenEnter .32s ease-out both; }
+.screen.on > .wrap { animation: mmContentEnter .34s var(--mm-ease) both; }
 @keyframes mmScreenEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes mmContentEnter {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
 }
