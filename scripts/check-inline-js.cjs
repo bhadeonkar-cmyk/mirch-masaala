@@ -13,6 +13,7 @@ const paymentConfirmationMigration = fs.readFileSync('supabase/customer-payment-
 const cashCounterMigration = fs.readFileSync('supabase/customer-cash-counter.sql', 'utf8');
 const visitServiceControlsMigration = fs.readFileSync('supabase/visit-service-controls.sql', 'utf8');
 const directKitchenMigration = fs.readFileSync('supabase/direct-kitchen-qr-orders.sql', 'utf8');
+const roleNotificationsMigration = fs.readFileSync('supabase/role-notifications.sql', 'utf8');
 const menuOptionsMigration = fs.readFileSync('supabase/menu-item-options-and-table-capacity.sql', 'utf8');
 const ownerToolkitMigration = fs.readFileSync('supabase/owner-operations-toolkit.sql', 'utf8');
 const legacyCancellation = fs.readFileSync('supabase/customer-cancel-order.sql', 'utf8');
@@ -261,6 +262,9 @@ checkSqlDollarQuotes(visitBillingMigration, 'Visit billing upgrade migration');
 checkSqlDollarQuotes(partyBookingsMigration, 'Party bookings migration');
 checkSqlDollarQuotes(paymentConfirmationMigration, 'Customer payment verification migration');
 checkSqlDollarQuotes(cashCounterMigration, 'Customer cash-at-counter migration');
+checkSqlDollarQuotes(roleNotificationsMigration, 'Role notifications migration');
+checkSqlDollarQuotes(staffPushSql, 'Staff push notification migration');
+checkSqlDollarQuotes(directKitchenMigration, 'Direct kitchen QR order migration');
 checkSqlDollarQuotes(visitServiceControlsMigration, 'Waiter assignment and secure ordering migration');
 checkSqlDollarQuotes(menuOptionsMigration, 'Per-dish options and seating capacity migration');
 checkSqlDollarQuotes(ownerToolkitMigration, 'Owner waiter directory and backup/reset migration');
@@ -357,6 +361,24 @@ requireText(staffPushEdge, 'preferred_language || "en"', 'Background pushes are 
 requireText(staffPushEdge, 'ग्राहक वाट पाहत आहे', 'Background push events have a Marathi localized message');
 requireText(readinessCheck, 'public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text)', 'Readiness check verifies the exact QR-order RPC signature');
 requireText(readinessCheck, 'mm_notify_kitchen_new_order_trigger', 'Readiness check verifies the kitchen order alert trigger');
+requireText(roleNotificationsMigration, 'mm_staff_notifications(\n  p_limit integer DEFAULT 30,\n  p_staff_code text DEFAULT NULL', 'Notification RPC signature matches the live staff client');
+requireText(roleNotificationsMigration, "'GUEST_LEFT_UNPAID','ORDER_APPROVAL'", 'Notification SQL accepts the full current event-type set');
+requireText(staffPushSql, 'AS $\nDECLARE', 'Staff push notification SQL has a valid PL/pgSQL dollar-quote opener');
+requireText(cashCounterMigration, "Cash payment requested. Counter staff are notified; the table stays active until payment is recorded.", 'Cash request keeps the visit open until real payment is recorded');
+requireText(visitServiceControlsMigration, "Cash payment requested. Counter staff are notified; the table stays active until payment is recorded.", 'Final table-visit migration preserves the cash-payment state');
+requireText(html, 'class="scan-qr-visual"', 'Customer QR scanner has a prominent animated visual');
+requireText(html, 'class="menu-search-prime"', 'Dish search is highlighted before menu filters');
+requireText(html, 'class="success-order-flow"', 'Order confirmation explains kitchen, shared bill and release steps');
+requireText(html, 'Friends can order separately; this visit shares one bill.', 'Customer is told separate diners share the table-visit bill');
+if (cashCounterMigration.includes("SET status='CLOSED',finished_at=now(),finished_by=auth.uid(),last_activity_at=now();")) {
+  fail('Cash request must never close the table before the payment is recorded');
+} else {
+  console.log('✓ Cash request never frees a table before payment settlement');
+}
+if (visitServiceControlsMigration.includes("SET status='CLOSED',finished_at=now(),finished_by=auth.uid(),last_activity_at=now();") &&
+    visitServiceControlsMigration.slice(visitServiceControlsMigration.indexOf('CREATE OR REPLACE FUNCTION public.mm_guest_cash_counter_release'), visitServiceControlsMigration.indexOf('CREATE OR REPLACE FUNCTION public.mm_guest_request_visit_payment_check')).includes("SET status='CLOSED',finished_at=now(),finished_by=auth.uid(),last_activity_at=now();")) {
+  fail('The final visit-service migration still closes cash-requested tables before payment');
+}
 requireText(staffPushEdge, 'GUEST_LEFT_UNPAID', 'Background push sender supports abandoned-visit collection alerts');
 requireText(staffPushEdge, '"PAYMENT_CHECK", "CASH_AT_COUNTER"', 'Cash collection is included in the push dispatch allowlist');
 requireText(staffPushEdge, '|| type === "CASH_AT_COUNTER"', 'Cash collection pushes remain visible until staff attends');
