@@ -174,7 +174,7 @@ UPDATE public.mm_staff_push_subscriptions
 SET preferred_language = 'en'
 WHERE preferred_language IS NULL OR preferred_language NOT IN ('en', 'mr');
 
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
