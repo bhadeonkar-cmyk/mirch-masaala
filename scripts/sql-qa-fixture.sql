@@ -2,6 +2,7 @@
 -- These tables exist only in the temporary PostgreSQL service used by GitHub Actions.
 CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
+CREATE ROLE service_role NOLOGIN;
 
 CREATE SCHEMA auth;
 CREATE TABLE auth.users (id uuid PRIMARY KEY);
