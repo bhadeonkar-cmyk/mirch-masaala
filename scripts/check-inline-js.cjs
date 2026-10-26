@@ -39,7 +39,7 @@ if (scripts.length === 0) {
       new vm.Script(scripts[i][1], { filename: `index.html:inline-script-${i + 1}` });
       console.log(`✓ index.html inline script ${i + 1} parses (${scripts[i][1].length} chars)`);
     } catch (error) {
-      fail(`JavaScript syntax error in inline script ${i + 1}: ${error.message}`);
+      fail(`JavaScript syntax error in inline script ${i + 1}: ${error.message}\n${error.stack || ''}`);
     }
   }
 }
