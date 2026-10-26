@@ -3094,25 +3094,20 @@ async function releaseTableForCash() {
   }
   var button = document.getElementById('pay-cash-leave-btn');
   var status = document.getElementById('pay-cash-leave-status');
-  if (button) { button.disabled = true; button.textContent = 'Releasing table…'; }
+  if (button) { button.disabled = true; button.textContent = 'Requesting cash payment…'; }
   if (status) status.textContent = 'Notifying the owner and counter staff…';
   try {
     var result = await window.MM_REQUEST_CASH_COUNTER_RELEASE(tableNo, ctx.visitId, ctx.customerSessionId);
-    addCustomerClosedVisit(ctx.visitId, tableNo);
-    if (button) { button.disabled = false; button.textContent = 'I’ll pay cash at the counter & leave the table'; }
-    if (status) status.textContent = 'The table is released. Your balance remains due until staff records the cash.';
-    closePayQR();
-    table = '';
-    updateCustomerBottomActions();
-    if (typeof renderHomeTables === 'function') renderHomeTables();
-    go('home');
+    // A request is not payment: keep the same visit/table alive until Owner/Counter records the full amount.
+    if (button) { button.disabled = true; button.textContent = 'Cash payment requested'; }
+    if (status) status.textContent = 'The counter has been notified about the cash payment. The table stays active until the full bill is recorded as paid.';
     var counterDue = Number(result && result.amount) || 0;
     toast(counterDue > 0.01
-      ? 'Table ' + tableNo + ' released. Owner and counter staff alerted about ₹' + counterDue.toFixed(2) + ' due at the counter.'
-      : 'Table ' + tableNo + ' released. No unpaid balance remains.');
+      ? 'Cash payment requested for Table ' + tableNo + ' · ₹' + counterDue.toFixed(2) + '. The table will be free after the full bill is recorded as paid.'
+      : 'No unpaid balance remains for this visit.');
   } catch (err) {
     console.error('[Mirch Masaala cash counter release]', err);
-    if (button) { button.disabled = false; button.textContent = 'I’ll pay cash at the counter & leave the table'; }
+    if (button) { button.disabled = false; button.textContent = 'Request cash payment'; }
     if (status) status.textContent = err && err.message ? err.message : 'Could not release the table. Please ask the waiter.';
     toast(err && err.message ? err.message : 'Could not release the table. Please ask the waiter.');
   }
