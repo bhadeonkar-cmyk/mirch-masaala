@@ -33,7 +33,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = 'pg_catalog, public, pg_temp'
-AS $
+AS $$
 DECLARE
   v_type text := upper(coalesce(p_type, ''));
   v_table text := lpad(trim(coalesce(p_table_number, '')), 2, '0');
