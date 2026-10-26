@@ -1443,6 +1443,15 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <div class="qr-mini-copy"><b id="home-qr-entry-title">Start with your table QR</b><span id="home-qr-entry-copy">Scan <em>→</em> choose dishes <em>→</em> track order</span></div>
       <span class="qr-mini-arrow" aria-hidden="true">↓</span>
     </div>
+    <ol class="qr-flow" aria-label="How ordering works">
+      <li><span class="qf-ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M4 12h16"/></svg></span><b id="flow-scan">Scan</b></li>
+      <li class="qf-arrow" aria-hidden="true"></li>
+      <li><span class="qf-ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 9h18M5 9v10M19 9v10M8 9V6h8v3"/></svg></span><b id="flow-table">Table</b></li>
+      <li class="qf-arrow" aria-hidden="true"></li>
+      <li><span class="qf-ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h11a1 1 0 0 1 1 1v16H7a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1z"/><path d="M9 8h6M9 12h6"/></svg></span><b id="flow-menu">Menu</b></li>
+      <li class="qf-arrow" aria-hidden="true"></li>
+      <li><span class="qf-ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><b id="flow-order">Order</b></li>
+    </ol>
     <button type="button" class="btn btn-main scan-cta" id="scan-table-btn" onclick="openScan()">
       <span class="scan-qr-visual" aria-hidden="true">
         <span class="scan-qr-corner scan-qr-tl"></span><span class="scan-qr-corner scan-qr-tr"></span>
@@ -2631,13 +2640,27 @@ if (document.readyState === 'loading') {
 /* The PWA service worker is registered separately near the page end; app content is not cached. */
  }
 
+function catIconMarkup(c) {
+  var k = (String(c && c.slug || '') + ' ' + String(c && c.name || '')).toLowerCase();
+  var d;
+  if (k === 'all' || k === ' all') d = '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>';
+  else if (/soup/.test(k)) d = '<path d="M4 11h16a8 8 0 0 1-16 0z"/><path d="M9 4c-1 1.2 1 2 0 3.2M14 4c-1 1.2 1 2 0 3.2"/>';
+  else if (/starter|snack|tikka|kebab/.test(k)) d = '<path d="M5 19 12 5l7 14z"/><path d="M9.5 14h5"/>';
+  else if (/thali|meal/.test(k)) d = '<circle cx="12" cy="12" r="8"/><circle cx="9.5" cy="10" r="2"/><circle cx="14.5" cy="10.5" r="2"/><circle cx="12" cy="15" r="2"/>';
+  else if (/rice|bread|roti|naan/.test(k)) d = '<path d="M4 13h16a8 6 0 0 1-16 0z"/><path d="M8 10c1-2 3-2 4-4 1 2 3 2 4 4"/>';
+  else if (/bever|drink|juice|tea|coffee|lassi/.test(k)) d = '<path d="M7 5h10l-1.2 14H8.2z"/><path d="M13 5l2-3M7.6 10h8.8"/>';
+  else if (/dessert|sweet|ice/.test(k)) d = '<path d="M7 11a5 5 0 0 1 10 0z"/><path d="M8 11l4 9 4-9"/>';
+  else if (/main|curry|veg|chicken|mutton|non/.test(k)) d = '<path d="M3.5 12h17a8.5 7 0 0 1-17 0z"/><path d="M12 12V8M9 6.5c0-1.5 3-1.5 3-3M15 6.5c0-1.5-3-1.5-3-3"/>';
+  else d = '<circle cx="12" cy="12" r="8"/><path d="M9 12h6"/>';
+  return '<svg class="cat-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + d + '</svg>';
+}
 function drawCats() {
   var host = document.getElementById('cats');
   if (!host) return;
   if (window.MM_SUPABASE_REQUIRED && !window.MM_MENU_READY) { host.innerHTML = ''; return; }
-  var h = '<button type="button" class="cat' + (cat==='all'?' on':'') + '" onclick="setCat(\'all\')">' + window.mmI18n('All','सर्व') + '</button>';
+  var h = '<button type="button" class="cat' + (cat==='all'?' on':'') + '" onclick="setCat(\'all\')">' + catIconMarkup({slug:'all',name:'all'}) + '<span>' + window.mmI18n('All','सर्व') + '</span></button>';
   MENU.categories.filter(function(c){return c.is_visible;}).forEach(function(c) {
-    h += '<button type="button" class="cat' + (cat===c.slug?' on':'') + '" onclick="setCat(\'' + c.slug + '\')">' + esc(window.mmCategoryName(c)) + '</button>';
+    h += '<button type="button" class="cat' + (cat===c.slug?' on':'') + '" onclick="setCat(\'' + c.slug + '\')">' + catIconMarkup(c) + '<span>' + esc(window.mmCategoryName(c)) + '</span></button>';
   });
   host.innerHTML = h;
 }
@@ -2739,7 +2762,9 @@ function drawMenu() {
     var loadingText = window.MM_MENU_LOAD_ERROR
       ? window.mmI18n('The restaurant menu could not load. Check your internet and refresh.', 'रेस्टॉरंटचा मेनू लोड झाला नाही. इंटरनेट तपासून पेज पुन्हा उघडा.')
       : window.mmI18n('Loading the latest restaurant menu…', 'रेस्टॉरंटचा अद्ययावत मेनू लोड होत आहे…');
-    menuHost.innerHTML = '<p class="muted center" style="padding:30px">' + esc(loadingText) + '</p>';
+    var skeleton = '';
+    if (!window.MM_MENU_LOAD_ERROR) { for (var sk = 0; sk < 4; sk++) skeleton += '<div class="card skeleton-card" aria-hidden="true"><div class="pic skeleton-block"></div><div style="flex:1"><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line" style="width:45%"></div><div class="skeleton-line" style="width:30%;margin-top:14px"></div></div></div>'; }
+    menuHost.innerHTML = skeleton + '<p class="muted center menu-loading-note" role="status" style="padding:' + (window.MM_MENU_LOAD_ERROR ? '30px' : '8px 0 20px') + '">' + esc(loadingText) + '</p>';
     var categoryHost = document.getElementById('cats');
     if (categoryHost) categoryHost.innerHTML = '';
     return;
@@ -2766,7 +2791,7 @@ function drawMenu() {
       (inC ? '<div class="qty"><button type="button" onclick="qty(' + item.id + ',-1)">−</button><b>' + inC.qty + '</b><button type="button" class="p" onclick="qty(' + item.id + ',1)">+</button></div>'
            : '<button type="button" class="add" onclick="add(' + item.id + ')">' + window.mmI18n('ADD','जोडा') + '</button>') +
       '</div></div></div>';
-  }).join('') || '<p class="muted center" style="padding:30px">' + window.mmI18n('No items','पदार्थ उपलब्ध नाहीत') + '</p>';
+  }).join('') || '<div class="empty-state"><svg class="empty-plate" viewBox="0 0 120 80" aria-hidden="true" focusable="false"><ellipse cx="60" cy="62" rx="44" ry="9" fill="rgba(0,0,0,.35)"/><ellipse cx="60" cy="52" rx="44" ry="16" fill="none" stroke="currentColor" stroke-width="2"/><ellipse cx="60" cy="50" rx="30" ry="9" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6"/></svg><b>' + window.mmI18n('No items','पदार्थ उपलब्ध नाहीत') + '</b><span>' + window.mmI18n('Try another search or filter.','दुसरा शोध किंवा फिल्टर वापरा.') + '</span></div>';
 }
 function add(id) {
   var item = MENU.menu_items.find(function(i){ return i.id === id; }); if (!item) return;
@@ -2785,7 +2810,7 @@ function updCart() {
   var tot = cart.reduce(function(s,c){ return s + c.price * c.qty; }, 0);
   document.getElementById('badge').textContent = n;
   var bar = document.getElementById('cart-bar');
-  if (n > 0) { bar.style.display = 'flex'; bar.textContent = '🛒 ' + window.mmI18n('Cart','कार्ट') + ' · ' + n + ' · ₹' + tot; }
+  if (n > 0) { bar.style.display = 'flex'; bar.innerHTML = '<span class="cb-count" aria-hidden="true">' + n + '</span><span class="cb-label">' + window.mmI18n('View order','ऑर्डर पाहा') + '</span><span class="cb-total">₹' + tot + '</span>'; bar.setAttribute('aria-label', window.mmI18n('View order','ऑर्डर पाहा') + ', ' + n + ' items, ₹' + tot); bar.classList.remove('bump'); void bar.offsetWidth; bar.classList.add('bump'); }
   else bar.style.display = 'none';
   if (typeof updateCustomerBottomActions === 'function') updateCustomerBottomActions();
 }
@@ -2800,9 +2825,10 @@ function closeCart() {
 function drawCart() {
   updateCheckoutLabels();
   var el = document.getElementById('cart-list');
-  if (!cart.length) { el.innerHTML = '<p class="muted center" style="padding:40px">' + window.mmI18n('Cart empty','कार्ट रिकामी आहे') + '</p>'; document.getElementById('total').textContent = '₹0'; return; }
+  if (!cart.length) { el.innerHTML = '<div class="empty-state"><svg class="empty-plate" viewBox="0 0 120 80" aria-hidden="true" focusable="false"><ellipse cx="60" cy="62" rx="44" ry="9" fill="rgba(0,0,0,.35)"/><ellipse cx="60" cy="52" rx="44" ry="16" fill="none" stroke="currentColor" stroke-width="2"/><ellipse cx="60" cy="50" rx="30" ry="9" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6"/></svg><b>' + window.mmI18n('Cart empty','कार्ट रिकामी आहे') + '</b><span>' + window.mmI18n('Pick a dish and it lands here.','पदार्थ निवडा, तो इथे दिसेल.') + '</span></div>'; document.getElementById('total').textContent = '₹0'; return; }
   el.innerHTML = cart.map(function(c) {
-    return '<div class="card"><div style="flex:1"><div class="name">' + esc(window.mmDishName(c.name)) + '</div><div class="dish-line-preference">🌶️ ' + esc(spiceLabel(c.spiceLevel || getDishSpiceLevel(c.id))) + '</div><div class="desc">₹' + c.price + '</div></div>' +
+    var cartItem = (MENU.menu_items || []).find(function(i){ return i.id === c.id; }) || {name:c.name};
+    return '<div class="card cart-line"><div class="pic cart-pic">' + dishImageMarkup(cartItem, 'cart') + '</div><div style="flex:1;min-width:0"><div class="name">' + esc(window.mmDishName(c.name)) + '</div><div class="dish-line-preference">🌶️ ' + esc(spiceLabel(c.spiceLevel || getDishSpiceLevel(c.id))) + '</div><div class="desc">₹' + c.price + '</div></div>' +
       '<div class="qty"><button type="button" onclick="qty(' + c.id + ',-1)">−</button><b>' + c.qty + '</b><button type="button" class="p" onclick="qty(' + c.id + ',1)">+</button></div>' +
       '<div class="price" style="width:56px;text-align:right">₹' + (c.price*c.qty) + '</div></div>';
   }).join('');
@@ -2820,13 +2846,25 @@ function orderProgressState(o) {
   if (s === 'SERVED' || s === 'PAID') return {percent:100,title:s === 'SERVED' ? window.mmI18n('Served — enjoy!','जेवणाचा आनंद घ्या!') : window.mmI18n('All settled — enjoy!','सर्व झाले — जेवणाचा आनंद घ्या!'),caption:window.mmI18n('Mission delicious: complete. Enjoy your meal! 🎉','तुमची चविष्ट मेजवानी पूर्ण! जेवणाचा आनंद घ्या! 🎉'),emoji:'😋'};
   return {percent:18,title:window.mmI18n('Order received!','ऑर्डर मिळाली!'),caption:window.mmI18n('The kitchen has your ticket. We are warming up the spice squad. 🌶️','किचनला तुमची ऑर्डर मिळाली आहे. पदार्थ बनवायला सुरुवात होत आहे. 🌶️'),emoji:'📨'};
 }
+function progressStepsMarkup(percent) {
+  var labels = [window.mmI18n('Received','मिळाली'), window.mmI18n('Cooking','बनत आहे'), window.mmI18n('Ready','तयार'), window.mmI18n('Served','वाढले')];
+  var thresholds = [18, 55, 85, 100];
+  var cancelled = percent <= 0;
+  var activeIdx = -1;
+  for (var i = 0; i < thresholds.length; i++) { if (percent >= thresholds[i]) activeIdx = i; }
+  if (percent > 0 && activeIdx < 0) activeIdx = 0;
+  return labels.map(function(label, i) {
+    var cls = cancelled ? '' : (i < activeIdx || percent >= 100 ? 'done' : (i === activeIdx ? 'active' : ''));
+    return '<span class="' + cls + '"><i class="step-dot" aria-hidden="true"></i><em>' + label + '</em></span>';
+  }).join('');
+}
 function progressMarkup(o) {
   var p = orderProgressState(o);
   var safeId = String(o.id || 'order').replace(/[^a-zA-Z0-9_-]/g, '');
   return '<div class="order-progress" data-progress-order="' + safeId + '">' +
     '<div class="progress-heading"><span class="progress-chef" data-progress-emoji>' + p.emoji + '</span><strong class="progress-title" data-progress-title>' + p.title + '</strong><span class="progress-percent" data-progress-percent>' + p.percent + '%</span></div>' +
     '<div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + p.percent + '"><div class="progress-fill" data-progress-fill style="width:' + p.percent + '%"></div></div>' +
-    '<div class="progress-steps"><span>' + window.mmI18n('Received','मिळाली') + '</span><span>' + window.mmI18n('Cooking','बनत आहे') + '</span><span>' + window.mmI18n('Ready','तयार') + '</span><span>' + window.mmI18n('Served','वाढले') + '</span></div><p class="progress-caption" data-progress-caption>' + p.caption + '</p></div>';
+    '<div class="progress-steps" data-progress-steps>' + progressStepsMarkup(p.percent) + '</div><p class="progress-caption" data-progress-caption>' + p.caption + '</p></div>';
 }
 function refreshProgressViews() {
   var stored = load('mm_o', orders);
@@ -2839,6 +2877,8 @@ function refreshProgressViews() {
     var title = el.querySelector('[data-progress-title]'), pct = el.querySelector('[data-progress-percent]');
     var fill = el.querySelector('[data-progress-fill]'), caption = el.querySelector('[data-progress-caption]');
     var emoji = el.querySelector('[data-progress-emoji]'), track = el.querySelector('[role="progressbar"]');
+    var stepsEl = el.querySelector('[data-progress-steps]');
+    if (stepsEl) stepsEl.innerHTML = progressStepsMarkup(p.percent);
     if (title) title.textContent = p.title;
     if (pct) pct.textContent = p.percent + '%';
     if (fill) fill.style.width = p.percent + '%';
