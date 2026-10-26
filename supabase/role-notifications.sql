@@ -145,7 +145,8 @@ RETURNS TABLE (
   ticket_id text,
   item_name text,
   message text,
-  created_at timestamptz
+  created_at timestamptz,
+  target_staff_code text
 )
 LANGUAGE plpgsql
 STABLE
@@ -162,7 +163,7 @@ BEGIN
 
   RETURN QUERY
   SELECT n.id, n.target_role, n.notification_type, n.table_number,
-         n.ticket_id, n.item_name, n.message, n.created_at
+         n.ticket_id, n.item_name, n.message, n.created_at, n.target_staff_code
   FROM public.mm_restaurant_notifications n
   WHERE n.restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
     AND n.target_role = v_role
