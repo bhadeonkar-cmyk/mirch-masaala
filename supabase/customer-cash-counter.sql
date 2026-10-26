@@ -254,13 +254,10 @@ BEGIN
     AND upper(coalesce(o.status,'')) NOT IN ('CANCELLED','PAID')
     AND coalesce(o.is_test_order,false)=false AND coalesce(o.is_complimentary,false)=false AND o.archived_at IS NULL;
 
-  UPDATE public.restaurant_table_visits
-  SET status='CLOSED',finished_at=now(),finished_by=auth.uid(),last_activity_at=now()
-  WHERE id=v_visit.id AND status='OPEN';
-
+  -- A cash request is not a completed payment: keep this visit active and
+  -- keep the physical table unavailable until the Owner/Counter records settlement.
   IF coalesce(v_amount,0)<=0.01 THEN
-    RETURN jsonb_build_object('ok',true,'table',v_table,'visit_id',v_visit.id,'visit_status','CLOSED',
-      'amount',0,'already_released',false,'notification_ids','[]'::jsonb,'dispatch_tokens','[]'::jsonb);
+    RAISE EXCEPTION 'No unpaid balance remains for this visit.';
   END IF;
 
   v_message:=format(
@@ -302,9 +299,9 @@ BEGIN
     v_ids:=array_append(v_ids,v_id);
   END LOOP;
 
-  RETURN jsonb_build_object('ok',true,'table',v_table,'visit_id',v_visit.id,'visit_status','CLOSED',
+  RETURN jsonb_build_object('ok',true,'table',v_table,'visit_id',v_visit.id,'visit_status','OPEN',
     'amount',round(v_amount,2),'already_released',false,'notification_ids',to_jsonb(v_ids),
-    'dispatch_tokens',v_tokens,'message','The table is released and counter staff have been notified.');
+    'dispatch_tokens',v_tokens,'message','Cash payment requested. Counter staff are notified; the table stays active until payment is recorded.');
 END
 $$;
 
