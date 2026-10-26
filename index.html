@@ -1841,9 +1841,9 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <p class="muted" id="pay-verify-upi-status" style="font-size:12px;margin-top:8px" role="status" aria-live="polite">After paying, tap this button so the owner or waiter can verify the transaction.</p>
     </div>
     <div id="pay-cash-area" style="display:none;margin-top:14px;text-align:left">
-      <p class="muted" style="font-size:13px">Please hand over the cash at the counter and ask counter staff to confirm it before leaving the restaurant. Your bill stays unpaid until staff records the cash.</p>
-      <button type="button" class="btn btn-main" id="pay-cash-leave-btn" style="margin-top:8px" onclick="releaseTableForCash()">I’ll pay cash at the counter &amp; leave the table</button>
-      <p class="muted" id="pay-cash-leave-status" style="font-size:11px;margin-top:6px" role="status" aria-live="polite">After your food is served, tap this to return Home and free the table. Your bill stays due until staff records the cash.</p>
+      <p class="muted" style="font-size:13px">Pay cash at the counter. The Owner/Counter records the payment; the table stays reserved until the complete shared bill is settled.</p>
+      <button type="button" class="btn btn-main" id="pay-cash-leave-btn" style="margin-top:8px" onclick="releaseTableForCash()">Request cash payment</button>
+      <p class="muted" id="pay-cash-leave-status" style="font-size:11px;margin-top:6px" role="status" aria-live="polite">After all dishes are served, request payment here. The table becomes free after full payment is recorded.</p>
       <button type="button" class="btn btn-ok" id="pay-cash-confirm-btn" style="margin-top:8px;display:none" onclick="markPaidMethod('cash')">Confirm cash received</button>
     </div>
     <div id="pay-card-area" style="display:none;margin-top:14px;text-align:left">
