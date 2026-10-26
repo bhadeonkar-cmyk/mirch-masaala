@@ -768,6 +768,7 @@ GRANT EXECUTE ON FUNCTION public.mm_staff_release_abandoned_visit(text,text) TO 
 
 -- Route assigned visit alerts to the device whose waiter ID handled the table.
 DROP FUNCTION IF EXISTS public.mm_staff_notifications(integer);
+DROP FUNCTION IF EXISTS public.mm_staff_notifications(integer, text);
 CREATE OR REPLACE FUNCTION public.mm_staff_notifications(
   p_limit integer DEFAULT 30,
   p_staff_code text DEFAULT NULL
