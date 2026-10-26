@@ -116,9 +116,22 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.mm_restaurant_notifications
              WHERE ticket_id=v_visit::text AND notification_type='CASH_AT_COUNTER' AND resolved_at IS NULL) THEN
     RAISE EXCEPTION 'QA failed: cash alert stayed open after full settlement'; END IF;
-  SELECT count(*) INTO v_count FROM public.order_payments
+  SELECT count(DISTINCT ticket_id) INTO v_count FROM public.order_payments
   WHERE ticket_id IN ('MM-CASH-A','MM-CASH-B') AND amount > 0;
   IF v_count <> 2 THEN RAISE EXCEPTION 'QA failed: payment ledger should allocate both tickets; found %',v_count; END IF;
+  IF (SELECT round(coalesce(sum(amount),0),2) FROM public.order_payments
+      WHERE ticket_id IN ('MM-CASH-A','MM-CASH-B')) <> 70 THEN
+    RAISE EXCEPTION 'QA failed: shared-bill payment ledger does not equal the full ₹70 bill';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.orders o
+    LEFT JOIN public.order_payments p ON p.order_id=o.id
+    WHERE o.ticket_id IN ('MM-CASH-A','MM-CASH-B')
+    GROUP BY o.ticket_id,o.total
+    HAVING coalesce(sum(p.amount),0) < o.total - 0.01
+  ) THEN
+    RAISE EXCEPTION 'QA failed: a ticket on the shared table remained partially unpaid';
+  END IF;
 
   RAISE NOTICE 'QA passed: separate diner tickets share one visit bill; cash request alerts staff without freeing the table; full settlement frees it.';
 END
