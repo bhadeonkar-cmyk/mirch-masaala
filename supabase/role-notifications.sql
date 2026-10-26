@@ -132,6 +132,8 @@ GRANT EXECUTE ON FUNCTION public.mm_create_guest_notification(uuid, text, text) 
 -- Staff APIs match supabase-live.js directly, including assigned waiter filtering.
 DROP FUNCTION IF EXISTS public.mm_staff_notifications(integer);
 DROP FUNCTION IF EXISTS public.mm_resolve_staff_notification(bigint);
+DROP FUNCTION IF EXISTS public.mm_staff_notifications(integer, text);
+DROP FUNCTION IF EXISTS public.mm_resolve_staff_notification(bigint, text);
 
 CREATE OR REPLACE FUNCTION public.mm_staff_notifications(
   p_limit integer DEFAULT 30,
