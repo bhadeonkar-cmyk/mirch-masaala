@@ -967,3 +967,100 @@ input, select, textarea {
     transition: none !important;
   }
 }
+
+
+/* 13 · Illustrated menu art — named dishes, hand-drawn SVG plates, and restrained steam motion. */
+@keyframes mmDishSteamLift {
+  0%, 100% { opacity: .2; transform: translateY(2px) scaleX(.92); }
+  48% { opacity: .72; transform: translateY(-2px) scaleX(1.04); }
+}
+@keyframes mmDishArtArrive {
+  from { opacity: .65; transform: scale(.965); }
+  to { opacity: 1; transform: scale(1); }
+}
+.dish-art {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  overflow: hidden;
+  border: 1px solid rgba(214,177,112,.18);
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 50% 72%, rgba(185,91,43,.18), transparent 56%),
+    linear-gradient(145deg, #322016 0%, #211611 54%, #17100d 100%);
+  box-shadow: inset 0 1px rgba(255,242,215,.045), inset 0 -5px 12px rgba(0,0,0,.12);
+  animation: mmDishArtArrive .32s ease-out both;
+}
+.dish-art::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 4px;
+  border: 1px solid rgba(244,211,158,.075);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.dish-art::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  right: -10px;
+  bottom: -17px;
+  width: 48px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(209,151,73,.075);
+  filter: blur(9px);
+  pointer-events: none;
+}
+.dish-art svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  overflow: visible;
+}
+.dish-art-steam {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.dish-art-steam path {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  stroke-dasharray: 20 5;
+  animation: mmDishSteamLift 2.6s ease-in-out infinite;
+}
+.dish-art-steam .steam-b { animation-delay: -.85s; }
+.dish-art-steam .steam-c { animation-delay: -1.55s; }
+.dish-art--rice { background: radial-gradient(ellipse at 48% 72%, rgba(229,180,72,.14), transparent 58%), linear-gradient(145deg,#302016,#1b130f); }
+.dish-art--curry { background: radial-gradient(ellipse at 48% 72%, rgba(193,77,39,.18), transparent 58%), linear-gradient(145deg,#322019,#1b130f); }
+.dish-art--bread { background: radial-gradient(ellipse at 48% 72%, rgba(218,155,57,.16), transparent 58%), linear-gradient(145deg,#322317,#1b130f); }
+.dish-art--snack { background: radial-gradient(ellipse at 48% 72%, rgba(205,129,43,.15), transparent 58%), linear-gradient(145deg,#322216,#1b130f); }
+.dish-art--south { background: radial-gradient(ellipse at 48% 72%, rgba(223,173,83,.15), transparent 58%), linear-gradient(145deg,#302217,#1b130f); }
+.dish-art--thali { background: radial-gradient(ellipse at 48% 72%, rgba(205,125,57,.15), transparent 58%), linear-gradient(145deg,#302016,#1b130f); }
+.dish-art--dessert { background: radial-gradient(ellipse at 48% 72%, rgba(195,87,91,.14), transparent 58%), linear-gradient(145deg,#301b19,#1b120f); }
+.dish-art--drink { background: radial-gradient(ellipse at 48% 65%, rgba(164,97,54,.16), transparent 58%), linear-gradient(145deg,#2c2118,#19120f); }
+.dish-art--cool-drink { background: radial-gradient(ellipse at 48% 65%, rgba(128,170,137,.12), transparent 58%), linear-gradient(145deg,#20261e,#151812); }
+.dish-art-menu { border-radius: 10px; }
+.dish-art-special { width: 72px; height: 58px; max-width: 100%; min-height: 48px; margin: auto; border-radius: 12px; }
+.dish-art-modal { width: 88px; height: 70px; min-height: 60px; margin: auto; border-radius: 14px; }
+@media (hover: hover) and (pointer: fine) {
+  #customer #menu .card:hover .dish-art {
+    border-color: rgba(225,190,126,.32);
+    box-shadow: inset 0 1px rgba(255,242,215,.05), 0 4px 12px rgba(0,0,0,.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dish-art, .dish-art-steam path {
+    animation: none !important;
+    transition: none !important;
+  }
+}
