@@ -1368,7 +1368,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .customer-explore-arrow { font-size: 23px; line-height: 1; color: var(--gold2); }
 @media(prefers-reduced-motion:reduce) { .customer-explore-shortcut { transition: none; } }
 </style>
-<link rel="stylesheet" href="./ui-premium.css?v=20261027a">
+<link rel="stylesheet" href="./ui-premium.css?v=20261027b">
 </head>
 <body>
 
@@ -1575,6 +1575,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <div class="tx"><b id="menu-tip-title">How to order:</b> <span id="menu-tip-message">Choose dishes, tap ADD, then open your cart to place the order.</span></div>
       <button type="button" class="x" onclick="dismissTip('menu-tip')">×</button>
     </div>
+    <section id="current-order-strip" class="current-order" hidden aria-label="Your current order" aria-live="polite"></section>
     <button type="button" class="customer-explore-shortcut" onclick="openExploreFromCustomer()" aria-label="Places to visit near the restaurant">
       <span class="customer-explore-icon" aria-hidden="true">🗺️</span>
       <span class="customer-explore-copy"><b>Places to visit</b><small>Explore nearby attractions while you wait</small></span>
@@ -1615,7 +1616,17 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 <!-- SUCCESS -->
 <div id="success" class="screen">
   <div class="wrap center order-success-wrap">
-    <div class="success-mark">✓</div>
+    <div class="success-hero" aria-hidden="true">
+      <svg class="success-plate" viewBox="0 0 160 110" width="160" height="110" focusable="false">
+        <ellipse cx="80" cy="96" rx="52" ry="8" fill="rgba(0,0,0,.35)"/>
+        <ellipse cx="80" cy="82" rx="54" ry="18" fill="#e7d4b1" stroke="#f6e8cd" stroke-width="1.5"/>
+        <ellipse cx="80" cy="79" rx="42" ry="12" fill="#b84e2c"/>
+        <ellipse cx="80" cy="75" rx="35" ry="8.5" fill="#d9a447"/>
+        <circle cx="66" cy="73" r="5" fill="#ead19a"/><circle cx="82" cy="71" r="5.5" fill="#8eac68"/><circle cx="96" cy="75" r="5" fill="#e6b956"/>
+        <g class="success-steam" fill="none" stroke="#f6d9ac" stroke-width="2.4" stroke-linecap="round"><path d="M62 52c-6-6 5-9 0-16"/><path d="M80 48c-6-6 5-9 0-16"/><path d="M98 52c-6-6 5-9 0-16"/></g>
+      </svg>
+      <div class="success-mark"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path class="success-check" d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    </div>
     <h1 class="gold success-heading" style="margin:8px 0">🎉 Congratulations! Your order is confirmed</h1>
     <p class="muted" style="margin-bottom:10px">Ticket <b id="sid" style="color:#fff"></b></p>
     <p class="muted success-table-copy" style="margin:0 0 15px">Table <b id="stbl" style="color:#fff"></b> · Your ticket is on its way to the kitchen.</p>
@@ -2755,6 +2766,39 @@ function updateCheckoutLabels() {
   if(noteLabel)noteLabel.textContent=window.mmI18n('Special requirements (optional)','विशेष सूचना (ऐच्छिक)');
   if(noteInput)noteInput.placeholder=window.mmI18n('Less oil, no onion, allergies or other requests…','कमी तेल, कांदा नको, अॅलर्जी किंवा इतर सूचना…');
 }
+function renderCurrentOrderStrip() {
+  var host = document.getElementById('current-order-strip');
+  if (!host) return;
+  var tokens = [];
+  try { tokens = JSON.parse(localStorage.getItem('mm_live_order_tokens') || '[]') || []; } catch (e) {}
+  var own = {};
+  (Array.isArray(tokens) ? tokens : []).forEach(function(t) { if (t && t.id && t.token) own[String(t.id)] = true; });
+  var mine = (Array.isArray(orders) ? orders : []).filter(function(o) {
+    if (!o || !own[String(o.id)] || Number(o.table) !== Number(table)) return false;
+    var st = String(o.status || 'NEW').toUpperCase();
+    return st !== 'CANCELLED' && st !== 'PAID' && String(o.approvalStatus || 'APPROVED').toUpperCase() !== 'REJECTED';
+  });
+  if (!mine.length) { host.hidden = true; host.innerHTML = ''; return; }
+  var lines = {}, order = [], total = 0;
+  mine.forEach(function(o) {
+    total += Number(o.total) || 0;
+    (Array.isArray(o.items) ? o.items : []).forEach(function(i) {
+      var key = String(i.name || '');
+      if (!lines[key]) { lines[key] = 0; order.push(key); }
+      lines[key] += Number(i.qty) || 1;
+    });
+  });
+  var shown = order.slice(0, 3).map(function(name) {
+    return '<li><b>' + lines[name] + '×</b> ' + esc(window.mmDishName ? window.mmDishName(name) : name) + '</li>';
+  }).join('');
+  var more = order.length > 3 ? '<li class="co-more">+' + (order.length - 3) + ' ' + window.mmI18n('more','अधिक') + '</li>' : '';
+  var state = orderProgressState(mine[mine.length - 1]);
+  host.hidden = false;
+  host.innerHTML = '<div class="co-head"><span class="co-title">' + window.mmI18n('Your current order','तुमची सध्याची ऑर्डर') + '</span><span class="co-table">' + window.mmI18n('Table','टेबल') + ' ' + esc(String(table).padStart(2, '0')) + '</span></div>' +
+    '<div class="co-status"><i class="co-dot" aria-hidden="true"></i>' + esc(state.title) + '</div>' +
+    '<ul class="co-items">' + shown + more + '</ul>' +
+    '<div class="co-foot"><span class="co-total">₹' + total + '</span><button type="button" class="co-btn" onclick="myOrders()">' + window.mmI18n('Review & track','पाहा व ट्रॅक करा') + '</button></div>';
+}
 function drawMenu() {
   var menuHost = document.getElementById('menu');
   if (!menuHost) return;
@@ -2792,6 +2836,7 @@ function drawMenu() {
            : '<button type="button" class="add" onclick="add(' + item.id + ')">' + window.mmI18n('ADD','जोडा') + '</button>') +
       '</div></div></div>';
   }).join('') || '<div class="empty-state"><svg class="empty-plate" viewBox="0 0 120 80" aria-hidden="true" focusable="false"><ellipse cx="60" cy="62" rx="44" ry="9" fill="rgba(0,0,0,.35)"/><ellipse cx="60" cy="52" rx="44" ry="16" fill="none" stroke="currentColor" stroke-width="2"/><ellipse cx="60" cy="50" rx="30" ry="9" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6"/></svg><b>' + window.mmI18n('No items','पदार्थ उपलब्ध नाहीत') + '</b><span>' + window.mmI18n('Try another search or filter.','दुसरा शोध किंवा फिल्टर वापरा.') + '</span></div>';
+  try { renderCurrentOrderStrip(); } catch (e) {}
 }
 function add(id) {
   var item = MENU.menu_items.find(function(i){ return i.id === id; }); if (!item) return;
