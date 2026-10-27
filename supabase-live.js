@@ -340,6 +340,27 @@
     return bytes;
   }
 
+  // Turn a Supabase/PostgREST error into an accurate message. The same table name appears
+  // in "missing table", "stale schema cache", "column missing" and row-level-security
+  // errors, so the table name alone must not be read as "the SQL has not been applied".
+  function describePushSetupError(e) {
+    var code = e && e.code ? String(e.code) : '';
+    var detail = e && e.message ? String(e.message) : '';
+    var lower = detail.toLowerCase();
+    var tag = code ? ' (' + code + ')' : '';
+    var generic = 'Could not enable push alerts' + tag + '. Ask the owner to check the one-time Supabase push setup.';
+    if (code === 'PGRST205' || code === '42P01' || /could not find the table|relation .* does not exist/.test(lower)) {
+      return 'Staff push table not found' + tag + '. Run supabase/staff-push-notifications.sql once; if it was already run, Supabase may need a few seconds to refresh its schema cache.';
+    }
+    if (code === 'PGRST204' || code === '42703' || /could not find the '.*' column|column .* does not exist/.test(lower)) {
+      return 'Staff push table is out of date' + tag + '. Re-run supabase/staff-push-notifications.sql (safe to repeat).';
+    }
+    if (code === '42501' || /row-level security|permission denied/.test(lower)) {
+      return 'Push alert permission was refused' + tag + '. Sign out and sign in again with your own staff role, then retry; if it persists the owner should re-run supabase/staff-push-notifications.sql.';
+    }
+    return generic;
+  }
+
   async function enableBrowserNotifications() {
     if (['admin', 'waiter', 'kitchen'].indexOf(String(window.role || '')) < 0) {
       notifyError('Sign in to your staff account before enabling staff alerts.');
@@ -400,10 +421,7 @@
       return true;
     } catch (e) {
       console.error('[Mirch Masaala push setup]', e);
-      var detail = e && e.message ? String(e.message) : '';
-      notifyError(detail.indexOf('mm_staff_push_subscriptions') >= 0
-        ? 'The one-time staff push SQL setup has not been applied yet.'
-        : 'Could not enable push alerts. Ask the owner to finish the one-time Supabase push setup.');
+      notifyError(describePushSetupError(e));
       return false;
     }
   }
