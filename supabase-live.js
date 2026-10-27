@@ -329,7 +329,7 @@
   }
 
   // Public Web Push key; the matching private key exists only in Supabase Edge Function secrets.
-  var WEB_PUSH_VAPID_PUBLIC_KEY = 'BH8rULqiO6c1_QtspafwRyxbpHz3V48VXf7If1UTv1u4s3WUyNw5IeUBDMcISfOCoLEM6spSfJ5Jf1TH0xNgjto';
+  var WEB_PUSH_VAPID_PUBLIC_KEY = 'BCGV3-RIkNT5dJfV96yuWS61iZe5Zf85s8CJWBgq-Q_pGJWCLEkMD-91IB7yvsZ6Z0mGebJCohhVJmUHcuNW1E0';
 
   function vapidKeyBytes(base64Url) {
     var padding = '='.repeat((4 - base64Url.length % 4) % 4);
@@ -338,6 +338,20 @@
     var bytes = new Uint8Array(raw.length);
     for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
     return bytes;
+  }
+
+  // A key rotation invalidates old browser push subscriptions. Detect that here so
+  // the next explicit staff opt-in replaces an old-key subscription automatically.
+  function subscriptionUsesCurrentVapidKey(subscription) {
+    var existingKey = subscription && subscription.options && subscription.options.applicationServerKey;
+    if (!existingKey) return false;
+    var existingBytes = new Uint8Array(existingKey);
+    var currentBytes = vapidKeyBytes(WEB_PUSH_VAPID_PUBLIC_KEY);
+    if (existingBytes.length !== currentBytes.length) return false;
+    for (var i = 0; i < existingBytes.length; i++) {
+      if (existingBytes[i] !== currentBytes[i]) return false;
+    }
+    return true;
   }
 
   async function enableBrowserNotifications() {
@@ -372,6 +386,14 @@
       var registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
       await navigator.serviceWorker.ready;
       var subscription = await registration.pushManager.getSubscription();
+      if (subscription && !subscriptionUsesCurrentVapidKey(subscription)) {
+        var oldSubscription = subscription;
+        var unsubscribed = await oldSubscription.unsubscribe();
+        if (!unsubscribed) {
+          throw new Error('The old push subscription could not be reset. Remove this site subscription in browser settings and retry.');
+        }
+        subscription = null;
+      }
       if (!subscription) {
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
