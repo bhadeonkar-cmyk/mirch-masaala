@@ -1340,3 +1340,20 @@ span.role-alert-action { background: rgba(255,255,255,.05) !important; color: va
 }
 .helper { right: auto; left: 12px; align-items: flex-start; }
 .helper-panel { justify-content: flex-start; }
+
+/* 23 · QA fixes: halo no longer widens the page; larger tap targets */
+@keyframes mmHaloBreathe {
+  0%, 100% { opacity: .48; transform: translate(-50%, -50%) scale(.97); }
+  50%      { opacity: .72; transform: translate(-50%, -50%) scale(1.025); }
+}
+.qty button { min-width: 40px; min-height: 40px; width: 40px; height: 40px; }
+.dish-spice-button { min-height: 36px; padding: 6px 10px; }
+.tip-banner .x, .owner-qr-quickstart-dismiss { min-width: 40px; min-height: 40px; }
+.btn-sm { min-height: 40px; }
+.waiter-signout-link { min-height: 40px; padding: 0 12px; }
+.onkarfx-credit a { display: inline-block; padding: 8px 2px; }
+@media (max-width: 380px) { .cart-line .qty button, #customer #menu .qty button { min-width: 38px; min-height: 38px; width: 38px; height: 38px; } }
+.btn.btn-sm, button.btn-sm { min-height: 40px !important; }
+/* Owner "Verify an order": the full-width Find button used to squeeze the input to ~24px */
+#admin-ticket-lookup { flex: 1 1 auto; min-width: 140px; width: auto; }
+#admin-ticket-lookup + .btn { width: auto; flex: 0 0 auto; min-width: 72px; }
