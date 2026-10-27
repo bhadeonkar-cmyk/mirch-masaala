@@ -69,14 +69,17 @@ WITH dependencies(component, required, ready, next_step) AS (
          to_regclass('public.mm_staff_push_subscriptions') IS NOT NULL,
          'Optional: apply supabase/staff-push-notifications.sql'
   UNION ALL
-  SELECT 'Push language preference column', false,
+  SELECT 'Push language preference column/default', false,
          EXISTS (
            SELECT 1 FROM information_schema.columns
            WHERE table_schema = 'public'
              AND table_name = 'mm_staff_push_subscriptions'
              AND column_name = 'preferred_language'
+             AND data_type = 'text'
+             AND is_nullable = 'NO'
+             AND column_default ILIKE '%en%'
          ),
-         'Optional: re-apply supabase/staff-push-notifications.sql'
+         'For background push: after verifying a recoverable database backup, apply supabase/staff-push-notifications.sql; do not rerun other READY migrations'
 )
 SELECT
   component,
