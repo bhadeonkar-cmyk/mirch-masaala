@@ -1368,7 +1368,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .customer-explore-arrow { font-size: 23px; line-height: 1; color: var(--gold2); }
 @media(prefers-reduced-motion:reduce) { .customer-explore-shortcut { transition: none; } }
 </style>
-<link rel="stylesheet" href="./ui-premium.css?v=20261027h">
+<link rel="stylesheet" href="./ui-premium.css?v=20261027j">
 </head>
 <body>
 
@@ -1575,6 +1575,13 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
       <div class="tx"><b id="menu-tip-title">How to order:</b> <span id="menu-tip-message">Choose dishes, tap ADD, then open your cart to place the order.</span></div>
       <button type="button" class="x" onclick="dismissTip('menu-tip')">×</button>
     </div>
+    <div class="helper" id="helper">
+      <div class="helper-panel" id="helper-panel" role="group" aria-label="Menu suggestions" hidden></div>
+      <button type="button" class="helper-fab" id="helper-fab" aria-expanded="false" aria-controls="helper-panel" onclick="toggleHelper()">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 14a4 4 0 1 1 1.2-7.8A4.5 4.5 0 0 1 16.8 6.2 4 4 0 1 1 17 14z"/><path d="M7 14v5h10v-5M9.5 17h5"/></svg>
+        <span id="helper-label">Need help choosing?</span>
+      </button>
+    </div>
     <section id="current-order-strip" class="current-order" hidden aria-label="Your current order" aria-live="polite"></section>
     <button type="button" class="customer-explore-shortcut" onclick="openExploreFromCustomer()" aria-label="Places to visit near the restaurant">
       <span class="customer-explore-icon" aria-hidden="true">🗺️</span>
@@ -1586,6 +1593,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
     
     <div class="diet-filters" id="diet-filters" role="group" aria-label="Filter by food type"></div>
     <div class="cats" id="cats"></div>
+    <div class="suggest-active" id="suggest-active" hidden></div>
     <div id="menu"></div>
   </div>
   <div class="bottom customer-bottom">
@@ -2689,10 +2697,10 @@ function renderDietButtons(hostId, selected, setterName) {
   }).join('');
 }
 function drawDietFilters() { renderDietButtons('diet-filters', dietFilter, 'setDietFilter'); }
-function setDietFilter(s) { dietFilter = s; drawDietFilters(); drawMenu(); drawSpecials(); }
+function setDietFilter(s) { dietFilter = s; window.mmSuggest = null; mmRenderSuggestBar(); drawDietFilters(); drawMenu(); drawSpecials(); }
 function drawWDietFilters() { renderDietButtons('w-diet-filters', wDietFilter, 'setWDietFilter'); }
 function setWDietFilter(s) { wDietFilter = s; drawWDietFilters(); wMenu(); }
-function setCat(s) { cat = s; drawCats(); drawMenu(); }
+function setCat(s) { cat = s; window.mmSuggest = null; mmRenderSuggestBar(); drawCats(); drawMenu(); }
 
 function spiceLabel(value) {
  var labels={normal:['Normal','सामान्य'],mild:['Mild','कमी तिखट'],medium:['Medium','मध्यम तिखट'],hot:['Hot','जास्त तिखट']};
@@ -2775,6 +2783,58 @@ function mmCashRequest() {
     return cr && ctx && String(cr.visitId) === String(ctx.visitId) ? cr : null;
   } catch (e) { return null; }
 }
+var MM_SUGGEST_DEFS = [
+  { key: 'spicy',   en: 'Try something spicy?',     mr: 'काही तिखट हवे का?' },
+  { key: 'popular', en: 'Popular picks',            mr: 'लोकप्रिय पदार्थ' },
+  { key: 'veg',     en: 'Best vegetarian choice',   mr: 'उत्तम शाकाहारी' },
+  { key: 'quick',   en: 'Quick order',              mr: 'झटपट ऑर्डर' },
+  { key: 'light',   en: 'Something light',          mr: 'काही हलके' }
+];
+function mmSuggestTest(key) {
+  var items = (MENU && MENU.menu_items || []).filter(function (i) { return i.is_available; });
+  function nm(i) { return String(i.name || '') + ' ' + String(i.category || ''); }
+  if (key === 'spicy') return function (i) { return Number(i.spicy_level) > 0 || /chilli|chili|kharda|banjara|\b65\b|koliwada|sukka|kolhapuri|schezwan|ukad|hot\b|tikka/i.test(nm(i)); };
+  if (key === 'popular') return function (i) { return !!i.is_bestseller; };
+  if (key === 'veg') {
+    var hasVegBest = items.some(function (i) { return i.is_veg && i.is_bestseller; });
+    return function (i) { return !!i.is_veg && (hasVegBest ? !!i.is_bestseller : /veg-(mains|starters)/.test(String(i.category_slug || ''))); };
+  }
+  if (key === 'quick') return function (i) { return /papad|salad|soup|roti|chapati|naan|bhakri|rice|water|lassi|soft drink/i.test(nm(i)); };
+  return function (i) { return /soup|salad|papad|dal\b|raita|curd|lassi|buttermilk|water/i.test(nm(i)); };
+}
+function mmSuggestLabel(def) { return window.mmI18n(def.en, def.mr); }
+function renderHelper() {
+  var panel = document.getElementById('helper-panel'), label = document.getElementById('helper-label');
+  if (label) label.textContent = window.mmI18n('Need help choosing?', 'निवडायला मदत हवी?');
+  if (!panel) return;
+  panel.innerHTML = MM_SUGGEST_DEFS.map(function (d) {
+    return '<button type="button" class="helper-chip" onclick="mmApplySuggestion(\'' + d.key + '\')">' + esc(mmSuggestLabel(d)) + '</button>';
+  }).join('');
+}
+function toggleHelper(force) {
+  var panel = document.getElementById('helper-panel'), fab = document.getElementById('helper-fab');
+  if (!panel || !fab) return;
+  var open = typeof force === 'boolean' ? force : panel.hidden;
+  if (open) renderHelper();
+  panel.hidden = !open;
+  fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function mmApplySuggestion(key) {
+  var def = MM_SUGGEST_DEFS.filter(function (d) { return d.key === key; })[0]; if (!def) return;
+  window.mmSuggest = { key: key, label: mmSuggestLabel(def), test: mmSuggestTest(key) };
+  cat = 'all'; dietFilter = 'all';
+  var q = document.getElementById('search'); if (q) q.value = '';
+  drawCats(); drawDietFilters(); drawMenu(); mmRenderSuggestBar(); toggleHelper(false);
+  var menuEl = document.getElementById('menu');
+  if (menuEl && menuEl.scrollIntoView) menuEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function mmClearSuggestion() { window.mmSuggest = null; mmRenderSuggestBar(); drawMenu(); }
+function mmRenderSuggestBar() {
+  var bar = document.getElementById('suggest-active'); if (!bar) return;
+  if (!window.mmSuggest) { bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.hidden = false;
+  bar.innerHTML = '<span>' + esc(window.mmSuggest.label) + '</span><button type="button" onclick="mmClearSuggestion()" aria-label="' + window.mmI18n('Show full menu', 'पूर्ण मेनू दाखवा') + '">' + window.mmI18n('Show all', 'सर्व दाखवा') + ' ×</button>';
+}
 function renderCurrentOrderStrip() {
   var host = document.getElementById('current-order-strip');
   if (!host) return;
@@ -2837,9 +2897,10 @@ function drawMenu() {
     var localizedDescription=String(window.mmDishDescription(i)||'').toLocaleLowerCase();
     return name.indexOf(q)>=0 || localizedName.indexOf(q)>=0 || description.indexOf(q)>=0 || localizedDescription.indexOf(q)>=0;
   });
+  if (window.mmSuggest && typeof window.mmSuggest.test === 'function') items = items.filter(window.mmSuggest.test);
   menuHost.innerHTML = items.map(function(item) {
     var inC = cart.find(function(c){ return c.id === item.id; });
-    return '<div class="card"><div class="pic">' + dishImageMarkup(item, 'menu') + '</div><div style="flex:1;min-width:0">' +
+    return '<div class="card' + (window.mmLastAdded === item.id ? ' just-added' : '') + '"><div class="pic">' + dishImageMarkup(item, 'menu') + '</div><div style="flex:1;min-width:0">' +
       '<div class="name dish-name-row"><span class="' + (item.is_veg?'veg':'nonveg') + '"></span><span class="dish-title-text">' + esc(window.mmDishName(item)) + '</span><button type="button" class="dish-spice-button" onclick="cycleDishSpice(' + item.id + ')" aria-label="Change spice level for ' + esc(window.mmDishName(item)) + '">🌶️ ' + esc(spiceLabel(getDishSpiceLevel(item.id))) + '</button></div>' +
       (item.description ? '<div class="desc">' + esc(window.mmDishDescription(item)) + '</div>' : '') + dishPhotoCreditMarkup(item) +
       '<div class="row"><span class="price">₹' + item.price + '</span>' +
@@ -2853,7 +2914,7 @@ function add(id) {
   var item = MENU.menu_items.find(function(i){ return i.id === id; }); if (!item) return;
   var spice=getDishSpiceLevel(id),ex=cart.find(function(c){return c.id===id;});
   if(ex){ex.qty++;ex.spiceLevel=spice;}else cart.push({id:id,db_id:item.db_id||null,name:item.name,price:item.price,qty:1,spiceLevel:spice,notes:''});
-  save('mm_c_'+String(table).padStart(2,'0'),cart);drawMenu();updCart();toast(window.mmI18n('Added','पदार्थ जोडला'));
+  save('mm_c_'+String(table).padStart(2,'0'),cart);window.mmLastAdded=id;drawMenu();window.mmLastAdded=null;updCart();toast(window.mmI18n('Added','पदार्थ जोडला'));
 }
 function qty(id, d) {
   var c = cart.find(function(x){ return x.id === id; }); if (!c) return;

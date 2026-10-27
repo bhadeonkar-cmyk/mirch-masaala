@@ -1305,3 +1305,38 @@ span.role-alert-action { background: rgba(255,255,255,.05) !important; color: va
 .setup.safe-zone { border-color: rgba(111,207,151,.35); }
 .setup.danger-zone { border: 1px solid rgba(255,120,100,.5); background: rgba(255,80,60,.06); }
 .setup.danger-zone h3 { color: #ff9a8a; }
+
+/* 21 · Compact menu helper (no "AI" labelling) */
+.helper { position: fixed; right: 12px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
+.helper > * { pointer-events: auto; }
+.helper-fab { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px 0 12px; border-radius: 999px; border: 1px solid rgba(240,215,140,.45); background: rgba(30,22,17,.96); color: var(--gold2); font: inherit; font-size: 13px; font-weight: 800; box-shadow: 0 6px 18px rgba(0,0,0,.35); cursor: pointer; transition: transform .12s ease; }
+.helper-fab:active { transform: scale(.97); }
+.helper-fab svg { animation: mmHelperBob 2.4s ease-in-out 3; transform-origin: 50% 100%; }
+@keyframes mmHelperBob { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+.helper-panel { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: min(320px, calc(100vw - 24px)); padding: 10px; border-radius: 16px; background: rgba(30,22,17,.97); border: 1px solid rgba(240,215,140,.28); box-shadow: 0 10px 26px rgba(0,0,0,.4); animation: mmNotifIn .2s ease-out both; }
+.helper-panel[hidden] { display: none; }
+.helper-chip { min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(196,163,106,.3); background: rgba(196,163,106,.08); color: var(--text); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.helper-chip:active { transform: scale(.97); }
+.helper-fab:focus-visible, .helper-chip:focus-visible, .suggest-active button:focus-visible { outline: 2px solid var(--gold2); outline-offset: 2px; }
+.suggest-active { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; padding: 8px 12px; border-radius: 12px; background: rgba(240,215,140,.1); border: 1px solid rgba(240,215,140,.3); color: var(--gold2); font-size: 13px; font-weight: 800; }
+.suggest-active[hidden] { display: none; }
+.suggest-active button { min-height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid rgba(240,215,140,.4); background: transparent; color: var(--gold2); font: inherit; font-weight: 800; cursor: pointer; }
+
+/* 22 · Dish art: lightweight, finite animation (replays on touch/add; no endless loops) */
+.dish-art-steam path { animation-iteration-count: 3 !important; }
+@keyframes mmDishSteamLiftAgain { 0%,100% { opacity: .25; transform: translateY(2px) scaleY(.9); } 50% { opacity: .9; transform: translateY(-3px) scaleY(1.06); } }
+@media (hover: hover) { .card:hover .dish-art-steam path { animation: mmDishSteamLiftAgain 2.2s ease-in-out 2; } }
+.card:active .dish-art-steam path, .card.just-added .dish-art-steam path { animation: mmDishSteamLiftAgain 2.2s ease-in-out 2; }
+.dish-art::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,244,214,.16) 50%, transparent 62%); transform: translateX(-120%); animation: mmDishShine 1.2s .45s ease-out 1 both; }
+@keyframes mmDishShine { to { transform: translateX(120%); } }
+.card.just-added .dish-art { animation: mmDishPop .4s ease-out both; }
+@keyframes mmDishPop { 0% { transform: scale(1); } 45% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.dish-art--cool-drink svg circle { animation: mmBubbleRise 2.6s ease-in 3 both; transform-box: fill-box; }
+.dish-art--cool-drink svg circle:nth-of-type(2) { animation-delay: .8s; }
+@keyframes mmBubbleRise { 0% { transform: translateY(4px); opacity: .4; } 60% { opacity: 1; } 100% { transform: translateY(-5px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .helper-fab svg, .helper-panel, .dish-art::after, .card.just-added .dish-art, .dish-art--cool-drink svg circle,
+  .card:hover .dish-art-steam path, .card:active .dish-art-steam path, .card.just-added .dish-art-steam path { animation: none !important; }
+}
+.helper { right: auto; left: 12px; align-items: flex-start; }
+.helper-panel { justify-content: flex-start; }
