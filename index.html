@@ -1368,7 +1368,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .customer-explore-arrow { font-size: 23px; line-height: 1; color: var(--gold2); }
 @media(prefers-reduced-motion:reduce) { .customer-explore-shortcut { transition: none; } }
 </style>
-<link rel="stylesheet" href="./ui-premium.css?v=20261027b">
+<link rel="stylesheet" href="./ui-premium.css?v=20261027c">
 </head>
 <body>
 
@@ -1677,6 +1677,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   <div id="w-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
   <div class="wrap">
     <p class="waiter-pick-hint muted" id="w-table-picker-hint">Tap a table to start. Highlighted tables already have orders.</p>
+    <div class="tstate-legend" id="w-legend" aria-label="Table status guide"></div>
     <div class="table-grid waiter-tables-grid" id="w-tables"></div>
     <div id="w-secondary-alert" class="role-alert-host" aria-live="polite"></div>
     <div id="w-area" style="display:none">
@@ -3976,6 +3977,55 @@ function wShowTables() {
   renderWaiterTables();
   drawWaiterOrders();
 }
+var MM_TABLE_STATES = {
+  'available':     ['AVAILABLE', 'उपलब्ध'],
+  'occupied':      ['OCCUPIED', 'टेबल सुरू'],
+  'placed':        ['ORDER PLACED', 'ऑर्डर दिली'],
+  'preparing':     ['PREPARING', 'बनत आहे'],
+  'ready':         ['READY · SERVE', 'तयार · वाढा'],
+  'served':        ['SERVED', 'वाढले'],
+  'pay-requested': ['PAYMENT REQUESTED', 'पेमेंट मागितले'],
+  'pay-pending':   ['PAYMENT PENDING', 'पेमेंट तपासणी'],
+  'completed':     ['COMPLETED', 'पूर्ण']
+};
+function mmStateLabel(key) { var d = MM_TABLE_STATES[key] || MM_TABLE_STATES.available; return window.mmI18n(d[0], d[1]); }
+// Derives a display-only table state from existing data (orders, open staff alerts, table visits).
+// It never writes anything and does not replace the existing has-live-order / has-ready-order logic.
+function mmTableState(num, hint) {
+  num = String(num || '').padStart(2, '0');
+  hint = hint || {};
+  var alerts = (Array.isArray(window.MM_ROLE_NOTIFICATIONS) ? window.MM_ROLE_NOTIFICATIONS : []).filter(function (n) {
+    return n && String(n.table_number || '').padStart(2, '0') === num;
+  }).map(function (n) { return String(n.notification_type || '').toUpperCase(); });
+  var key = '';
+  if (alerts.indexOf('PAYMENT_CHECK') >= 0 || alerts.indexOf('GUEST_LEFT_UNPAID') >= 0) key = 'pay-pending';
+  else if (alerts.indexOf('BILL_REQUEST') >= 0 || alerts.indexOf('CASH_AT_COUNTER') >= 0) key = 'pay-requested';
+  else if (hint.active === 'READY') key = 'ready';
+  else if (hint.active === 'PREPARING') key = 'preparing';
+  else if (hint.active === 'NEW') key = 'placed';
+  else {
+    var latest = (orders || []).filter(function (o) {
+      return o && !o.is_test_order && !o.archived_at && String(o.table || '').padStart(2, '0') === num &&
+        ['SERVED'].indexOf(String(o.status || '').toUpperCase()) >= 0;
+    }).length;
+    if (hint.visitsReady === false) return null;
+    key = hint.inService ? (latest ? 'served' : 'occupied') : 'available';
+  }
+  return { key: key, label: mmStateLabel(key) };
+}
+function renderTableLegend() {
+  var host = document.getElementById('w-legend'); if (!host) return;
+  host.innerHTML = ['available','occupied','placed','preparing','ready','served','pay-requested','pay-pending'].map(function (k) {
+    return '<span class="tstate tstate-' + k + '"><i aria-hidden="true"></i>' + mmStateLabel(k) + '</span>';
+  }).join('');
+}
+function mmAgo(iso) {
+  var t = new Date(iso || 0).getTime(); if (!t) return '';
+  var m = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (m < 1) return window.mmI18n('just now', 'आत्ताच');
+  if (m < 60) return m + ' ' + window.mmI18n('min ago', 'मिनिटांपूर्वी');
+  var h = Math.floor(m / 60); return h + ' ' + window.mmI18n('h ago', 'तासांपूर्वी');
+}
 function updateWaiterTableIndicators() {
   document.querySelectorAll('#w-tables .waiter-table-card').forEach(function (b) {
     var num = String(b.getAttribute('data-table-number') || '').padStart(2, '0');
@@ -3994,12 +4044,12 @@ function updateWaiterTableIndicators() {
     b.classList.toggle('has-ready-order', active === 'READY');
     b.classList.toggle('is-in-service', inService);
 
-    var label = draftCount ? draftCount + ' ' + window.mmI18n('item' + (draftCount === 1 ? '' : 's') + ' selected', 'पदार्थ निवडले') :
-      (active === 'READY' ? window.mmI18n('READY · SERVE','तयार · वाढा') :
-       active === 'PREPARING' ? window.mmI18n('COOKING','बनत आहे') :
-       active === 'NEW' ? window.mmI18n('NEW ORDER','नवीन ऑर्डर') :
-       (window.MM_TABLE_VISITS_READY ? (inService ? window.mmI18n('IN SERVICE','टेबल सुरू आहे') : window.mmI18n('READY FOR NEXT GUEST','पुढील ग्राहकासाठी तयार')) : window.mmI18n('No active order','सध्या ऑर्डर नाही')));
-    b.innerHTML = '<strong>' + esc(num) + '</strong><small>' + label + '</small>';
+    var tState = mmTableState(num, { active: active, inService: inService, visitsReady: !!window.MM_TABLE_VISITS_READY });
+    var pill = draftCount
+      ? '<small class="tstate tstate-draft"><i aria-hidden="true"></i>' + draftCount + ' ' + window.mmI18n('item' + (draftCount === 1 ? '' : 's') + ' selected', 'पदार्थ निवडले') + '</small>'
+      : (tState ? '<small class="tstate tstate-' + tState.key + '"><i aria-hidden="true"></i>' + tState.label + '</small>' : '<small class="tstate tstate-unknown"><i aria-hidden="true"></i>…</small>');
+    b.setAttribute('data-state', draftCount ? 'draft' : (tState ? tState.key : 'unknown'));
+    b.innerHTML = '<strong>' + esc(num) + '</strong>' + pill;
     b.setAttribute('aria-label', window.mmI18n('Table','टेबल') + ' ' + num +
       (active ? ', ' + window.mmI18n(active, ({READY:'तयार',PREPARING:'बनत आहे',NEW:'नवीन ऑर्डर'})[active] || active.toLowerCase()) :
        (window.MM_TABLE_VISITS_READY ? (inService ? ', in service' : ', ready for next guest') : '')) +
@@ -4014,6 +4064,7 @@ function renderWaiterTables() {
     b.onclick = (function (n, card) { return function () { pickW(n, card); }; })(t.number, b); g.appendChild(b);
   });
   updateWaiterTableIndicators();
+  renderTableLegend();
 }
 function saveWaiterDraft() {
   if (!wTable) return;
@@ -4384,7 +4435,8 @@ function drawWaiterOrders() {
     var st = String(o.status || 'NEW').toUpperCase();
     var kind = st === 'READY' ? 'ready' : (st === 'PREPARING' ? 'preparing' : st === 'SERVED' ? 'served' : 'new');
     var cleanNote = String(o.notes || '').replace(/^\[Waiter\]\s*/, '').trim();
-    return '<article class="waiter-order-card ' + kind + '"><div class="waiter-order-head"><b>#' + esc(o.orderNumber || o.id || '') + '</b><span class="waiter-order-status">' + window.mmI18n(st === 'PREPARING' ? 'COOKING' : st, ({NEW:'नवीन',PREPARING:'बनत आहे',COOKING:'बनत आहे',READY:'तयार',SERVED:'वाढले',CANCELLED:'रद्द',PAID:'पैसे भरले'})[st] || st) + '</span></div>' +
+    return '<article class="waiter-order-card ' + kind + '"><div class="waiter-order-head"><b>#' + esc(o.orderNumber || o.id || '') + '</b><span class="waiter-order-status">' + window.mmI18n(st, ({NEW:'नवीन',PREPARING:'बनत आहे',COOKING:'बनत आहे',READY:'तयार',SERVED:'वाढले',CANCELLED:'रद्द',PAID:'पैसे भरले'})[st] || st) + '</span></div>' +
+      '<div class="waiter-order-meta">' + (o.items || []).reduce(function (n, it) { return n + (Number(it.qty) || 1); }, 0) + ' ' + window.mmI18n('items','पदार्थ') + ' · ₹' + (Number(o.total) || 0) + (o.waiterCode || o.waiter_code ? ' · ' + window.mmI18n('Assigned','नेमले') + ': ' + esc(o.waiterCode || o.waiter_code) : '') + (o.createdAt ? ' · ' + mmAgo(o.createdAt) : '') + '</div>' +
       '<div class="waiter-order-items">' + (o.items || []).map(function (item) { return '<div>' + (Number(item.qty) || 1) + '× ' + esc(window.mmDishName(item.name || '')) + ' <small>🌶️ ' + esc(spiceLabel(item.spiceLevel || item.spice_level || 'normal')) + '</small></div>'; }).join('') +
       (cleanNote ? '<div class="waiter-order-note">Guest note: ' + esc(cleanNote) + '</div>' : '') + '</div>' +
       (st === 'READY' ? '<button type="button" class="btn btn-ok waiter-serve-btn" onclick="setStatus(\'' + String(o.id || '').replace(/'/g, '') + '\',\'SERVED\')">' + window.mmI18n('Food served ✓','जेवण दिले ✓') + '</button>' : '') + '</article>';
