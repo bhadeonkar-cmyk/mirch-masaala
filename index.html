@@ -1367,6 +1367,47 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .customer-explore-copy small { font-size: 11px; line-height: 1.35; color: var(--muted); }
 .customer-explore-arrow { font-size: 23px; line-height: 1; color: var(--gold2); }
 @media(prefers-reduced-motion:reduce) { .customer-explore-shortcut { transition: none; } }
+/* QR-first owner UI: animated guidance, not a stack of instructional cards. */
+.qr-main-guide{margin:0 0 10px;padding:7px 2px 10px;border-bottom:1px solid rgba(212,168,75,.23)}
+.qr-main-head{display:flex;align-items:center;gap:9px;min-height:42px}
+.qr-main-chef{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;font-size:25px;filter:drop-shadow(0 0 7px rgba(240,215,140,.12))}
+.qr-main-chef span{display:block;animation:qrChefBob 2.1s ease-in-out infinite}
+.qr-main-copy{flex:1;min-width:0}
+.qr-main-eyebrow{display:block;font-size:8px;letter-spacing:1.4px;font-weight:900;color:var(--gold2)}
+.qr-main-copy h2{font-size:17px;line-height:1.2;margin:1px 0}
+.qr-main-copy p{font-size:10px;color:var(--muted);line-height:1.35;margin:2px 0 0}
+.qr-live-chip{display:inline-flex;align-items:center;gap:4px;font-size:8px;font-weight:900;letter-spacing:.5px;color:#82d8aa;padding:4px 6px;border:1px solid rgba(98,215,154,.22);border-radius:99px}
+.qr-live-chip i{width:5px;height:5px;border-radius:50%;background:#62d79a;box-shadow:0 0 6px rgba(98,215,154,.65);animation:qrLivePulse 1.9s ease-in-out infinite}
+.qr-flow-rail{display:flex;align-items:center;justify-content:space-between;gap:3px;margin:8px 0 10px;padding:2px 0}
+.qr-flow-node{display:flex;flex:1;min-width:0;flex-direction:column;align-items:center;gap:2px;text-align:center}
+.qr-flow-node b{display:block;font-size:20px;line-height:1.15;filter:drop-shadow(0 0 5px rgba(240,215,140,.1));animation:qrNodeFloat 2.4s ease-in-out infinite}
+.qr-flow-node:nth-of-type(3) b{animation-delay:.18s}.qr-flow-node:nth-of-type(5) b{animation-delay:.36s}.qr-flow-node:nth-of-type(7) b{animation-delay:.54s}.qr-flow-node:nth-of-type(9) b{animation-delay:.72s}
+.qr-flow-node small{font-size:8px;line-height:1.2;color:var(--muted);font-weight:800;white-space:nowrap}
+.qr-flow-rail>i{font-style:normal;flex:0 0 auto;font-size:13px;color:var(--gold2);animation:qrArrowNudge 1.7s ease-in-out infinite;text-shadow:0 0 7px rgba(240,215,140,.22)}
+.qr-flow-kitchen b{filter:drop-shadow(0 0 6px rgba(240,160,75,.23))}
+.qr-print-primary{width:100%;min-height:43px;padding:9px 12px;display:flex;gap:8px;justify-content:center;border:1px solid rgba(240,215,140,.45);box-shadow:0 3px 12px rgba(212,168,75,.11);animation:qrButtonGlow 3.2s ease-in-out infinite;font-size:13px}
+.qr-main-note{margin-top:6px;font-size:9px;line-height:1.35;color:var(--muted)}
+.qr-main-note span{color:var(--gold2);font-size:13px;font-weight:900}
+.qr-table-picker{padding:7px 2px 9px;margin-bottom:7px;border:0;border-bottom:1px solid rgba(212,168,75,.16);border-radius:0;background:transparent}
+.qr-table-grid{grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:5px;margin-top:7px}
+.qr-table-card{min-height:49px;padding:5px 2px;border-radius:9px;background:rgba(30,21,18,.38);border-color:rgba(212,168,75,.18);box-shadow:none}
+.qr-table-card b{font-size:15px}.qr-table-card small{font-size:8px}
+.qr-table-card:active{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(240,215,140,.1);transform:scale(.98)}
+.owner-qr-quickstart{display:flex;align-items:center;gap:7px;margin:5px 10px 6px;padding:5px 2px 7px;border:0;border-bottom:1px solid rgba(212,168,75,.22);border-radius:0;background:transparent;box-shadow:none}
+.owner-qr-quickstart-mascot{display:grid;place-items:center;flex:0 0 27px;width:27px;height:27px;border:0;background:transparent;border-radius:0;font-size:22px;animation:qrChefBob 2.1s ease-in-out infinite}
+.owner-qr-quickstart-copy{flex:1;min-width:0;gap:0}
+.owner-qr-quickstart .owner-qr-eyebrow{font-size:7px;letter-spacing:1.1px;margin:0}
+.owner-qr-quickstart h3{font-size:11px;line-height:1.2;margin:0}
+.owner-qr-quickstart p{display:none}
+.owner-qr-quickstart .btn{width:auto;flex:0 0 auto;min-height:31px;padding:6px 8px;font-size:10px;box-shadow:0 0 0 1px rgba(240,215,140,.09)}
+.owner-qr-quickstart-dismiss{font-size:15px;padding:2px}
+.qr-table-picker-heading p{font-size:9px}
+.tabs button[data-t="qr"]{position:relative;border-bottom-color:var(--gold2);text-shadow:0 0 10px rgba(240,215,140,.22)}
+.tabs button[data-t="qr"]::after{content:"";position:absolute;left:28%;right:28%;bottom:1px;height:2px;background:var(--gold2);border-radius:99px;box-shadow:0 0 8px rgba(240,215,140,.38)}
+@keyframes qrLivePulse{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+@keyframes qrNodeFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@media(max-width:420px){.qr-flow-rail{gap:1px}.qr-flow-node b{font-size:17px}.qr-flow-node small{font-size:7px}.qr-flow-rail>i{font-size:11px}.qr-main-copy h2{font-size:15px}.qr-main-copy p{font-size:9px}.qr-live-chip{font-size:7px;padding:3px 5px}.owner-qr-quickstart{margin-left:6px;margin-right:6px}.owner-qr-quickstart .btn{font-size:9px;padding:6px 7px}}
+@media(prefers-reduced-motion:reduce){.qr-main-chef span,.qr-live-chip i,.qr-flow-node b,.qr-flow-rail>i,.qr-print-primary,.owner-qr-quickstart-mascot{animation:none!important}}
 </style>
 <link rel="stylesheet" href="./ui-premium.css?v=20261026c">
 </head>
@@ -2531,7 +2572,7 @@ function doLogin() {
     enterAdmin();
   }
 }
-function logout() { role = null; go('home'); setOpenPill();
+function logout() { role = null; go('home'); setOpenPill(); }
 
 /* ===== BOOT: wire everything ===== */
 
@@ -2629,7 +2670,6 @@ if (document.readyState === 'loading') {
 }
 
 /* The PWA service worker is registered separately near the page end; app content is not cached. */
- }
 
 function drawCats() {
   var host = document.getElementById('cats');
@@ -4457,8 +4497,12 @@ function updOpenBtn() {
   b.style.color = isOpen ? 'var(--ok)' : 'var(--bad)';
 }
 function toggleOpen() {
-  isOpen = !isOpen; localStorage.setItem('mm_open', isOpen ? 'true' : 'false');
-  updOpenBtn(); setOpenPill();
+  isOpen = !isOpen;
+  localStorage.setItem('mm_open', isOpen ? 'true' : 'false');
+  updOpenBtn();
+  setOpenPill();
+  toast(isOpen ? 'Open' : 'Closed');
+}
 
 /* ===== BOOT: wire everything ===== */
 
@@ -4546,8 +4590,6 @@ if (document.readyState === 'loading') {
 }
 
 /* The PWA service worker is registered separately near the page end; app content is not cached. */
- toast(isOpen ? 'Open' : 'Closed');
-}
 function tab(btn, name) {
   document.querySelectorAll('.tabs button').forEach(function(b){ b.classList.remove('on'); });
   var more=document.getElementById('admin-more');
@@ -4901,19 +4943,26 @@ function doneNotif(id) {
   if (n) { n.done = true; save('mm_n', notifs); drawAlerts(); }
 }
 function drawQR() {
+  var tableRows = Array.isArray(MENU.tables) ? MENU.tables : [];
   document.getElementById('a-qr').innerHTML =
-    '<section class="qr-setup-hero qr-setup-compact">' +
-      '<div class="qr-setup-header"><span class="qr-setup-mascot" aria-hidden="true">👨‍🍳</span><div class="qr-setup-copy"><span class="qr-setup-eyebrow">MAIN WORKFLOW · TABLE QR</span><h2>Generate &amp; print table QR codes</h2><p>One label per table. Place it correctly, then your waiter starts the visit.</p></div></div>' +
-      '<div class="qr-flow-line" aria-label="Generate, place, test"><span>Generate</span><i>→</i><span>Place</span><i>→</i><span>Test scan</span></div>' +
-      '<button type="button" class="btn btn-main qr-print-primary" onclick="downloadAllQRCodes()">🖨️ Generate &amp; print all table QRs</button>' +
-      '<p class="qr-setup-note"><span class="qr-note-arrow" aria-hidden="true">↳</span> During service: waiter starts visit <b>→</b> guest scans <b>→</b> kitchen receives order.</p>' +
+    '<section class="qr-main-guide" aria-labelledby="qr-main-title">' +
+      '<div class="qr-main-head"><span class="qr-main-chef" aria-hidden="true"><span>👨‍🍳</span></span><div class="qr-main-copy"><span class="qr-main-eyebrow">MAIN WORKFLOW</span><h2 id="qr-main-title">Table QR</h2><p>Print once. Place one QR on each table.</p></div><span class="qr-live-chip"><i></i> LIVE</span></div>' +
+      '<div class="qr-flow-rail" aria-label="Print, place the QR, waiter opens the visit, guest scans, kitchen receives the order">' +
+        '<span class="qr-flow-node"><b>🖨️</b><small>Print</small></span><i>→</i>' +
+        '<span class="qr-flow-node"><b>📍</b><small>Place</small></span><i>→</i>' +
+        '<span class="qr-flow-node"><b>🧑‍🍳</b><small>Open visit</small></span><i>→</i>' +
+        '<span class="qr-flow-node"><b>📱</b><small>Scan</small></span><i>→</i>' +
+        '<span class="qr-flow-node qr-flow-kitchen"><b>🍳</b><small>Kitchen</small></span>' +
+      '</div>' +
+      '<button type="button" class="btn btn-main qr-print-primary" onclick="downloadAllQRCodes()">🖨️ Print all table QRs <span aria-hidden="true">↗</span></button>' +
+      '<p class="qr-main-note"><span aria-hidden="true">↳</span> During service: waiter starts the visit first; then the guest scans and orders.</p>' +
     '</section>' +
-    '<section class="qr-table-picker"><div class="qr-table-picker-heading"><div><h3>Single table QR</h3><p>Tap a table to view, copy, share or download its QR.</p></div><span class="qr-table-count">' + MENU.tables.length + ' tables</span></div><div class="qr-table-grid">' +
-    MENU.tables.map(function(t) {
-      return '<button type="button" class="qr-table-card" onclick="showQR(\'' + t.number + '\')"><b>' + esc(t.number) + '</b><small>View / share</small></button>';
+    '<section class="qr-table-picker"><div class="qr-table-picker-heading"><div><h3>One table only?</h3><p>Choose a table to view, share or download its QR.</p></div><span class="qr-table-count">' + tableRows.length + ' tables</span></div><div class="qr-table-grid">' +
+    tableRows.map(function(t) {
+      return '<button type="button" class="qr-table-card" onclick="showQR(\'' + t.number + '\')"><b>' + esc(t.number) + '</b><small>View QR ↗</small></button>';
     }).join('') + '</div></section>' +
-    '<details class="qr-advanced"><summary>Advanced · table seating capacity</summary><div class="seating-capacity-settings"><b>Seats per table</b><p class="muted" style="font-size:11px;margin-top:3px">Set 1–30 seats if your tables have different capacities.</p><div class="seating-capacity-controls">' +
-    '<select id="capacity-table-select" aria-label="Choose table for seating capacity" onchange="loadSelectedTableCapacity()">' + MENU.tables.map(function(t){return '<option value="' + t.number + '">Table ' + t.number + '</option>';}).join('') + '</select>' +
+    '<details class="qr-advanced"><summary>More settings · seating capacity</summary><div class="seating-capacity-settings"><b>Seats per table</b><p class="muted" style="font-size:11px;margin-top:3px">Set 1–30 seats if your tables have different capacities.</p><div class="seating-capacity-controls">' +
+    '<select id="capacity-table-select" aria-label="Choose table for seating capacity" onchange="loadSelectedTableCapacity()">' + tableRows.map(function(t){return '<option value="' + t.number + '">Table ' + t.number + '</option>';}).join('') + '</select>' +
     '<input id="capacity-seats-input" type="number" min="1" max="30" step="1" value="4" inputmode="numeric" aria-label="Number of seats at table"><button type="button" class="btn btn-main" id="capacity-save-button" onclick="saveTableCapacity()">Save capacity</button></div><p class="muted" id="capacity-save-status" style="font-size:11px;margin-top:7px" aria-live="polite"></p></div></details>';
 }
 function loadSelectedTableCapacity() {
