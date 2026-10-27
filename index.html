@@ -1368,7 +1368,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .customer-explore-arrow { font-size: 23px; line-height: 1; color: var(--gold2); }
 @media(prefers-reduced-motion:reduce) { .customer-explore-shortcut { transition: none; } }
 </style>
-<link rel="stylesheet" href="./ui-premium.css?v=20261027d">
+<link rel="stylesheet" href="./ui-premium.css?v=20261027f">
 </head>
 <body>
 
@@ -1751,6 +1751,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
   </div>
   <div id="a-payments" style="display:none;padding:12px"></div>
   <div id="a-whatsapp" style="display:none;padding:12px"></div>
+  <section id="a-attention" class="attention" aria-label="What needs attention" style="display:none"></section>
   <div id="a-orders"></div>
   <div id="a-settings" style="display:none;padding:12px"></div>
   <div id="a-alerts" style="display:none;padding:12px"></div>
@@ -4734,6 +4735,7 @@ function tab(btn, name) {
   ['orders','alerts','menu','qr','stats','party','reviews','payments','settings','whatsapp'].forEach(function(t) {
     document.getElementById('a-' + t).style.display = t === name ? 'block' : 'none';
   });
+  try { renderAdminAttention(); } catch (e) {}
   if (name === 'alerts') drawAlerts();
   if (name === 'menu') drawAdminMenu();
   if (name === 'qr') drawQR();
@@ -4874,6 +4876,75 @@ function refreshAdminOrderQueue() {
   });
 }
 
+function renderAdminAttention() {
+  var host = document.getElementById('a-attention'); if (!host) return;
+  var ordersPane = document.getElementById('a-orders');
+  if (String(window.role || role || '') !== 'admin' || !ordersPane || ordersPane.style.display === 'none') { host.style.display = 'none'; return; }
+  var ops = (Array.isArray(orders) ? orders : []).filter(function (o) { return o && !o.is_test_order && !o.archived_at; });
+  function cnt(st) { return ops.filter(function (o) { return String(o.status || '').toUpperCase() === st; }).length; }
+  var today = new Date().toDateString();
+  var doneToday = ops.filter(function (o) { var st = String(o.status || '').toUpperCase(); return (st === 'SERVED' || st === 'PAID') && o.createdAt && new Date(o.createdAt).toDateString() === today; }).length;
+  var notes = Array.isArray(window.MM_ROLE_NOTIFICATIONS) ? window.MM_ROLE_NOTIFICATIONS : [];
+  var PAY = ['BILL_REQUEST', 'CASH_AT_COUNTER', 'PAYMENT_CHECK', 'GUEST_LEFT_UNPAID'];
+  var payNotes = notes.filter(function (n) { return PAY.indexOf(String(n.notification_type || '').toUpperCase()) >= 0; });
+  var tableNums = (MENU.tables || []).map(function (t) { return String(t.number).padStart(2, '0'); });
+  var visitsReady = !!window.MM_TABLE_VISITS_READY;
+  var states = tableNums.map(function (n) {
+    var latest = ops.filter(function (o) { return String(o.table || '').padStart(2, '0') === n && ['NEW', 'PREPARING', 'READY'].indexOf(String(o.status || '').toUpperCase()) >= 0; })
+      .sort(function (a, b) { return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); })[0];
+    var visit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[n];
+    var st = mmTableState(n, { active: latest ? String(latest.status).toUpperCase() : '', inService: !!(visitsReady && visit && String(visit.status).toUpperCase() === 'OPEN'), visitsReady: visitsReady });
+    return { num: n, st: st };
+  });
+  var inactive = states.filter(function (x) { return x.st && x.st.key === 'inactive'; });
+  var busy = states.filter(function (x) { return x.st && x.st.key !== 'available'; });
+  var free = states.filter(function (x) { return x.st && x.st.key === 'available'; }).length;
+  function chip(n, label, tone, onclick) {
+    return '<' + (onclick ? 'button type="button" onclick="' + onclick + '"' : 'div') + ' class="att-chip ' + (n ? 'has ' + tone : '') + '"><b>' + n + '</b><span>' + label + '</span></' + (onclick ? 'button' : 'div') + '>';
+  }
+  var goAlerts = "tab(document.querySelector('[data-t=&quot;alerts&quot;]'),'alerts')";
+  var needs = [];
+  payNotes.slice(0, 3).forEach(function (n) {
+    var t = String(n.notification_type || '').toUpperCase();
+    needs.push('<li><span class="tstate tstate-' + (t === 'BILL_REQUEST' || t === 'CASH_AT_COUNTER' ? 'pay-requested' : 'pay-pending') + '"><i aria-hidden="true"></i>' + mmStateLabel(t === 'BILL_REQUEST' || t === 'CASH_AT_COUNTER' ? 'pay-requested' : 'pay-pending') + '</span><b>' + window.mmI18n('Table', 'टेबल') + ' ' + esc(String(n.table_number || '--').padStart(2, '0')) + '</b><em>' + mmAgo(n.created_at) + '</em><button type="button" class="att-go" onclick="' + goAlerts + '">' + window.mmI18n('Open', 'उघडा') + '</button></li>');
+  });
+  states.filter(function (x) { return x.st && x.st.key === 'ready'; }).slice(0, 2).forEach(function (x) {
+    needs.push('<li><span class="tstate tstate-ready"><i aria-hidden="true"></i>' + mmStateLabel('ready') + '</span><b>' + window.mmI18n('Table', 'टेबल') + ' ' + esc(x.num) + '</b><em>' + window.mmI18n('waiting to be served', 'वाढण्याची वाट') + '</em></li>');
+  });
+  inactive.slice(0, 2).forEach(function (x) {
+    needs.push('<li><span class="tstate tstate-inactive"><i aria-hidden="true"></i>' + mmStateLabel('inactive') + '</span><b>' + window.mmI18n('Table', 'टेबल') + ' ' + esc(x.num) + '</b><em>' + mmDuration(mmTableInactivity(x.num).minutes) + ' ' + window.mmI18n('idle', 'निष्क्रिय') + '</em></li>');
+  });
+  var byWaiter = {};
+  if (visitsReady) {
+    Object.keys(window.MM_TABLE_VISITS || {}).forEach(function (n) {
+      var v = window.MM_TABLE_VISITS[n];
+      if (!v || String(v.status).toUpperCase() !== 'OPEN') return;
+      var code = String(v.assigned_waiter_code || '').trim() || '—';
+      (byWaiter[code] = byWaiter[code] || []).push(n);
+    });
+  }
+  var staffRows = Object.keys(byWaiter).sort().map(function (code) {
+    var nm = code !== '—' && typeof waiterNameForCode === 'function' ? waiterNameForCode(code) : '';
+    return '<li><b>' + esc(nm ? nm + ' (' + code + ')' : code) + '</b><span>' + byWaiter[code].sort().map(esc).join(' · ') + '</span></li>';
+  }).join('');
+  host.style.display = 'block';
+  host.innerHTML =
+    '<div class="att-chips" role="list">' +
+      chip(cnt('NEW'), window.mmI18n('New', 'नवीन'), 'tone-new') +
+      chip(cnt('PREPARING'), window.mmI18n('Preparing', 'बनत आहे'), 'tone-prep') +
+      chip(cnt('READY'), window.mmI18n('Ready', 'तयार'), 'tone-ready') +
+      chip(payNotes.length, window.mmI18n('Payments', 'पेमेंट'), 'tone-pay', payNotes.length ? goAlerts : '') +
+      chip(inactive.length, window.mmI18n('Idle', 'निष्क्रिय'), 'tone-warn') +
+      chip(doneToday, window.mmI18n('Done today', 'आज पूर्ण'), 'tone-done') +
+    '</div>' +
+    (needs.length ? '<div class="att-block"><h4>' + window.mmI18n('Needs attention', 'लक्ष द्या') + '</h4><ul class="att-list">' + needs.join('') + '</ul></div>'
+      : '<p class="att-clear"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg> ' + window.mmI18n('Nothing needs attention right now.', 'सध्या काही तातडीचे नाही.') + '</p>') +
+    '<div class="att-block"><h4>' + window.mmI18n('Tables', 'टेबल') + (visitsReady ? ' <small>' + free + ' ' + window.mmI18n('free', 'रिकामे') + '</small>' : '') + '</h4>' +
+      (visitsReady ? (busy.length ? '<div class="att-tables">' + busy.map(function (x) { return '<span class="att-table"><b>' + esc(x.num) + '</b><span class="tstate tstate-' + x.st.key + '"><i aria-hidden="true"></i>' + x.st.label + '</span></span>'; }).join('') + '</div>' : '<p class="att-clear">' + window.mmI18n('All tables are free.', 'सर्व टेबल रिकामे आहेत.') + '</p>')
+        : '<p class="muted" style="font-size:12px">' + window.mmI18n('Table status is syncing…', 'टेबल स्थिती समक्रमित होत आहे…') + '</p>') + '</div>' +
+    (staffRows ? '<div class="att-block"><h4>' + window.mmI18n('Waiter assignments', 'वेटर नेमणूक') + '</h4><ul class="att-staff">' + staffRows + '</ul></div>' : '');
+}
+window.renderAdminAttention = renderAdminAttention;
 function drawAdminOrders() {
   var lookupInput = document.getElementById('admin-ticket-lookup');
   if (lookupInput && document.activeElement === lookupInput) {
@@ -4898,7 +4969,7 @@ function drawAdminOrders() {
     if (!list.length) return '';
     return '<h3 class="gold" style="font-size:12px;padding:8px 12px">' + title + '</h3>' + list.map(function(o) {
       var safeTicket = String(o.id || '').replace(/'/g, '');
-      return '<div class="card" style="margin:8px 12px;flex-direction:column"><div style="display:flex;justify-content:space-between"><b class="gold">Table ' + esc(o.table || '--') + '</b><span class="muted">' + esc(o.status || '') + '</span></div><div class="muted" style="font-size:11px">Ticket ' + esc(o.id || '') + '</div>' +
+      return '<div class="card" style="margin:8px 12px;flex-direction:column"><div style="display:flex;justify-content:space-between"><b class="gold">Table ' + esc(o.table || '--') + '</b><span class="tstate tstate-' + ({NEW:'placed',PREPARING:'preparing',READY:'ready'}[String(o.status || '').toUpperCase()] || 'occupied') + '"><i aria-hidden="true"></i>' + esc(mmStateLabel(({NEW:'placed',PREPARING:'preparing',READY:'ready'}[String(o.status || '').toUpperCase()]) || 'occupied') === mmStateLabel('occupied') ? (o.status || '') : mmStateLabel(({NEW:'placed',PREPARING:'preparing',READY:'ready'}[String(o.status || '').toUpperCase()]))) + '</span></div><div class="muted" style="font-size:11px">Ticket ' + esc(o.id || '') + '</div>' +
         (o.items || []).map(function(i){ return '<div style="font-size:13px">' + (Number(i.qty)||1) + '× ' + esc(i.name || '') + '</div>'; }).join('') +
         '<b class="gold">' + money(o.total) + '</b><button type="button" class="btn btn-bad btn-sm" onclick="cancelAdminOrder(\'' + safeTicket + '\')">Cancel ticket</button></div>';
     }).join('');
@@ -4909,6 +4980,7 @@ function drawAdminOrders() {
     '<div style="display:flex;gap:7px;align-items:stretch"><input id="admin-ticket-lookup" value="' + esc(adminTicketLookupQuery) + '" placeholder="Ticket number (e.g. MM-ABC123)" aria-label="Customer ticket number" oninput="adminTicketLookupQuery=this.value" onkeydown="if(event.key===\'Enter\'){event.preventDefault();lookupAdminTicket()}" style="flex:1;min-width:0;padding:11px;border:1px solid var(--line);border-radius:10px;background:#211815;color:#fff">' +
     '<button type="button" class="btn btn-main" onclick="lookupAdminTicket()" ' + (adminTicketLookupBusy ? 'disabled' : '') + '>Find</button></div><div id="admin-ticket-lookup-result" aria-live="polite"></div></div>';
   document.getElementById('a-orders').innerHTML = html;
+  try { renderAdminAttention(); } catch (e) {}
   renderAdminTicketLookupResult();
 }
 function openOwnerQRSetup() {
@@ -4980,6 +5052,24 @@ async function openCashCounterCollection(visitId, tableNumber, notificationId, m
     toast(err && err.message ? err.message : 'Could not load this visit balance. Please refresh and try again.');
   }
 }
+function mmNotifCategory(type) {
+  type = String(type || '').toUpperCase();
+  if (type === 'NEW_ORDER' || type === 'ORDER_APPROVAL') return { key: 'order', label: window.mmI18n('New order', 'नवीन ऑर्डर') };
+  if (type === 'BILL_REQUEST' || type === 'CASH_AT_COUNTER' || type === 'PAYMENT_CHECK') return { key: 'payment', label: window.mmI18n('Payment', 'पेमेंट') };
+  if (type === 'ORDER_READY') return { key: 'ready', label: window.mmI18n('Food ready', 'जेवण तयार') };
+  if (type === 'COMPLETED') return { key: 'done', label: window.mmI18n('Completed', 'पूर्ण') };
+  return { key: 'attention', label: window.mmI18n('Attention', 'लक्ष द्या') };
+}
+function mmNotifIcon(type) {
+  var k = mmNotifCategory(type).key, d;
+  if (k === 'order') d = '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>';
+  else if (k === 'payment') d = '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3"/>';
+  else if (k === 'ready') d = '<path d="M3 16h18a9 9 0 0 0-18 0z"/><path d="M12 7V5M2.5 19h19"/>';
+  else if (k === 'done') d = '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>';
+  else d = '<path d="M12 3 2.5 20h19z"/><path d="M12 10v4.5M12 17.6v.1"/>';
+  return '<svg class="notif-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + d + '</svg>';
+}
+function mmNotifIsNew(n) { var t = new Date(n && n.created_at || 0).getTime(); return !!t && Date.now() - t < 3 * 60000; }
 function renderRoleNotifications(rows) {
   rows = Array.isArray(rows) ? rows : [];
   var currentRole = String(role || '');
@@ -5017,8 +5107,8 @@ function renderRoleNotifications(rows) {
       var bigTable = isCall ? '<div class="urgent-table-number">' + esc(tableNo) + '</div><div class="urgent-table-caption">' + window.mmI18n('TABLE · GO NOW','टेबल · लगेच जा') + '</div>' :
         (tableNo && ['NEW_ORDER','ORDER_READY','BILL_REQUEST','CASH_AT_COUNTER','PAYMENT_CHECK','GUEST_LEFT_UNPAID','ORDER_APPROVAL'].indexOf(type)>=0 ? '<div class="role-alert-table-small">' + window.mmI18n('TABLE','टेबल') + ' ' + esc(tableNo) + '</div>' : '');
       var details = type === 'ITEM_SOLD_OUT' || visitPaymentAlert ? '' : (n.ticket_id ? (isParty ? 'Booking ' : 'Ticket #') + esc(n.ticket_id) : '');
-      return '<article class="role-alert-card ' + (isCall ? 'role-alert-call' : 'role-alert-' + type.toLowerCase()) + '">' +
-        '<div class="role-alert-title"><span>' + ((isGuestLeftUnpaid || isCashCounter) ? '💵' : isOrderApproval ? '🧾' : isPaymentCheck ? '💸' : isParty ? '🎉' : isCall ? '🔔' : type==='BILL_REQUEST' ? '💳' : type==='NEW_ORDER' ? '🍳' : type==='ORDER_READY' ? '✅' : '⚠️') + ' ' + title + '</span>' + (visitPaymentAlert || isOrderApproval ? '' : '<button type="button" class="role-alert-dismiss" aria-label="' + window.mmI18n('Mark alert handled','सूचना पूर्ण करा') + '" onclick="handleStaffNotification(' + Number(n.id) + ')">' + window.mmI18n('Done','झाले') + '</button>') + '</div>' +
+      return '<article class="role-alert-card ' + (isCall ? 'role-alert-call' : 'role-alert-' + type.toLowerCase()) + ' notif-' + mmNotifCategory(isGuestLeftUnpaid ? 'GUEST_LEFT_UNPAID' : type).key + (mmNotifIsNew(n) ? ' is-new' : '') + '">' +
+        '<div class="role-alert-title"><span>' + mmNotifIcon(isGuestLeftUnpaid ? 'GUEST_LEFT_UNPAID' : type) + ' ' + title + '</span><time class="role-alert-time">' + mmAgo(n.created_at) + '</time>' + (visitPaymentAlert || isOrderApproval ? '' : '<button type="button" class="role-alert-dismiss" aria-label="' + window.mmI18n('Mark alert handled','सूचना पूर्ण करा') + '" onclick="handleStaffNotification(' + Number(n.id) + ')">' + window.mmI18n('Done','झाले') + '</button>') + '</div>' +
         bigTable + '<p class="role-alert-message">' + esc(line) + '</p>' +
         (details ? '<p class="role-alert-details">' + details + '</p>' : '') +
         (visitPaymentAlert ? (roleKind === 'waiter'
@@ -5060,7 +5150,7 @@ function drawAlerts() {
         : type === 'PAYMENT_CHECK'
           ? '<button type="button" class="btn btn-soft btn-sm" onclick="openPaymentsFromAlert()">Open payment log</button><button type="button" class="btn btn-ok btn-sm" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button>'
           : '<button type="button" class="btn btn-ok btn-sm" onclick="handleStaffNotification(' + Number(n.id) + ')">Done</button>';
-    return '<div class="card shared-admin-alert" style="justify-content:space-between"><div><b>' + name + (n.table_number ? ' · TABLE ' + esc(n.table_number) : '') + '</b><div>' + esc(type === 'PARTY_BOOKING' ? (n.message || n.item_name || '') : (n.item_name || n.message || '')) + '</div><div class="muted">' + new Date(n.created_at).toLocaleTimeString() + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">' + action + '</div></div>';
+    return '<div class="card shared-admin-alert notif-' + mmNotifCategory(type).key + (mmNotifIsNew(n) ? ' is-new' : '') + '" style="justify-content:space-between"><div><b>' + mmNotifIcon(type) + ' ' + name + (n.table_number ? ' · TABLE ' + esc(n.table_number) : '') + '</b><div>' + esc(type === 'PARTY_BOOKING' ? (n.message || n.item_name || '') : (n.item_name || n.message || '')) + '</div><div class="muted">' + mmAgo(n.created_at) + ' · ' + new Date(n.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">' + action + '</div></div>';
   }).join('');
   var notificationSetupWarning = '';
   var notificationSetupError = String(window.MM_ROLE_NOTIFICATIONS_SETUP_ERROR || '');

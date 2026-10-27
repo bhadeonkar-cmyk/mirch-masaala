@@ -1243,3 +1243,50 @@ input, select, textarea {
 .lifecycle-note { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: #ffdc9a; }
 .release-suggested { box-shadow: 0 0 0 2px rgba(255,207,110,.35), 0 0 16px rgba(255,207,110,.18); }
 @media (prefers-reduced-motion: reduce) { .lifecycle li.now i { animation: none !important; } }
+
+/* 18 · Admin attention overview and compact notifications (presentation only) */
+.attention { margin: 10px 12px 4px; padding: 12px; border-radius: 16px; background: linear-gradient(145deg, rgba(196,163,106,.08), rgba(25,19,16,.96)); border: 1px solid rgba(196,163,106,.22); }
+.att-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.att-chip { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025); color: var(--muted); font: inherit; min-height: 52px; }
+.att-chip b { font-size: 20px; line-height: 1.1; color: var(--muted); }
+.att-chip span { font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+button.att-chip { cursor: pointer; }
+.att-chip.has b { color: var(--c); } .att-chip.has { border-color: rgba(var(--rgb), .4); background: rgba(var(--rgb), .1); color: var(--c); }
+.att-chip.tone-new { --c:#7db5ff; --rgb:125,181,255; } .att-chip.tone-prep { --c:#ffb25e; --rgb:255,178,94; } .att-chip.tone-ready { --c:#5fe0a0; --rgb:95,224,160; }
+.att-chip.tone-pay { --c:#d7a6ff; --rgb:215,166,255; } .att-chip.tone-warn { --c:#ffcf6e; --rgb:255,207,110; } .att-chip.tone-done { --c:#b9c4c0; --rgb:185,196,192; }
+.att-block { margin-top: 12px; } .att-block h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--gold2); font-weight: 800; }
+.att-block h4 small { color: var(--muted); font-weight: 600; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+.att-list, .att-staff { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.att-list li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; padding: 7px 9px; border-radius: 10px; background: rgba(255,255,255,.03); }
+.att-list li b { color: var(--text); } .att-list li em { font-style: normal; color: var(--muted); font-size: 12px; flex: 1; min-width: 60px; }
+.att-go { min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(240,215,140,.4); background: rgba(240,215,140,.1); color: var(--gold2); font-weight: 800; cursor: pointer; }
+.att-clear { display: flex; align-items: center; gap: 7px; margin: 10px 0 0; font-size: 13px; color: var(--muted); } .att-clear svg { color: #6fcf97; }
+.att-tables { display: flex; flex-wrap: wrap; gap: 6px; }
+.att-table { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 10px; border-radius: 10px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); }
+.att-table > b { font-size: 14px; color: var(--text); }
+.att-staff li { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 6px 9px; border-radius: 10px; background: rgba(255,255,255,.03); }
+.att-staff li span { color: var(--muted); }
+
+/* Notifications: compact rows with category icon, time and a small "new" dot */
+.role-alert-card { padding: 10px 12px !important; border-radius: 14px !important; position: relative; animation: mmNotifIn .28s ease-out both; }
+.role-alert-title { font-size: 12px !important; }
+.role-alert-title > span { display: inline-flex; align-items: center; gap: 7px; }
+.role-alert-time { margin-left: auto; margin-right: 8px; font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.notif-ic { flex: 0 0 18px; }
+.role-alert-card .notif-ic, .shared-admin-alert .notif-ic { color: var(--c, var(--gold2)); vertical-align: -3px; }
+.notif-order { --c: #7db5ff; } .notif-payment { --c: #d7a6ff; } .notif-ready { --c: #5fe0a0; } .notif-attention { --c: #ffcf6e; } .notif-done { --c: #9fb3a6; }
+.role-alert-card, .shared-admin-alert { border-left: 3px solid var(--c, rgba(196,163,106,.4)) !important; }
+.role-alert-card .urgent-table-number { font-size: 34px !important; line-height: 1.05; }
+.role-alert-message { margin: 4px 0 6px !important; font-size: 13px; }
+.role-alert-card.is-new::after, .shared-admin-alert.is-new::after { content: ""; position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: var(--c, #f0d78c); box-shadow: 0 0 0 0 rgba(var(--rgb, 240,215,140), .5); animation: mmStepPulse 1.8s ease-in-out infinite; }
+.shared-admin-alert { position: relative; }
+.shared-admin-alert > div:first-child > b { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; }
+@keyframes mmNotifIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .role-alert-card, .role-alert-card.is-new::after, .shared-admin-alert.is-new::after { animation: none !important; } }
+@media (min-width: 700px) { .att-chips { grid-template-columns: repeat(6, 1fr); } .attention { margin: 10px 12px 4px; } }
+.role-alert-title { flex-wrap: wrap; row-gap: 2px; }
+.role-alert-title > span:first-child { flex: 1 1 auto; min-width: 0; white-space: normal; }
+.role-alert-action { font-size: 12px; }
+.att-go { margin-left: auto; }
+span.role-alert-action { display: block; text-align: center; padding: 8px 10px; border-radius: 10px; line-height: 1.3; }
+span.role-alert-action { background: rgba(255,255,255,.05) !important; color: var(--text) !important; border: 1px solid rgba(255,255,255,.12); font-weight: 700; }
