@@ -147,7 +147,7 @@ ALTER TABLE public.mm_staff_push_subscriptions
 -- Older installations may already have this column but with a nullable definition,
 -- no default, or a non-text type. Drop language-related CHECK constraints first so
 -- the migration can normalize the column definition without losing subscriptions.
-DO $
+DO $$
 DECLARE
   v_constraint record;
 BEGIN
@@ -161,7 +161,7 @@ BEGIN
     EXECUTE format('ALTER TABLE public.mm_staff_push_subscriptions DROP CONSTRAINT %I', v_constraint.conname);
   END LOOP;
 END
-$;
+$$;
 
 ALTER TABLE public.mm_staff_push_subscriptions
   ALTER COLUMN preferred_language DROP DEFAULT,
