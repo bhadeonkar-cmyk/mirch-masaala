@@ -1368,7 +1368,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .customer-explore-arrow { font-size: 23px; line-height: 1; color: var(--gold2); }
 @media(prefers-reduced-motion:reduce) { .customer-explore-shortcut { transition: none; } }
 </style>
-<link rel="stylesheet" href="./ui-premium.css?v=20261027f">
+<link rel="stylesheet" href="./ui-premium.css?v=20261027h">
 </head>
 <body>
 
@@ -1796,13 +1796,13 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 </div>
 <div class="modal" id="owner-reset-modal" aria-labelledby="owner-reset-title">
   <div class="box">
-    <h3 class="gold" id="owner-reset-title">Backup & reset</h3>
+    <h3 class="gold" id="owner-reset-title">Erase orders &amp; business data</h3>
     <p class="muted" style="margin:8px 0 12px">This clears orders, payments, notifications, bookings, reviews, customer profiles and settings. Menu prices, tables, waiter names and staff logins stay. This cannot be undone without an external backup.</p>
     <label for="owner-reset-confirmation" class="muted" style="font-size:12px">Type RESET MIRCH MASAALA to confirm</label>
     <input id="owner-reset-confirmation" type="text" autocomplete="off" autocapitalize="characters" placeholder="RESET MIRCH MASAALA">
     <div id="owner-reset-status" class="muted" aria-live="polite" style="margin:6px 0"></div>
-    <button type="button" class="btn btn-main" id="owner-backup-reset-btn" style="margin-top:6px" onclick="beginOwnerResetWithBackup()">📦 Download backup & reset</button>
-    <button type="button" class="btn btn-bad" id="owner-no-backup-reset-btn" style="margin-top:8px" onclick="confirmOwnerResetWithoutBackup()">Reset without backup</button>
+    <button type="button" class="btn btn-main" id="owner-backup-reset-btn" style="margin-top:6px" onclick="beginOwnerResetWithBackup()">📦 Download backup &amp; erase data</button>
+    <button type="button" class="btn btn-bad" id="owner-no-backup-reset-btn" style="margin-top:8px" onclick="confirmOwnerResetWithoutBackup()">Erase without backup</button>
     <button type="button" class="btn btn-soft" id="owner-reset-cancel-btn" style="margin-top:8px" onclick="closeOwnerResetOptions()">Cancel</button>
   </div>
 </div>
@@ -2768,6 +2768,13 @@ function updateCheckoutLabels() {
   if(noteLabel)noteLabel.textContent=window.mmI18n('Special requirements (optional)','विशेष सूचना (ऐच्छिक)');
   if(noteInput)noteInput.placeholder=window.mmI18n('Less oil, no onion, allergies or other requests…','कमी तेल, कांदा नको, अॅलर्जी किंवा इतर सूचना…');
 }
+function mmCashRequest() {
+  try {
+    var cr = JSON.parse(localStorage.getItem('mm_cash_request') || 'null');
+    var ctx = customerVisitContextForTable(String(table || '').padStart(2, '0'));
+    return cr && ctx && String(cr.visitId) === String(ctx.visitId) ? cr : null;
+  } catch (e) { return null; }
+}
 function renderCurrentOrderStrip() {
   var host = document.getElementById('current-order-strip');
   if (!host) return;
@@ -2780,7 +2787,8 @@ function renderCurrentOrderStrip() {
     var st = String(o.status || 'NEW').toUpperCase();
     return st !== 'CANCELLED' && st !== 'PAID' && String(o.approvalStatus || 'APPROVED').toUpperCase() !== 'REJECTED';
   });
-  if (!mine.length) { host.hidden = true; host.innerHTML = ''; return; }
+  var pay = mmCashRequest();
+  if (!mine.length && !pay) { host.hidden = true; host.innerHTML = ''; return; }
   var lines = {}, order = [], total = 0;
   mine.forEach(function(o) {
     total += Number(o.total) || 0;
@@ -2794,10 +2802,11 @@ function renderCurrentOrderStrip() {
     return '<li><b>' + lines[name] + '×</b> ' + esc(window.mmDishName ? window.mmDishName(name) : name) + '</li>';
   }).join('');
   var more = order.length > 3 ? '<li class="co-more">+' + (order.length - 3) + ' ' + window.mmI18n('more','अधिक') + '</li>' : '';
-  var state = orderProgressState(mine[mine.length - 1]);
+  var state = mine.length ? orderProgressState(mine[mine.length - 1]) : { title: window.mmI18n('Visit in progress','भेट सुरू आहे') };
   host.hidden = false;
   host.innerHTML = '<div class="co-head"><span class="co-title">' + window.mmI18n('Your current order','तुमची सध्याची ऑर्डर') + '</span><span class="co-table">' + window.mmI18n('Table','टेबल') + ' ' + esc(String(table).padStart(2, '0')) + '</span></div>' +
     '<div class="co-status"><i class="co-dot" aria-hidden="true"></i>' + esc(state.title) + '</div>' +
+    (pay ? '<div class="co-pay" role="status"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3"/></svg><div><b>' + window.mmI18n('Payment requested','पेमेंट मागितले') + '</b><span>' + window.mmI18n('Please complete payment at the counter.','कृपया काउंटरवर पेमेंट करा.') + '</span><em>' + window.mmI18n('Waiting for counter confirmation','काउंटरच्या पुष्टीची प्रतीक्षा') + '</em></div></div>' : '') +
     '<ul class="co-items">' + shown + more + '</ul>' +
     '<div class="co-foot"><span class="co-total">₹' + total + '</span><button type="button" class="co-btn" onclick="myOrders()">' + window.mmI18n('Review & track','पाहा व ट्रॅक करा') + '</button></div>';
 }
@@ -3152,6 +3161,7 @@ function addCustomerClosedVisit(visitId, tableNumber) {
       localStorage.removeItem('mm_customer_active_table');
     }
   } catch (e) {}
+  try { var cr = JSON.parse(localStorage.getItem('mm_cash_request') || 'null'); if (cr && String(cr.visitId) === visit) localStorage.removeItem('mm_cash_request'); } catch (e) {}
   if (String(payContext.visitId || '') === visit) {
     payContext.visitId = null;
     payContext.customerSessionId = null;
@@ -3264,6 +3274,8 @@ async function releaseTableForCash() {
     var result = await window.MM_REQUEST_CASH_COUNTER_RELEASE(tableNo, ctx.visitId, ctx.customerSessionId);
     // A request is not payment: keep the same visit/table alive until Owner/Counter records the full amount.
     if (button) { button.disabled = true; button.textContent = 'Cash payment requested'; }
+    try { localStorage.setItem('mm_cash_request', JSON.stringify({ visitId: String(ctx.visitId), table: tableNo, amount: Number(result && result.amount) || 0, at: Date.now() })); } catch (e) {}
+    try { renderCurrentOrderStrip(); } catch (e) {}
     if (status) status.textContent = 'The counter has been notified about the cash payment. The table stays active until the full bill is recorded as paid.';
     var counterDue = Number(result && result.amount) || 0;
     toast(counterDue > 0.01
@@ -6268,6 +6280,7 @@ function drawSettings() {
   var s = SETTINGS;
   document.getElementById('a-settings').innerHTML =
     '<p class="muted" style="margin-bottom:12px">Restaurant payment settings sync through the shared database so customers on other phones see the same UPI ID and payment QR. Secure staff accounts are managed through Supabase Authentication.</p>' +
+    '<h3 class="set-group "><span>Account</span><small>Restaurant profile and staff</small></h3>' +
     '<div class="settings-row"><label>Restaurant name</label><input id="set-name" value="' + esc(s.restaurantName) + '"></div>' +
     '<div class="settings-row"><label>Tagline</label><input id="set-tag" value="' + esc(s.tagline) + '"></div>' +
     '<div class="setup"><h3>📍 Visit Us information</h3><p>Add the restaurant’s real address and opening hours. For directions, paste a Google Maps share link.</p></div>' +
@@ -6281,6 +6294,7 @@ function drawSettings() {
     '<div style="display:flex;gap:8px;align-items:center;margin:8px 0 10px"><input id="owner-waiter-new-name" maxlength="80" placeholder="New waiter name" style="flex:1;min-width:0;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff"><button type="button" class="btn btn-main btn-sm" onclick="saveOwnerWaiterName()" style="flex-shrink:0">Add</button></div>' +
     '<div id="owner-waiter-list" class="setup" style="margin-bottom:14px">Loading waiter names…</div>' +
     '<div class="setup"><h3>🔐 Staff accounts</h3><p>Create staff users in Supabase Authentication and assign each account a role. Do not store staff passwords in this browser.</p></div>' +
+    '<h3 class="set-group "><span>Ordering</span><small>Tables, closed message and payments</small></h3>' +
     '<div class="settings-row"><label>Closed message</label><input id="set-closed" value="' + esc(s.closedMessage) + '"></div>' +
     '<div class="settings-row"><label>Number of tables (1–50)</label><input id="set-tables" type="number" min="1" max="50" value="' + (s.tableCount || 20) + '"></div>' +
     (!s.upiId ? '<div class="setup" style="border-color:rgba(232,106,106,.55)"><h3>⚠️ Payment setup required</h3><p>Owner: enter the restaurant’s real merchant UPI ID below before enabling digital payments. Do not use a sample ID.</p></div>' : '') +
@@ -6290,6 +6304,7 @@ function drawSettings() {
     '<p class="muted" style="font-size:11px;margin:-4px 0 10px">Customers will see a separate button to open your Google review page.</p>' +
     '<div class="settings-row"><label>PhonePe merchant UPI ID (optional override)</label><input id="set-phonepe" placeholder="Leave blank to use main UPI ID" value="' + esc(s.phonepeUpi || '') + '"></div>' +
     '<div class="settings-row"><label>Payment note</label><input id="set-paynote" value="' + esc(s.payNote || '') + '"></div>' +
+    '<h3 class="set-group "><span>Notifications</span><small>Customer messages and staff alerts</small></h3>' +
     '<div class="setup"><h3>💬 WhatsApp customer updates</h3><p>Temporary owner/restaurant contact: +91 9657076450. Change it below any time. Automated broadcasts require WhatsApp Business Platform credentials and approved message templates configured securely in Supabase.</p></div>' +
     '<div class="settings-row"><label>Owner / restaurant WhatsApp contact (country code, digits only)</label><input id="set-wa" placeholder="919657076450" value="' + esc(s.whatsappNumber || '') + '"></div>' +
     '<div class="settings-row"><label>WhatsApp display name</label><input id="set-waname" value="' + esc(s.whatsappName || '') + '"></div>' +
@@ -6303,10 +6318,30 @@ function drawSettings() {
     '<p class="muted" style="font-size:11px;margin-bottom:10px">Menu and order data sync from the shared database. UPI QR is shown when the guest requests a bill.</p>' +
     '<button type="button" class="btn btn-main" onclick="saveSettings()">Save settings</button>' +
     '<button type="button" class="btn btn-soft" style="margin-top:8px" onclick="showPayQR(null, null)">Preview payment QR</button>' +
-    '<div class="setup" style="margin-top:14px"><h3>📦 Backup & reset</h3><p>Get a downloadable JSON data backup. The owner is reminded every 10 days. Reset clears service and transaction records and returns customer-facing settings to defaults; menu prices, tables, waiter names and staff sign-ins are kept.</p><div id="owner-backup-status" style="margin:10px 0">Checking backup status…</div><button type="button" class="btn btn-soft" onclick="downloadOwnerBackup()">Download data backup</button><button type="button" class="btn btn-bad" style="margin-top:8px" onclick="showOwnerResetOptions()">Reset app data & settings</button></div>';
+'<h3 class="set-group "><span>Appearance</span><small>Display on this device</small></h3>' +
+    '<div class="setup safe-zone"><h3>Display preferences</h3><p>Resets only the display choices saved on <b>this device</b>: language, dismissed tips and spice preferences. It does <b>not</b> change orders, tables, payments, users, notifications or any restaurant data.</p><button type="button" class="btn btn-soft" onclick="resetDisplayPreferences()">Reset display preferences</button></div>' +
+    '<h3 class="set-group "><span>System</span><small>Backup and data health</small></h3>' +
+    '<div class="setup"><h3>📦 Data backup</h3><p>Download a JSON copy of your data. The owner is reminded every 10 days.</p><div id="owner-backup-status" style="margin:10px 0">Checking backup status…</div><button type="button" class="btn btn-soft" onclick="downloadOwnerBackup()">Download data backup</button></div>' +
+    '<h3 class="set-group danger"><span>Danger zone</span><small>Permanent changes to shared data</small></h3>' +
+    '<div class="setup danger-zone"><h3>Erase orders &amp; business data</h3><p><b>This permanently deletes records in the shared database:</b> orders, payments, notifications, party bookings, reviews and customer profiles, and returns restaurant settings to defaults. Menu prices, tables, waiter names and staff sign-ins are kept. <b>This is not a display reset.</b> Download a backup first.</p><button type="button" class="btn btn-bad" onclick="showOwnerResetOptions()">Erase orders &amp; business data…</button></div>';
   refreshOwnerWaiterDirectory();
   refreshOwnerMaintenanceStatus();
 }
+function resetDisplayPreferences() {
+  if (!confirm('Reset display preferences on this device only?\n\nThis clears language, dismissed tips and spice preferences saved in this browser. It does NOT change orders, tables, payments, users, notifications or any restaurant data.')) return;
+  var removed = 0;
+  try {
+    var keys = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && (k === 'mm_home_language' || k === 'mm_qr_guide_hidden' || k.indexOf('mm_tip_') === 0 || k.indexOf('mm_spice_pref_') === 0)) keys.push(k);
+    }
+    keys.forEach(function (k) { localStorage.removeItem(k); removed++; });
+  } catch (e) {}
+  toast(removed ? 'Display preferences reset on this device. Reloading…' : 'Nothing to reset. Display preferences are already default.');
+  if (removed) setTimeout(function () { window.location.reload(); }, 900);
+}
+window.resetDisplayPreferences = resetDisplayPreferences;
 var ownerMaintenanceStatusCache = null;
 var ownerMaintenanceBusy = false;
 var ownerResetBusy = false;
