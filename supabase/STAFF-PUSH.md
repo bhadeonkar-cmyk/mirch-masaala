@@ -17,7 +17,7 @@ If you ran the earlier version of the second script already, **run the updated `
 
 In Supabase Dashboard → Edge Functions → Secrets, add:
 
-- `VAPID_PUBLIC_KEY` = `BH8rULqiO6c1_QtspafwRyxbpHz3V48VXf7If1UTv1u4s3WUyNw5IeUBDMcISfOCoLEM6spSfJ5Jf1TH0xNgjto`
+- `VAPID_PUBLIC_KEY` = `BCGV3-RIkNT5dJfV96yuWS61iZe5Zf85s8CJWBgq-Q_pGJWCLEkMD-91IB7yvsZ6Z0mGebJCohhVJmUHcuNW1E0`
 - `VAPID_PRIVATE_KEY` = keep this private; get the value from the app owner, then paste it into Supabase Secrets only. **Never commit this value to GitHub or place it in browser code.**
 - `VAPID_SUBJECT` = `https://bhadeonkar-cmyk.github.io/mirch-masaala/`
 
