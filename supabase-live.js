@@ -387,7 +387,6 @@
       await navigator.serviceWorker.ready;
       var subscription = await registration.pushManager.getSubscription();
       if (subscription && !subscriptionUsesCurrentVapidKey(subscription)) {
-        pushStage = 'resetting old push subscription';
         var oldSubscription = subscription;
         var unsubscribed = await oldSubscription.unsubscribe();
         if (!unsubscribed) {
@@ -396,7 +395,6 @@
         subscription = null;
       }
       if (!subscription) {
-        pushStage = 'creating browser push subscription';
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: vapidKeyBytes(WEB_PUSH_VAPID_PUBLIC_KEY)
