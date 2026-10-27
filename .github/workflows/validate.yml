@@ -96,6 +96,27 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/visit-service-controls.sql
           # Compile the optional push migration against the complete notification schema.
           psql -v ON_ERROR_STOP=1 -f supabase/staff-push-notifications.sql
+          # Simulate a legacy install where the preference column exists but lacks its contract.
+          psql -v ON_ERROR_STOP=1 -c "ALTER TABLE public.mm_staff_push_subscriptions DROP CONSTRAINT mm_staff_push_subscriptions_language_check; ALTER TABLE public.mm_staff_push_subscriptions ALTER COLUMN preferred_language DROP DEFAULT, ALTER COLUMN preferred_language DROP NOT NULL, ALTER COLUMN preferred_language TYPE character varying;"
+          # The migration must repair the existing column in place and be safe to re-run.
+          psql -v ON_ERROR_STOP=1 -f supabase/staff-push-notifications.sql
+          psql -v ON_ERROR_STOP=1 -c "DO \$qa\$ BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema='public' AND table_name='mm_staff_push_subscriptions'
+                AND column_name='preferred_language' AND data_type='text'
+                AND is_nullable='NO' AND column_default ILIKE '%en%'
+            ) THEN
+              RAISE EXCEPTION 'QA failed: push language column default/nullability/type was not repaired';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_constraint
+              WHERE conrelid='public.mm_staff_push_subscriptions'::regclass
+                AND conname='mm_staff_push_subscriptions_language_check'
+            ) THEN
+              RAISE EXCEPTION 'QA failed: push language CHECK constraint was not restored';
+            END IF;
+          END \$qa\$;"
           # Exercise same-table diner orders and cash settlement against the final visit RPC.
           psql -v ON_ERROR_STOP=1 -f scripts/check-cash-counter-release.sql
           psql -v ON_ERROR_STOP=1 -c "DO \$qa\$ BEGIN
