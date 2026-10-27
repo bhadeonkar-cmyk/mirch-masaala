@@ -225,6 +225,39 @@ textarea:focus-visible,
   opacity: .68;
 }
 
+/* Guide the scan without spending another card-height on the home screen. */
+#home .qr-guide-mini {
+  min-height: 28px;
+  margin: 2px 0 3px;
+  padding: 1px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: 6px;
+}
+#home .qr-mini-mascot {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 21px;
+}
+#home .qr-mini-copy { gap: 1px; }
+#home .qr-mini-copy b { font-size: 10px; }
+#home .qr-mini-copy > span { font-size: 9px; line-height: 1.25; }
+#home .qr-mini-arrow {
+  animation: mmGuideArrowDown 1.5s ease-in-out infinite;
+  text-shadow: 0 0 7px rgba(196,163,106,.25);
+}
+@keyframes mmGuideArrowDown {
+  0%,100% { transform: translateY(-1px); opacity: .6; }
+  50% { transform: translateY(2px); opacity: 1; }
+}
+
 /* QR scanner: tactile, readable, and intentionally low-glare */
 #scan-table-btn,
 #scan-table-btn.btn-main,
