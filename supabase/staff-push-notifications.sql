@@ -144,11 +144,10 @@ ALTER TABLE public.mm_staff_push_subscriptions
   ADD COLUMN IF NOT EXISTS staff_code text NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS preferred_language text NOT NULL DEFAULT 'en';
 
-UPDATE public.mm_staff_push_subscriptions
-SET preferred_language = 'en'
-WHERE preferred_language IS NULL OR preferred_language NOT IN ('en', 'mr');
-
-DO $$
+-- Older installations may already have this column but with a nullable definition,
+-- no default, or a non-text type. Drop language-related CHECK constraints first so
+-- the migration can normalize the column definition without losing subscriptions.
+DO $
 DECLARE
   v_constraint record;
 BEGIN
@@ -161,12 +160,24 @@ BEGIN
   LOOP
     EXECUTE format('ALTER TABLE public.mm_staff_push_subscriptions DROP CONSTRAINT %I', v_constraint.conname);
   END LOOP;
-
-  ALTER TABLE public.mm_staff_push_subscriptions
-    ADD CONSTRAINT mm_staff_push_subscriptions_language_check
-    CHECK (preferred_language IN ('en', 'mr'));
 END
-$$;
+$;
+
+ALTER TABLE public.mm_staff_push_subscriptions
+  ALTER COLUMN preferred_language DROP DEFAULT,
+  ALTER COLUMN preferred_language TYPE text USING preferred_language::text;
+
+UPDATE public.mm_staff_push_subscriptions
+SET preferred_language = 'en'
+WHERE preferred_language IS NULL OR preferred_language NOT IN ('en', 'mr');
+
+ALTER TABLE public.mm_staff_push_subscriptions
+  ALTER COLUMN preferred_language SET DEFAULT 'en',
+  ALTER COLUMN preferred_language SET NOT NULL;
+
+ALTER TABLE public.mm_staff_push_subscriptions
+  ADD CONSTRAINT mm_staff_push_subscriptions_language_check
+  CHECK (preferred_language IN ('en', 'mr'));
 
 CREATE INDEX IF NOT EXISTS ix_mm_staff_push_role
   ON public.mm_staff_push_subscriptions (target_role, updated_at DESC);
