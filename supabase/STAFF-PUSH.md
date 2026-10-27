@@ -25,13 +25,13 @@ Then rerun the updated [read-only readiness check](./app-readiness-check.sql). C
 
 In Supabase Dashboard → **Edge Functions → Secrets**, confirm these values exist:
 
-- `VAPID_PUBLIC_KEY` = `BH8rULqiO6c1_QtspafwRyxbpHz3V48VXf7If1UTv1u4s3WUyNw5IeUBDMcISfOCoLEM6spSfJ5Jf1TH0xNgjto`
-- `VAPID_PRIVATE_KEY` = the private key that belongs to the public key above. Keep it only in Supabase Secrets; never commit it to GitHub, browser code, a chat, or a screenshot.
+- `VAPID_PUBLIC_KEY` = `BCGV3-RIkNT5dJfV96yuWS61iZe5Zf85s8CJWBgq-Q_pGJWCLEkMD-91IB7yvsZ6Z0mGebJCohhVJmUHcuNW1E0`
+- `VAPID_PRIVATE_KEY` = the matching private key from the owner's locally saved VAPID setup file. Keep it only in Supabase Secrets; never commit it to GitHub, browser code, a chat, or a screenshot.
 - `VAPID_SUBJECT` = `https://bhadeonkar-cmyk.github.io/mirch-masaala/`
 
 Supabase normally injects `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` into Edge Functions. Do not put the service-role key in the frontend or add it to GitHub.
 
-**Key-pair warning:** the public key embedded in `supabase-live.js` must match `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. If the existing private key is unknown or the key pair cannot be verified, pause before changing keys. Generating a new pair requires updating the website public key and having every staff device create a fresh subscription; changing only the server key will break existing subscriptions.
+**Key-pair note:** the previous private key was not present in Supabase custom secrets, so a fresh key pair was generated for this setup. The public key above is now embedded in `supabase-live.js` on this branch. The client detects and replaces an old-key subscription the next time a staff member explicitly enables alerts. Never commit the private key. After adding the three secrets in Supabase, deploy/merge the matching client code, then have every staff device open Alert options and enable notifications again.
 
 ## 4. Deploy the push sender
 
