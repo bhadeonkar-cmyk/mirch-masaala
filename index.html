@@ -1368,7 +1368,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .customer-explore-arrow { font-size: 23px; line-height: 1; color: var(--gold2); }
 @media(prefers-reduced-motion:reduce) { .customer-explore-shortcut { transition: none; } }
 </style>
-<link rel="stylesheet" href="./ui-premium.css?v=20261027c">
+<link rel="stylesheet" href="./ui-premium.css?v=20261027d">
 </head>
 <body>
 
@@ -3986,6 +3986,7 @@ var MM_TABLE_STATES = {
   'served':        ['SERVED', 'वाढले'],
   'pay-requested': ['PAYMENT REQUESTED', 'पेमेंट मागितले'],
   'pay-pending':   ['PAYMENT PENDING', 'पेमेंट तपासणी'],
+  'inactive':      ['INACTIVE · REVIEW', 'निष्क्रिय · तपासा'],
   'completed':     ['COMPLETED', 'पूर्ण']
 };
 function mmStateLabel(key) { var d = MM_TABLE_STATES[key] || MM_TABLE_STATES.available; return window.mmI18n(d[0], d[1]); }
@@ -4009,13 +4010,38 @@ function mmTableState(num, hint) {
         ['SERVED'].indexOf(String(o.status || '').toUpperCase()) >= 0;
     }).length;
     if (hint.visitsReady === false) return null;
-    key = hint.inService ? (latest ? 'served' : 'occupied') : 'available';
+    key = hint.inService ? (mmTableInactivity(num).inactive ? 'inactive' : (latest ? 'served' : 'occupied')) : 'available';
   }
   return { key: key, label: mmStateLabel(key) };
 }
+// Display-only lifecycle signal. Real data only: an OPEN visit with no active ticket and no order/alert
+// activity for MM_INACTIVE_AFTER_MIN is flagged for STAFF REVIEW. Nothing is released or deleted automatically.
+var MM_INACTIVE_AFTER_MIN = 90;
+function mmTableInactivity(num) {
+  num = String(num || '').padStart(2, '0');
+  var visit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[num];
+  if (!(window.MM_TABLE_VISITS_READY && visit && String(visit.status || '').toUpperCase() === 'OPEN')) return { inactive: false, minutes: 0 };
+  var startedAt = new Date(visit.started_at || 0).getTime();
+  var last = startedAt || 0, active = false;
+  (orders || []).forEach(function (o) {
+    if (!o || o.is_test_order || o.archived_at || String(o.table || '').padStart(2, '0') !== num) return;
+    var st = String(o.status || '').toUpperCase();
+    var t = new Date(o.createdAt || 0).getTime();
+    if (startedAt && t && t < startedAt) return; // belongs to an earlier visit
+    if (['NEW', 'PREPARING', 'READY'].indexOf(st) >= 0) active = true;
+    if (t > last) last = t;
+  });
+  var hasAlert = (Array.isArray(window.MM_ROLE_NOTIFICATIONS) ? window.MM_ROLE_NOTIFICATIONS : []).some(function (n) {
+    return n && String(n.table_number || '').padStart(2, '0') === num;
+  });
+  if (active || hasAlert || !last) return { inactive: false, minutes: 0 };
+  var minutes = Math.round((Date.now() - last) / 60000);
+  return { inactive: minutes >= MM_INACTIVE_AFTER_MIN, minutes: minutes };
+}
+function mmDuration(min) { return min >= 60 ? Math.floor(min / 60) + 'h ' + (min % 60) + 'm' : min + 'm'; }
 function renderTableLegend() {
   var host = document.getElementById('w-legend'); if (!host) return;
-  host.innerHTML = ['available','occupied','placed','preparing','ready','served','pay-requested','pay-pending'].map(function (k) {
+  host.innerHTML = ['available','occupied','placed','preparing','ready','served','pay-requested','pay-pending','inactive'].map(function (k) {
     return '<span class="tstate tstate-' + k + '"><i aria-hidden="true"></i>' + mmStateLabel(k) + '</span>';
   }).join('');
 }
@@ -4330,9 +4356,19 @@ function renderWaiterVisitControl() {
   host.innerHTML = '<div class="waiter-visit-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><b>Visit in progress</b><small>' +
     (startedAt ? 'Started at ' + esc(startedAt) + ' · ' : '') +
     'Assigned waiter: <b>' + assignedLabel + '</b><br>Customers scan the table QR; orders go straight to the kitchen while this visit is open.</small></div></div>' +
+    (function () {
+      var ina = mmTableInactivity(num);
+      var cur = ina.inactive ? 2 : 0;
+      var labels = [window.mmI18n('Order started','ऑर्डर सुरू'), window.mmI18n('Customer inactive','ग्राहक निष्क्रिय'), window.mmI18n('Staff review','स्टाफ तपासणी'), window.mmI18n('Table release','टेबल मोकळे')];
+      return '<ol class="lifecycle" aria-label="Table lifecycle">' + labels.map(function (l, i) {
+        return '<li class="' + (i < cur ? 'done' : (i === cur ? 'now' : '')) + '"><i aria-hidden="true"></i><span>' + l + '</span></li>';
+      }).join('') + '</ol>' +
+      (ina.inactive ? '<p class="lifecycle-note">' + window.mmI18n('No activity for ', 'हालचाल नाही: ') + mmDuration(ina.minutes) + '. ' +
+        window.mmI18n('If the guests have left, free the table. Order history and any unpaid balance are kept.', 'ग्राहक गेले असल्यास टेबल मोकळे करा. ऑर्डर इतिहास व बाकी रक्कम जतन राहते.') + '</p>' : '');
+    })() +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px"><button type="button" class="btn btn-soft btn-sm" onclick="finishTableVisit()" ' +
     (hasActiveTickets ? 'disabled title="Serve or cancel all active tickets first" ' : '') +
-    'style="width:auto">Finish &amp; settle</button><button type="button" class="btn btn-main btn-sm" onclick="releaseAbandonedTableVisit()" ' +
+    'style="width:auto">Finish &amp; settle</button><button type="button" class="btn btn-main btn-sm' + (mmTableInactivity(num).inactive ? ' release-suggested' : '') + '" onclick="releaseAbandonedTableVisit()" ' +
     (hasActiveTickets ? 'disabled title="Serve or cancel all active tickets first" ' : '') +
     'style="width:auto">Guest left · free table</button></div>';
 }

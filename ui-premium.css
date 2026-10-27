@@ -1227,3 +1227,19 @@ input, select, textarea {
 @media (prefers-reduced-motion: reduce) { .tstate i { animation: none !important; } }
 .waiter-table-card small.tstate { color: var(--c) !important; background: rgba(var(--rgb), .15) !important; border: 1px solid rgba(var(--rgb), .4) !important; border-radius: 10px; }
 .waiter-table-card[data-state="available"] small.tstate { opacity: .8; }
+
+/* 17 · Table lifecycle strip (display only) */
+.tstate-inactive { --c: #ffcf6e; --rgb: 255,207,110; }
+.tstate-inactive { border-style: dashed; }
+.waiter-table-card[data-state="inactive"] { border-color: rgba(255,207,110,.6) !important; border-style: dashed !important; }
+.lifecycle { list-style: none; display: flex; gap: 4px; margin: 10px 0 2px; padding: 0; }
+.lifecycle li { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; font-size: 10px; text-align: center; color: var(--muted); }
+.lifecycle li + li::before { content: ""; position: absolute; top: 5px; right: 50%; width: 100%; height: 2px; background: rgba(255,255,255,.12); }
+.lifecycle li i { width: 12px; height: 12px; border-radius: 50%; background: #2b2420; border: 2px solid rgba(255,255,255,.22); position: relative; z-index: 1; }
+.lifecycle li.done i { background: #6fcf97; border-color: #6fcf97; }
+.lifecycle li.done + li::before, .lifecycle li.now::before { background: #6fcf97; }
+.lifecycle li.now i { background: #ffcf6e; border-color: #ffcf6e; animation: mmStepPulse 1.8s ease-in-out infinite; }
+.lifecycle li.now { color: var(--text); font-weight: 700; }
+.lifecycle-note { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: #ffdc9a; }
+.release-suggested { box-shadow: 0 0 0 2px rgba(255,207,110,.35), 0 0 16px rgba(255,207,110,.18); }
+@media (prefers-reduced-motion: reduce) { .lifecycle li.now i { animation: none !important; } }
