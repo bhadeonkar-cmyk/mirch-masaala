@@ -22,6 +22,8 @@ jobs:
           node-version: 20
       - name: Run source and order lifecycle QA checks
         run: node scripts/check-inline-js.cjs
+      - name: Check local links and in-page targets
+        run: node scripts/check-links.cjs
       - name: Parse the Supabase integration JavaScript
         run: node --check supabase-live.js
       - name: Parse the app-wide English/Marathi language layer
