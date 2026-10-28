@@ -79,7 +79,41 @@ WITH dependencies(component, required, ready, next_step) AS (
              AND is_nullable = 'NO'
              AND column_default ILIKE '%en%'
          ),
-         'For background push: after verifying a recoverable database backup, apply supabase/staff-push-notifications.sql; do not rerun other READY migrations'
+         CASE
+           WHEN to_regclass('public.mm_staff_push_subscriptions') IS NULL THEN
+             'Table is missing: after verifying a backup, apply supabase/staff-push-notifications.sql'
+           WHEN NOT EXISTS (
+             SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'mm_staff_push_subscriptions'
+               AND column_name = 'preferred_language'
+           ) THEN
+             'Column preferred_language is MISSING (older table): after verifying a backup, apply only supabase/staff-push-notifications.sql; do not rerun other READY migrations'
+           ELSE
+             'Column preferred_language exists but is not text NOT NULL DEFAULT ''en'': after verifying a backup, apply only supabase/staff-push-notifications.sql; do not rerun other READY migrations'
+         END
+  UNION ALL
+  SELECT 'Push dispatch columns on notifications (push_sent_at, push_dispatch_token, target_staff_code)', false,
+         (SELECT count(*) FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'mm_restaurant_notifications'
+            AND column_name IN ('push_sent_at', 'push_dispatch_token', 'target_staff_code')) = 3,
+         'Apply only supabase/staff-push-notifications.sql (after verifying a backup)'
+  UNION ALL
+  SELECT 'Staff push subscription row-level security and own-subscription policy', false,
+         COALESCE((SELECT c.relrowsecurity FROM pg_class c WHERE c.oid = to_regclass('public.mm_staff_push_subscriptions')), false)
+           AND EXISTS (
+             SELECT 1 FROM pg_policies p
+             WHERE p.schemaname = 'public' AND p.tablename = 'mm_staff_push_subscriptions'
+               AND p.policyname = 'mm_staff_push_manage_own_subscription'
+           ),
+         'Apply only supabase/staff-push-notifications.sql (after verifying a backup)'
+  UNION ALL
+  SELECT 'Guest waiter-call / bill-request RPC with push dispatch tokens', false,
+         to_regprocedure('public.mm_create_guest_notification(uuid, text, text)') IS NOT NULL,
+         'Apply only supabase/staff-push-notifications.sql (after verifying a backup)'
+  UNION ALL
+  SELECT 'Staff push device registration RPC (re-enrol a shared phone)', false,
+         to_regprocedure('public.mm_register_staff_push_subscription(text, jsonb, text, text, text)') IS NOT NULL,
+         'Apply only supabase/staff-push-notifications.sql (after verifying a backup)'
 )
 SELECT
   component,

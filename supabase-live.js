@@ -390,14 +390,22 @@
     var lower = detail.toLowerCase();
     var tag = code ? ' (' + code + ')' : '';
     var generic = 'Could not enable push alerts' + tag + '. Check the browser console for the error category and ask the owner to check the Supabase push setup.';
+    // Expired/invalid staff session: report this before the generic database categories.
+    if (code === 'PGRST301' || code === 'PGRST303' || code === '28000' ||
+        /jwt (expired|invalid)|invalid jwt|staff session required|not authenticated/.test(lower)) {
+      return 'Your staff session is missing or expired' + tag + '. Sign out, sign in again, and enable alerts.';
+    }
     if (code === 'PGRST205' || code === '42P01' || /could not find the table|relation .* does not exist/.test(lower)) {
       return 'Staff push table not found' + tag + '. Run supabase/staff-push-notifications.sql after confirming its prerequisites.';
     }
     if (code === 'PGRST204' || code === '42703' || /could not find the ['"][^'"]+['"] column|column .* does not exist|schema cache/.test(lower)) {
       return 'Staff push table/columns are out of date' + tag + '. Re-run supabase/staff-push-notifications.sql (safe to repeat), then rerun app-readiness-check.sql.';
     }
-    if (code === '42501' || /row-level security|permission denied|not allowed by row-level security/.test(lower)) {
-      return 'Push subscription permission was refused' + tag + '. Sign out and sign in again with the correct staff role; if it persists, ask the owner to check the staff role and subscription-table RLS policy.';
+    if (code === '42501' || /row-level security|permission denied|not allowed by row-level security|staff role required/.test(lower)) {
+      return 'Push subscription permission was refused' + tag + '. Sign out and sign in again with the correct staff role. If this phone was used by another staff login, re-run supabase/staff-push-notifications.sql (it adds the safe re-enrol function); otherwise ask the owner to check the staff role and subscription-table policy.';
+    }
+    if (code === 'PGRST202' || code === '42883') {
+      return 'A push database function is missing' + tag + '. Re-run supabase/staff-push-notifications.sql, then rerun app-readiness-check.sql.';
     }
     if (name === 'NotAllowedError' || (stage === 'notification permission' && /denied|permission/.test(lower))) {
       return 'Browser notification permission was denied. Enable notifications for Mirch Masaala in browser/phone settings, then retry.';
@@ -478,16 +486,37 @@
         return false;
       }
       pushStage = 'saving staff subscription';
-      var saved = await client.from('mm_staff_push_subscriptions').upsert({
-        staff_user_id: userResult.data.user.id,
-        target_role: String(window.role),
-        staff_code: String(window.role) === 'waiter' ? (function(){ try { return String(localStorage.getItem('mm_waiter_staff_code') || '').trim().toUpperCase(); } catch(e) { return ''; } })() : '',
-        endpoint: subscription.endpoint,
-        subscription: subscription.toJSON(),
-        preferred_language: window.MM_HOME_LANGUAGE === 'mr' ? 'mr' : 'en',
-        user_agent: String(navigator.userAgent || '').slice(0, 400),
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'endpoint' });
+      var pushStaffCode = String(window.role) === 'waiter' ? (function(){ try { return String(localStorage.getItem('mm_waiter_staff_code') || '').trim().toUpperCase(); } catch(e) { return ''; } })() : '';
+      var pushLanguage = window.MM_HOME_LANGUAGE === 'mr' ? 'mr' : 'en';
+      var pushUserAgent = String(navigator.userAgent || '').slice(0, 400);
+      // Preferred path: a database function that takes the user and role from the verified
+      // session, so a phone previously used by another staff login can be re-enrolled.
+      var saved = await client.rpc('mm_register_staff_push_subscription', {
+        p_endpoint: subscription.endpoint,
+        p_subscription: subscription.toJSON(),
+        p_staff_code: pushStaffCode,
+        p_preferred_language: pushLanguage,
+        p_user_agent: pushUserAgent
+      });
+      var rpcMissing = saved.error && (String(saved.error.code || '') === 'PGRST202' ||
+        String(saved.error.code || '') === '42883' ||
+        /mm_register_staff_push_subscription/i.test(String(saved.error.message || '')) &&
+          /could not find|does not exist/i.test(String(saved.error.message || '')));
+      if (rpcMissing) {
+        // Older database: the push SQL has not been re-run yet. Fall back to a direct write,
+        // which still works for a phone that has only ever been used by this staff login.
+        console.info('[Mirch Masaala push] mm_register_staff_push_subscription is not installed; using direct subscription write. Re-run supabase/staff-push-notifications.sql.');
+        saved = await client.from('mm_staff_push_subscriptions').upsert({
+          staff_user_id: userResult.data.user.id,
+          target_role: String(window.role),
+          staff_code: pushStaffCode,
+          endpoint: subscription.endpoint,
+          subscription: subscription.toJSON(),
+          preferred_language: pushLanguage,
+          user_agent: pushUserAgent,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'endpoint' });
+      }
       if (saved.error) throw saved.error;
       try { localStorage.setItem('mm_push_enabled_' + String(window.role), '1'); } catch (e) {}
       notifySuccess('Push alerts enabled. This phone can alert the waiter when a guest calls, even if the app is in the background.');
@@ -523,7 +552,9 @@
       .eq('staff_user_id', userResult.data.user.id)
       .eq('endpoint', subscription.endpoint);
     if (update.error) {
-      console.info('[Mirch Masaala language] Push language will sync after the push SQL migration is applied.');
+      // Report the real category; a missing column is not the only reason this can fail.
+      console.info('[Mirch Masaala language] Could not sync push language: ' +
+        describePushSetupError(update.error, 'saving staff subscription'));
     }
   }
   window.MM_UPDATE_STAFF_PUSH_LANGUAGE = updateStaffPushLanguage;
