@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
-// Static link smoke test for the GitHub Pages app. It deliberately checks only
-// links that can be validated from the source: local resources and in-page IDs.
-// Links populated from owner settings (Google reviews, Maps, payment, WhatsApp)
-// must be tested with the real configured values.
+// Static link smoke test for the GitHub Pages app. This checks local resources
+// and in-page fragment targets. URLs populated from owner settings (Maps, review,
+// payment, WhatsApp) require runtime verification with their configured values.
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -18,54 +17,64 @@ const html = fs.readFileSync(htmlPath, 'utf8');
 const errors = [];
 const ids = new Set();
 
-for (const match of html.matchAll(/\\bid\\s*=\\s*["']([^"']+)["']/gi)) {
+for (const match of html.matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)) {
   ids.add(match[1]);
 }
 
-// Drop script bodies before scanning tags so JavaScript template strings are
-// not mistaken for literal HTML. Keep external script tags so their src is checked.
-const tagSource = html.replace(/<script\\b([^>]*)>[\\s\\S]*?<\\/script\\s*>/gi, '<script$1></script>');
-const tags = tagSource.match(/<(?:a|link|script|img|source|iframe)\\b[^>]*>/gi) || [];
+// Keep external script tags but remove inline script bodies before scanning HTML
+// tags, so HTML-looking strings inside JavaScript are not treated as live links.
+const tagSource = html.replace(/<script\b([^>]*)>[\s\S]*?<\/script\s*>/gi, '<script$1></script>');
+const tags = tagSource.match(/<(?:a|link|script|img|source|iframe)\b[^>]*>/gi) || [];
 const refs = [];
 
-function attribute(tag, name) {
-  const re = new RegExp('(?:^|\\\\s)' + name + '\\\\s*=\\\\s*(?:"([^"]*)"|\\\'([^\\\']*)\\\'|([^\\\\s>]+))', 'i');
-  const m = tag.match(re);
-  return m ? (m[1] !== undefined ? m[1] : (m[2] !== undefined ? m[2] : m[3])) : null;
+function attributes(tag) {
+  const result = Object.create(null);
+  for (const match of tag.matchAll(/([^\s=]+)\s*=\s*("(?:[^"]*)"|'(?:[^']*)'|[^\s>]+)/g)) {
+    const raw = match[2];
+    result[match[1].toLowerCase()] = raw.length >= 2 && (raw[0] === '"' || raw[0] === "'")
+      ? raw.slice(1, -1)
+      : raw;
+  }
+  return result;
 }
 
 for (const tag of tags) {
-  const tagName = (tag.match(/^<([a-z0-9-]+)/i) || [,''])[1].toLowerCase();
-  for (const name of (tagName === 'script' || tagName === 'img' || tagName === 'source' || tagName === 'iframe' ? ['src'] : ['href'])) {
-    const value = attribute(tag, name);
-    if (value === null || !value.trim()) continue;
-    const raw = value.trim();
-    if (raw === '#') continue;
-    if (/^(?:https?:|mailto:|tel:|data:|javascript:|blob:|\\/\\/)/i.test(raw)) {
-      if (/^https?:\\/\\/www\\.onkarfx\\.in(?:[/?#]|$)/i.test(raw)) {
-        errors.push('Non-canonical Onkar FX URL: ' + raw + ' (use https://onkarfx.in/)');
-      }
-      continue;
+  const tagName = (tag.match(/^<([a-z0-9-]+)/i) || [, ''])[1].toLowerCase();
+  const attrs = attributes(tag);
+  const name = ['script', 'img', 'source', 'iframe'].includes(tagName) ? 'src' : 'href';
+  const value = attrs[name];
+  if (value == null || !value.trim()) continue;
+
+  const raw = value.trim();
+  if (raw === '#') continue;
+
+  if (/^(?:https?:|mailto:|tel:|data:|javascript:|blob:|\/\/)/i.test(raw)) {
+    if (/^https?:\/\/www\.onkarfx\.in(?:[/?#]|$)/i.test(raw)) {
+      errors.push('Non-canonical Onkar FX URL: ' + raw + ' (use https://onkarfx.in/)');
     }
-    if (name === 'href' && raw.startsWith('#')) {
-      const id = decodeURIComponent(raw.slice(1));
-      if (id && !ids.has(id)) errors.push('Broken in-page link ' + raw);
-      continue;
-    }
-    const pathname = decodeURIComponent(raw.split(/[?#]/, 1)[0]);
-    if (!pathname || pathname === '.' || pathname === './') {
-      refs.push({ raw, target: 'index.html' });
-      continue;
-    }
-    if (pathname.startsWith('/')) {
-      errors.push('Root-absolute local link is unsafe for a GitHub Pages project site: ' + raw);
-      continue;
-    }
-    let target = pathname.replace(/^\\.\\//, '');
-    target = path.normalize(target);
-    if (target.endsWith(path.sep)) target = path.join(target, 'index.html');
-    refs.push({ raw, target });
+    continue;
   }
+
+  if (name === 'href' && raw.startsWith('#')) {
+    let id = raw.slice(1);
+    try { id = decodeURIComponent(id); } catch (e) {}
+    if (id && !ids.has(id)) errors.push('Broken in-page link ' + raw);
+    continue;
+  }
+
+  let pathname = raw.split(/[?#]/, 1)[0];
+  try { pathname = decodeURIComponent(pathname); } catch (e) {}
+  if (!pathname || pathname === '.' || pathname === './') {
+    refs.push({ raw, target: 'index.html' });
+    continue;
+  }
+  if (pathname.startsWith('/')) {
+    errors.push('Root-absolute local link is unsafe for a GitHub Pages project site: ' + raw);
+    continue;
+  }
+
+  const target = path.normalize(pathname.replace(/^\.\//, ''));
+  refs.push({ raw, target: target.endsWith(path.sep) ? path.join(target, 'index.html') : target });
 }
 
 for (const ref of refs) {
