@@ -355,10 +355,27 @@ requireText(live, 'window.MM_TRANSLATE_NOTIFICATION_MESSAGE(row)', 'Desktop staf
 requireText(live, 'customerNotificationBody = window.MM_TRANSLATE_TEXT(customerNotificationBody)', 'Customer order-status notifications use the selected language');
 requireText(html, 'window.MM_TRANSLATE_NOTIFICATION_MESSAGE(n)', 'In-app staff alert cards translate database messages');
 requireText(appLanguage, 'owner approval required', 'Owner approval notification titles are localized');
-requireText(live, "preferred_language: window.MM_HOME_LANGUAGE === 'mr' ? 'mr' : 'en'", 'Push subscriptions save the staff device language');
+requireText(live, "var pushLanguage = window.MM_HOME_LANGUAGE === 'mr' ? 'mr' : 'en'", 'Push subscriptions save the staff device language');
 requireText(live, 'window.MM_UPDATE_STAFF_PUSH_LANGUAGE = updateStaffPushLanguage', 'A language switch updates the device push preference');
 requireText(staffPushSql, 'ADD COLUMN IF NOT EXISTS preferred_language', 'Push setup upgrades existing device subscriptions for language support');
 requireText(staffPushEdge, 'preferred_language || "en"', 'Background pushes are rendered in each device language');
+['p_endpoint', 'p_subscription', 'p_staff_code', 'p_preferred_language', 'p_user_agent'].forEach(function (arg) {
+  requireText(live, arg + ':', 'Push registration client sends ' + arg);
+  requireText(staffPushSql, arg + ' ', 'Push registration SQL declares ' + arg);
+});
+['p_name', 'p_phone', 'p_event_type', 'p_event_date', 'p_event_time', 'p_guest_count', 'p_notes'].forEach(function (arg) {
+  requireText(live, arg + ':', 'Party booking client sends ' + arg);
+  requireText(fs.readFileSync('supabase/party-bookings.sql', 'utf8'), arg + ' ', 'Party booking SQL declares ' + arg);
+});
+['scripts/check-browser-smoke.cjs', 'scripts/check-party-booking-contract.cjs', 'scripts/check-vapid-config.cjs'].forEach(function (script) {
+  requireText(fs.readFileSync('.github/workflows/validate.yml', 'utf8'), script, 'CI runs ' + script);
+});
+requireText(live, "client.rpc('mm_register_staff_push_subscription'", 'Staff devices register push through the session-bound RPC');
+requireText(live, 'function describePushSetupError(e, stage)', 'Push setup errors are categorised, not reported as a generic missing-SQL message');
+requireText(live, "code === 'PGRST301'", 'Expired staff sessions are reported separately from schema errors');
+requireText(staffPushSql, 'CREATE OR REPLACE FUNCTION public.mm_register_staff_push_subscription', 'Push migration installs the re-enrol RPC');
+requireText(staffPushSql, 'auth.uid()', 'Push registration RPC takes the user from the verified session');
+requireText(readinessCheck, 'mm_register_staff_push_subscription(text, jsonb, text, text, text)', 'Readiness check verifies the push registration RPC');
 requireText(staffPushEdge, 'ग्राहक वाट पाहत आहे', 'Background push events have a Marathi localized message');
 requireText(readinessCheck, 'public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text)', 'Readiness check verifies the exact QR-order RPC signature');
 requireText(readinessCheck, 'mm_notify_kitchen_new_order_trigger', 'Readiness check verifies the kitchen order alert trigger');

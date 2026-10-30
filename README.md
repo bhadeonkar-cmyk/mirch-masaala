@@ -84,9 +84,7 @@ If order placement reports a missing SQL function or table, the browser cannot i
 - Each phone can submit a separate ticket for the same open table visit. The bill and payment screen total every ticket attached to that visit, even when different diners choose different dishes.
 - Choosing **cash at counter** creates an Owner/Counter alert; it does not mark the table free or mark the bill paid. Only the Owner/Counter Admin login can record the cash received. The table visit is closed automatically after the full shared balance is paid and no kitchen tickets remain in progress.
 - Do not skip `supabase/direct-kitchen-qr-orders.sql`: it removes the legacy order-approval triggers and converts any remaining pending tickets to direct-to-kitchen flow. Re-apply `supabase/role-notifications.sql`, `supabase/customer-cash-counter.sql`, `supabase/visit-service-controls.sql`, and `supabase/direct-kitchen-qr-orders.sql` in the listed order to update an existing installation. Run `supabase/staff-push-notifications.sql` last when background push alerts are enabled.
-- The staff-push SQL has been corrected and added to automated PostgreSQL compilation checks. After applying it, redeploy `supabase/functions/send-staff-push/index.ts` for per-device English/Marathi push messages.
-
-Then run `supabase/app-readiness-check.sql` in the same SQL Editor. Fix each **ACTION REQUIRED** row before placing a live order. **OPTIONAL — NOT CONFIGURED** affects background push delivery only; in-app alerts still require the role-notification setup. If background push alerts are enabled, deploy `supabase/functions/send-staff-push/index.ts` after the updated push SQL is applied.
+For staff background/lock-screen push, follow [`supabase/STAFF-PUSH.md`](./supabase/STAFF-PUSH.md): verify a database backup, run only `supabase/staff-push-notifications.sql` (safe to re-run), rerun `supabase/app-readiness-check.sql` until every push row is **READY**, deploy `supabase/functions/send-staff-push/index.ts`, set the three VAPID secrets, then enable alerts on each staff phone. Do not rerun unrelated migrations that already report **READY**. In-app alerts and background push are separate paths; a working in-app alert does not prove phone push works.
 
 ## Important limitations before real service
 
@@ -132,4 +130,20 @@ For test-heavy tables, use Owner/Admin → Accounts → Table cleanup, preview t
 
 
 ## Built for restaurants, by Onkar FX
-The customer-facing home screen includes a small footer link to [Onkar FX](https://www.onkarfx.in) for businesses interested in similar digital ordering and workflow automation. Mirch Masaala remains the main brand of the restaurant app.
+The customer-facing home screen includes a small footer link to [Onkar FX](https://onkarfx.in/) for businesses interested in similar digital ordering and workflow automation. Mirch Masaala remains the main brand of the restaurant app.
+
+## Automated checks
+
+Run from the repository root (CI runs the same commands):
+
+```
+node scripts/check-inline-js.cjs          # source, order lifecycle and push/party contract checks
+node scripts/check-links.cjs              # local links and in-page targets
+node scripts/check-vapid-config.cjs       # public push key consistency; fails if a private key is committed
+npm i --no-save playwright && npx playwright install chromium
+node scripts/check-browser-smoke.cjs     # headless browser: start-up, Places, Party Booking form, Business enquiries
+node scripts/check-party-booking-contract.cjs   # Party Booking against a fake Supabase client
+```
+
+The browser tests run offline with a fake backend. They prove the app's behaviour and its calls, not the production database or a real phone. The PostgreSQL checks in `scripts/*.sql` run in CI against a local database.
+

@@ -62,6 +62,47 @@
   var staffNotificationBusy = false;
   var staffNotificationSetupWarningShown = false;
 
+  // The in-app notification has already been saved when this helper runs.
+  // Report background push failures without exposing subscription payloads or secrets.
+  function reportStaffPushDispatchFailure(error) {
+    var status = Number(error && (error.status || (error.context && error.context.status)) || 0);
+    var message = String(error && error.message || '').toLowerCase();
+    var category = 'Background push was not confirmed; check the send-staff-push Edge Function logs and configuration.';
+    if (status === 404 || /function.*not found|not deployed|requested function was not found/.test(message)) {
+      category = 'send-staff-push Edge Function is missing or not deployed.';
+    } else if (status === 503 || /secrets are not configured|push sender secrets/.test(message)) {
+      category = 'Push sender configuration is incomplete in Supabase Edge Function Secrets.';
+    } else if (status === 403 || /origin not allowed|dispatch token/.test(message)) {
+      category = 'Push sender rejected the request origin or one-time dispatch token; check the Edge Function logs.';
+    } else if (status === 500) {
+      category = 'Push sender failed while reading or dispatching an alert; check the Edge Function logs and database schema.';
+    }
+    console.info('[Mirch Masaala push] In-app alert is saved; ' + category, {
+      status: status || null,
+      errorName: String(error && error.name || 'Error')
+    });
+  }
+
+  function dispatchStaffPush(notificationIds, dispatchTokens) {
+    if (!client || !client.functions || typeof client.functions.invoke !== 'function' ||
+        !Array.isArray(notificationIds) || !notificationIds.length ||
+        !Array.isArray(dispatchTokens) || !dispatchTokens.length) return;
+    client.functions.invoke('send-staff-push', {
+      body: { notification_ids: notificationIds, dispatch_tokens: dispatchTokens }
+    }).then(function (result) {
+      if (result && result.error) reportStaffPushDispatchFailure(result.error);
+      else if (result && result.data && Number(result.data.failed || 0) > 0) {
+        console.info('[Mirch Masaala push] The sender ran but one or more devices did not accept the push.', {
+          sent: Number(result.data.sent || 0),
+          failed: Number(result.data.failed || 0),
+          notifications: Number(result.data.notifications || 0)
+        });
+      } else if (result && result.data && Number(result.data.sent || 0) === 0) {
+        console.info('[Mirch Masaala push] No device received a push. Check that the intended staff role/device is subscribed and enabled.');
+      }
+    }).catch(reportStaffPushDispatchFailure);
+  }
+
   async function createGuestNotification(type, tableNumber) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Live alerts are not connected yet.');
     var result = await client.rpc('mm_create_guest_notification', {
@@ -72,15 +113,7 @@
     if (result.error) throw result.error;
     var data = result.data || {};
     var ids = data && Array.isArray(data.notification_ids) ? data.notification_ids : [];
-    if (ids.length && Array.isArray(data.dispatch_tokens) && data.dispatch_tokens.length && client.functions && typeof client.functions.invoke === 'function') {
-      client.functions.invoke('send-staff-push', { body: { notification_ids: ids, dispatch_tokens: (Array.isArray(data.dispatch_tokens) ? data.dispatch_tokens : []) } })
-        .then(function (sent) {
-          if (sent && sent.error) console.info('[Mirch Masaala push] In-app alert saved; background push sender is not deployed or ready yet.');
-        })
-        .catch(function (err) {
-          console.info('[Mirch Masaala push] In-app alert saved; background push setup may still be needed.', err && err.message ? err.message : err);
-        });
-    }
+    dispatchStaffPush(ids, Array.isArray(data.dispatch_tokens) ? data.dispatch_tokens : []);
     return data;
   }
 
@@ -137,15 +170,7 @@
   function dispatchStaffPushForGuestRequest(data) {
     var ids = data && Array.isArray(data.notification_ids) ? data.notification_ids : [];
     var tokens = data && Array.isArray(data.dispatch_tokens) ? data.dispatch_tokens : [];
-    if (ids.length && tokens.length && client && client.functions && typeof client.functions.invoke === 'function') {
-      client.functions.invoke('send-staff-push', { body: { notification_ids: ids, dispatch_tokens: tokens } })
-        .then(function (sent) {
-          if (sent && sent.error) console.info('[Mirch Masaala push] The in-app alert is saved; background push may need setup.');
-        })
-        .catch(function (err) {
-          console.info('[Mirch Masaala push] The in-app alert is saved; background push may need setup.', err && err.message ? err.message : err);
-        });
-    }
+    dispatchStaffPush(ids, tokens);
   }
 
   async function submitPartyBooking(payload) {
@@ -329,7 +354,7 @@
   }
 
   // Public Web Push key; the matching private key exists only in Supabase Edge Function secrets.
-  var WEB_PUSH_VAPID_PUBLIC_KEY = 'BH8rULqiO6c1_QtspafwRyxbpHz3V48VXf7If1UTv1u4s3WUyNw5IeUBDMcISfOCoLEM6spSfJ5Jf1TH0xNgjto';
+  var WEB_PUSH_VAPID_PUBLIC_KEY = 'BCGV3-RIkNT5dJfV96yuWS61iZe5Zf85s8CJWBgq-Q_pGJWCLEkMD-91IB7yvsZ6Z0mGebJCohhVJmUHcuNW1E0';
 
   function vapidKeyBytes(base64Url) {
     var padding = '='.repeat((4 - base64Url.length % 4) % 4);
@@ -338,6 +363,69 @@
     var bytes = new Uint8Array(raw.length);
     for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
     return bytes;
+  }
+
+  // A key rotation invalidates old browser push subscriptions. Detect that here so
+  // the next explicit staff opt-in replaces an old-key subscription automatically.
+  function subscriptionUsesCurrentVapidKey(subscription) {
+    var existingKey = subscription && subscription.options && subscription.options.applicationServerKey;
+    if (!existingKey) return false;
+    var existingBytes = new Uint8Array(existingKey);
+    var currentBytes = vapidKeyBytes(WEB_PUSH_VAPID_PUBLIC_KEY);
+    if (existingBytes.length !== currentBytes.length) return false;
+    for (var i = 0; i < existingBytes.length; i++) {
+      if (existingBytes[i] !== currentBytes[i]) return false;
+    }
+    return true;
+  }
+
+  // Turn a Supabase/PostgREST error into an accurate message. The same table name appears
+  // in "missing table", "stale schema cache", "column missing" and row-level-security
+  // errors, so the table name alone must not be read as "the SQL has not been applied".
+  function describePushSetupError(e, stage) {
+    e = e || {};
+    var code = String(e.code || '');
+    var name = String(e.name || '');
+    var detail = [e.message, e.details, e.hint].filter(Boolean).join(' ');
+    var lower = detail.toLowerCase();
+    var tag = code ? ' (' + code + ')' : '';
+    var generic = 'Could not enable push alerts' + tag + '. Check the browser console for the error category and ask the owner to check the Supabase push setup.';
+    // Expired/invalid staff session: report this before the generic database categories.
+    if (code === 'PGRST301' || code === 'PGRST303' || code === '28000' ||
+        /jwt (expired|invalid)|invalid jwt|staff session required|not authenticated/.test(lower)) {
+      return 'Your staff session is missing or expired' + tag + '. Sign out, sign in again, and enable alerts.';
+    }
+    if (code === 'PGRST205' || code === '42P01' || /could not find the table|relation .* does not exist/.test(lower)) {
+      return 'Staff push table not found' + tag + '. Run supabase/staff-push-notifications.sql after confirming its prerequisites.';
+    }
+    if (code === 'PGRST204' || code === '42703' || /could not find the ['"][^'"]+['"] column|column .* does not exist|schema cache/.test(lower)) {
+      return 'Staff push table/columns are out of date' + tag + '. Re-run supabase/staff-push-notifications.sql (safe to repeat), then rerun app-readiness-check.sql.';
+    }
+    if (code === '42501' || /row-level security|permission denied|not allowed by row-level security|staff role required/.test(lower)) {
+      return 'Push subscription permission was refused' + tag + '. Sign out and sign in again with the correct staff role. If this phone was used by another staff login, re-run supabase/staff-push-notifications.sql (it adds the safe re-enrol function); otherwise ask the owner to check the staff role and subscription-table policy.';
+    }
+    if (code === 'PGRST202' || code === '42883') {
+      return 'A push database function is missing' + tag + '. Re-run supabase/staff-push-notifications.sql, then rerun app-readiness-check.sql.';
+    }
+    if (name === 'NotAllowedError' || (stage === 'notification permission' && /denied|permission/.test(lower))) {
+      return 'Browser notification permission was denied. Enable notifications for Mirch Masaala in browser/phone settings, then retry.';
+    }
+    if (stage === 'service worker registration' || stage === 'service worker ready') {
+      return 'The service worker could not start. Check that service-worker.js is available at the site URL and that the browser allows service workers.';
+    }
+    if (stage === 'creating browser push subscription' && (name === 'InvalidAccessError' || name === 'NotSupportedError')) {
+      return 'The browser rejected the Web Push key or subscription. Confirm the website public VAPID key matches the VAPID_PUBLIC_KEY configured for the push sender, then retry.';
+    }
+    if (stage === 'saving staff subscription' && /jwt|session.*(expired|missing)|not authenticated/.test(lower)) {
+      return 'Your staff session is missing or expired. Sign out, sign in again, and enable alerts.';
+    }
+    if (stage === 'saving staff subscription' && /column|schema cache/.test(lower)) {
+      return 'The staff push database schema is out of date' + tag + '. Re-run supabase/staff-push-notifications.sql and verify app-readiness-check.sql.';
+    }
+    if (name === 'AbortError') {
+      return 'The browser cancelled the push subscription. Check notification permission and network access, then try again.';
+    }
+    return generic;
   }
 
   async function enableBrowserNotifications() {
@@ -357,6 +445,7 @@
       notifyError('Notifications are blocked for this app. Enable them in phone Settings, then try again.');
       return false;
     }
+    var pushStage = 'notification permission';
     try {
       // This function is invoked directly from the staff member's tap.
       var permission = Notification.permission;
@@ -369,41 +458,79 @@
         notifyError('Staff connection is not ready. Reopen the staff app and try again.');
         return false;
       }
+      pushStage = 'service worker registration';
       var registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+      pushStage = 'service worker ready';
       await navigator.serviceWorker.ready;
       var subscription = await registration.pushManager.getSubscription();
+      if (subscription && !subscriptionUsesCurrentVapidKey(subscription)) {
+        pushStage = 'resetting old push subscription';
+        var oldSubscription = subscription;
+        var unsubscribed = await oldSubscription.unsubscribe();
+        if (!unsubscribed) {
+          throw new Error('The old push subscription could not be reset. Remove this site subscription in browser settings and retry.');
+        }
+        subscription = null;
+      }
       if (!subscription) {
+        pushStage = 'creating browser push subscription';
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: vapidKeyBytes(WEB_PUSH_VAPID_PUBLIC_KEY)
         });
       }
+      pushStage = 'checking staff session';
       var userResult = await client.auth.getUser();
       if (userResult.error || !userResult.data || !userResult.data.user) {
         notifyError('Your staff session expired. Sign in again, then enable alerts.');
         return false;
       }
-      var saved = await client.from('mm_staff_push_subscriptions').upsert({
-        staff_user_id: userResult.data.user.id,
-        target_role: String(window.role),
-        staff_code: String(window.role) === 'waiter' ? (function(){ try { return String(localStorage.getItem('mm_waiter_staff_code') || '').trim().toUpperCase(); } catch(e) { return ''; } })() : '',
-        endpoint: subscription.endpoint,
-        subscription: subscription.toJSON(),
-        preferred_language: window.MM_HOME_LANGUAGE === 'mr' ? 'mr' : 'en',
-        user_agent: String(navigator.userAgent || '').slice(0, 400),
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'endpoint' });
+      pushStage = 'saving staff subscription';
+      var pushStaffCode = String(window.role) === 'waiter' ? (function(){ try { return String(localStorage.getItem('mm_waiter_staff_code') || '').trim().toUpperCase(); } catch(e) { return ''; } })() : '';
+      var pushLanguage = window.MM_HOME_LANGUAGE === 'mr' ? 'mr' : 'en';
+      var pushUserAgent = String(navigator.userAgent || '').slice(0, 400);
+      // Preferred path: a database function that takes the user and role from the verified
+      // session, so a phone previously used by another staff login can be re-enrolled.
+      var saved = await client.rpc('mm_register_staff_push_subscription', {
+        p_endpoint: subscription.endpoint,
+        p_subscription: subscription.toJSON(),
+        p_staff_code: pushStaffCode,
+        p_preferred_language: pushLanguage,
+        p_user_agent: pushUserAgent
+      });
+      var rpcMissing = saved.error && (String(saved.error.code || '') === 'PGRST202' ||
+        String(saved.error.code || '') === '42883' ||
+        /mm_register_staff_push_subscription/i.test(String(saved.error.message || '')) &&
+          /could not find|does not exist/i.test(String(saved.error.message || '')));
+      if (rpcMissing) {
+        // Older database: the push SQL has not been re-run yet. Fall back to a direct write,
+        // which still works for a phone that has only ever been used by this staff login.
+        console.info('[Mirch Masaala push] mm_register_staff_push_subscription is not installed; using direct subscription write. Re-run supabase/staff-push-notifications.sql.');
+        saved = await client.from('mm_staff_push_subscriptions').upsert({
+          staff_user_id: userResult.data.user.id,
+          target_role: String(window.role),
+          staff_code: pushStaffCode,
+          endpoint: subscription.endpoint,
+          subscription: subscription.toJSON(),
+          preferred_language: pushLanguage,
+          user_agent: pushUserAgent,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'endpoint' });
+      }
       if (saved.error) throw saved.error;
       try { localStorage.setItem('mm_push_enabled_' + String(window.role), '1'); } catch (e) {}
       notifySuccess('Push alerts enabled. This phone can alert the waiter when a guest calls, even if the app is in the background.');
       if (typeof window.MM_REFRESH_ROLE_NOTIFICATIONS === 'function') window.MM_REFRESH_ROLE_NOTIFICATIONS(true);
       return true;
     } catch (e) {
-      console.error('[Mirch Masaala push setup]', e);
-      var detail = e && e.message ? String(e.message) : '';
-      notifyError(detail.indexOf('mm_staff_push_subscriptions') >= 0
-        ? 'The one-time staff push SQL setup has not been applied yet.'
-        : 'Could not enable push alerts. Ask the owner to finish the one-time Supabase push setup.');
+      // Log only the error category/details, never the subscription payload or auth material.
+      console.error('[Mirch Masaala push setup]', {
+        stage: pushStage,
+        code: String(e && e.code || ''),
+        name: String(e && e.name || 'Error'),
+        message: String(e && e.message || '')
+      });
+      notifyError(describePushSetupError(e, pushStage));
       return false;
     }
   }
@@ -425,7 +552,9 @@
       .eq('staff_user_id', userResult.data.user.id)
       .eq('endpoint', subscription.endpoint);
     if (update.error) {
-      console.info('[Mirch Masaala language] Push language will sync after the push SQL migration is applied.');
+      // Report the real category; a missing column is not the only reason this can fail.
+      console.info('[Mirch Masaala language] Could not sync push language: ' +
+        describePushSetupError(update.error, 'saving staff subscription'));
     }
   }
   window.MM_UPDATE_STAFF_PUSH_LANGUAGE = updateStaffPushLanguage;
