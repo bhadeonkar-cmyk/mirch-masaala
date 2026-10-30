@@ -1606,6 +1606,82 @@ html, body { max-width: 100%; overflow-x: hidden; }
 
 </script>
 <!-- MM_SIMPLE_CLEAN_UI_END -->
+
+<!-- MM_SHARED_MENU_POPUP_FIX_START -->
+<style id="mm-shared-menu-popup-fix">
+
+/* ===== Mirch Masaala — suppress non-operational shared-menu popup ===== */
+.mm-shared-menu-popup-hidden {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+</style>
+<script id="mm-shared-menu-popup-fix-script">
+
+(function () {
+  if (window.__mirchSharedMenuPopupSuppressed) return;
+  window.__mirchSharedMenuPopupSuppressed = true;
+
+  const TARGET = /shared\s+menu\s+connected\.?/i;
+
+  function normalize(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function hideTarget(node) {
+    if (!(node instanceof HTMLElement)) return;
+    const text = normalize(node.textContent);
+    if (!TARGET.test(text) || text.length > 120) return;
+
+    let target = node;
+    let current = node;
+
+    // Prefer the actual overlay container rather than leaving an empty border behind.
+    for (let i = 0; i < 7 && current && current.parentElement; i++) {
+      const parent = current.parentElement;
+      const style = getComputedStyle(parent);
+      const rect = parent.getBoundingClientRect();
+      const positioned = style.position === 'fixed' || style.position === 'absolute' || style.position === 'sticky';
+      const overlayLike = positioned || Number(style.zIndex || 0) >= 100 || parent.getAttribute('role') === 'alert' || parent.getAttribute('role') === 'dialog';
+      if (overlayLike && rect.width >= 180) target = parent;
+      current = parent;
+    }
+
+    target.classList.add('mm-shared-menu-popup-hidden');
+  }
+
+  function scan(root) {
+    if (!(root instanceof HTMLElement)) return;
+    hideTarget(root);
+    root.querySelectorAll('*').forEach(hideTarget);
+  }
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      mutation.addedNodes.forEach(node => {
+        if (node.nodeType === 1) scan(node);
+      });
+    }
+  });
+
+  function start() {
+    if (!document.body) return;
+    scan(document.body);
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+})();
+
+</script>
+<!-- MM_SHARED_MENU_POPUP_FIX_END -->
 </head>
 <body>
 
