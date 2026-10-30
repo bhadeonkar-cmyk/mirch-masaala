@@ -31,6 +31,10 @@ self.addEventListener('fetch', function(event) {
         .replace(
           "notifySuccess('Push alerts enabled. This phone can alert the waiter when a guest calls, even if the app is in the background.');",
           "/* Push setup succeeded silently; operational push alerts remain enabled. */"
+        )
+        .replace(
+          "toast('No active waiter names yet. The owner must add names in Owner → Settings → Waiter names.');",
+          "/* Missing waiter directory is shown by the existing inline 'not selected' state. */"
         );
       return new Response(patched, {
         status: response.status,
