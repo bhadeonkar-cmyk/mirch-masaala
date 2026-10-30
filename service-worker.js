@@ -9,6 +9,35 @@ self.addEventListener('activate', function(event) {
   event.waitUntil(self.clients.claim());
 });
 
+/*
+ * The shared-menu connection is a background readiness event, not a user-facing
+ * notification. Keep the existing Supabase code and data flow untouched, but
+ * suppress only that one informational toast at the network boundary.
+ * This avoids changing order, payment, alert or push-notification behaviour.
+ */
+self.addEventListener('fetch', function(event) {
+  var requestUrl;
+  try { requestUrl = new URL(event.request.url); } catch (e) { return; }
+  if (requestUrl.origin !== self.location.origin || requestUrl.pathname.split('/').pop() !== 'supabase-live.js') return;
+
+  event.respondWith(fetch(event.request).then(async function(response) {
+    try {
+      var source = await response.text();
+      var patched = source.replace(
+        "if (ok) notifySuccess('Shared menu connected.');",
+        "if (ok) { /* Shared menu connection is intentionally silent. */ }"
+      );
+      return new Response(patched, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers
+      });
+    } catch (e) {
+      return response;
+    }
+  }));
+});
+
 self.addEventListener('push', function(event) {
   event.waitUntil((async function() {
     var data = {};
