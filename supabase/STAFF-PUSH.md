@@ -26,6 +26,8 @@ Copy the whole of `supabase/staff-push-notifications.sql` into **SQL Editor → 
 - Safe to re-run.
 - Success: **Success. No rows returned**. Any error: stop, copy the full text, and do not run reset/erase functions. The migration runs in one transaction, so a failure changes nothing.
 
+> **Already ran the push SQL before?** It is safe to run again. Only do so if the readiness row **Staff push device registration RPC** reports NOT CONFIGURED: that function was added later, and without it a phone that was previously used by a different staff login cannot be re-enrolled (the app then shows a permission message). Everything else keeps working without it. READY rows say "No action needed"; do not rerun anything for them.
+
 ## 3. Re-run the readiness check
 
 Run `supabase/app-readiness-check.sql`. Every row containing "push" or "guest waiter-call" must read **READY**:
@@ -37,6 +39,8 @@ Run `supabase/app-readiness-check.sql`. Every row containing "push" or "guest wa
 - Guest waiter-call / bill-request RPC with push dispatch tokens
 - Staff push device registration RPC
 
+The check also reports the three **Party booking** rows. They are optional until you want online party requests; if they are not READY, apply only `supabase/party-bookings.sql`.
+
 ## 4. Deploy the Edge Function
 
 Deploy `supabase/functions/send-staff-push/index.ts` as the function named `send-staff-push`.
@@ -47,6 +51,8 @@ Deploy `supabase/functions/send-staff-push/index.ts` as the function named `send
 
 ## 5. Secrets (Edge Functions → Secrets)
 
+Set these only after you have confirmed which key pair you hold the private key for (see **Which key pair is live?** below). The public key shown is the one this branch's website uses; if your private key belongs to a different public key, use that public key in both places instead.
+
 | Name | Value |
 | --- | --- |
 | `VAPID_PUBLIC_KEY` | `BCGV3-RIkNT5dJfV96yuWS61iZe5Zf85s8CJWBgq-Q_pGJWCLEkMD-91IB7yvsZ6Z0mGebJCohhVJmUHcuNW1E0` (same as in `supabase-live.js`) |
@@ -55,7 +61,31 @@ Deploy `supabase/functions/send-staff-push/index.ts` as the function named `send
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected by Supabase. Never put the service-role key in the website or GitHub.
 
-**If you do not have the matching private key:** generate a new pair with `npx web-push generate-vapid-keys`. Put the new private key in Supabase Secrets, set `VAPID_PUBLIC_KEY` to the new public key, and replace `WEB_PUSH_VAPID_PUBLIC_KEY` in `supabase-live.js`. Existing phone subscriptions were bound to the old public key and stop working. Each staff phone must tap Alert options once more, and the site detects the old subscription and replaces it. Nothing in the database needs to be deleted.
+### Which key pair is live? (known mismatch, resolve in a separate controlled step)
+
+- `main` (the currently deployed website) uses a public key beginning `BH8rULqi`.
+- `claude/ui-redesign` uses a different public key beginning `BCGV3-RI`. It was generated fresh because the original private key was not found in Supabase secrets.
+- Browsers and Supabase must use the **same pair**. Whatever public key the website ships must be the public half of the private key stored in `VAPID_PRIVATE_KEY`, and `VAPID_PUBLIC_KEY` must equal the website's key. A mismatch does not break in-app alerts; it makes the push service reject background pushes (usually HTTP 401/403 in the function logs).
+- The repository cannot prove which private key Supabase currently holds. Nobody should assume it.
+
+**Check a key pair on your own computer (nothing is sent anywhere, the private key is never printed):**
+
+```
+read -rs VAPID_PRIVATE_KEY && export VAPID_PRIVATE_KEY     # paste the private key; it stays hidden
+node scripts/verify-vapid-pair.cjs                         # checks it against the website key in supabase-live.js
+node scripts/verify-vapid-pair.cjs --public BH8rULqi...    # or against any public key you pass in full
+```
+
+It prints `MATCH` or `MISMATCH` only.
+
+**Safe rollout once you know your private key (deploy these together, in this order):**
+
+1. Locate your saved VAPID file and run the check above against the public key you intend the website to use.
+2. If it is `MATCH`: set `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` in Supabase to that pair, make sure the website's key is the same public key, deploy the website and the function, then have each staff phone tap Alert options once. Phones already subscribed with the same public key keep working; phones subscribed with a different one are replaced automatically on their next opt-in.
+3. If no private key matches any public key you use: generate a new pair (`npx web-push generate-vapid-keys`), store the private key only in Supabase Secrets, put the new public key in both `VAPID_PUBLIC_KEY` and `supabase-live.js`, deploy together, and have every staff phone enable alerts again. Existing subscriptions of the old key stop working; no database rows need deleting.
+4. Never deploy the website and the secrets separately for longer than necessary: between the two steps, new subscriptions would be created for a key the sender cannot use.
+
+This repository check (`node scripts/check-vapid-config.cjs`) only confirms the website, documentation and function code agree with each other and that no private key is committed.
 
 Public and private keys must be a pair. A mismatch gives push-service errors (usually 401/403) in the function logs.
 

@@ -130,4 +130,20 @@ For test-heavy tables, use Owner/Admin → Accounts → Table cleanup, preview t
 
 
 ## Built for restaurants, by Onkar FX
-The customer-facing home screen includes a small footer link to [Onkar FX](https://www.onkarfx.in) for businesses interested in similar digital ordering and workflow automation. Mirch Masaala remains the main brand of the restaurant app.
+The customer-facing home screen includes a small footer link to [Onkar FX](https://onkarfx.in/) for businesses interested in similar digital ordering and workflow automation. Mirch Masaala remains the main brand of the restaurant app.
+
+## Automated checks
+
+Run from the repository root (CI runs the same commands):
+
+```
+node scripts/check-inline-js.cjs          # source, order lifecycle and push/party contract checks
+node scripts/check-links.cjs              # local links and in-page targets
+node scripts/check-vapid-config.cjs       # public push key consistency; fails if a private key is committed
+npm i --no-save playwright && npx playwright install chromium
+node scripts/check-browser-smoke.cjs     # headless browser: start-up, Places, Party Booking form, Business enquiries
+node scripts/check-party-booking-contract.cjs   # Party Booking against a fake Supabase client
+```
+
+The browser tests run offline with a fake backend. They prove the app's behaviour and its calls, not the production database or a real phone. The PostgreSQL checks in `scripts/*.sql` run in CI against a local database.
+

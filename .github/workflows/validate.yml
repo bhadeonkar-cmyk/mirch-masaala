@@ -28,6 +28,18 @@ jobs:
         run: node --check supabase-live.js
       - name: Parse the app-wide English/Marathi language layer
         run: node --check app-language.js
+      - name: Parse the service worker
+        run: node --check service-worker.js
+      - name: Install headless browser for end-to-end checks
+        run: |
+          npm install --no-save --no-package-lock playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Browser smoke test (start-up, Places, Party Booking form, Business enquiries; mobile and desktop)
+        run: node scripts/check-browser-smoke.cjs
+      - name: Party Booking frontend-to-Supabase contract test (fake backend)
+        run: node scripts/check-party-booking-contract.cjs
+      - name: Web Push key configuration is consistent and no secret is committed
+        run: node scripts/check-vapid-config.cjs
 
   sql-integration:
     name: Exercise accounting functions in PostgreSQL
@@ -122,8 +134,8 @@ jobs:
           # Row-level security, shared-phone re-enrolment and guest-request duplicate checks.
           psql -v ON_ERROR_STOP=1 -f scripts/check-staff-push.sql
           # Every push component must report READY in the readiness check after the migration.
-          psql -At -F ' | ' -f supabase/app-readiness-check.sql | grep -i 'push\|guest waiter' | tee /tmp/push-readiness.txt
-          ! grep -q 'OPTIONAL' /tmp/push-readiness.txt
+          psql -At -F '|' -f supabase/app-readiness-check.sql | grep -i 'push\|guest waiter' | tee /tmp/push-readiness.txt
+          if grep -q 'OPTIONAL\|ACTION REQUIRED' /tmp/push-readiness.txt; then echo 'QA failed: a push component is not READY after the push migration'; exit 1; fi
           # Exercise same-table diner orders and cash settlement against the final visit RPC.
           psql -v ON_ERROR_STOP=1 -f scripts/check-cash-counter-release.sql
           psql -v ON_ERROR_STOP=1 -c "DO \$qa\$ BEGIN
@@ -199,3 +211,9 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/owner-operations-toolkit.sql
           psql -v ON_ERROR_STOP=1 -f scripts/check-owner-operations-toolkit.sql
           psql -v ON_ERROR_STOP=1 -f supabase/owner-operations-toolkit.sql
+      - name: Readiness check reports every component READY and never asks for rework
+        run: |
+          psql -At -F '|' -f supabase/app-readiness-check.sql | tee /tmp/readiness.txt
+          if grep -v '|READY|' /tmp/readiness.txt; then echo 'QA failed: a component is not READY after all migrations'; exit 1; fi
+          if grep '|READY|' /tmp/readiness.txt | grep -v 'No action needed'; then echo 'QA failed: a READY row still asks for action'; exit 1; fi
+          test "$(wc -l < /tmp/readiness.txt)" -ge 20

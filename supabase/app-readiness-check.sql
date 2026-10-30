@@ -1,6 +1,10 @@
 -- Mirch Masaala read-only deployment preflight.
 -- Run in Supabase SQL Editor AFTER applying the live-order and dependent migrations.
 -- This script only reports readiness; it does not change data or schema.
+-- ACTION REQUIRED = the ordering app cannot work without it.
+-- OPTIONAL — NOT CONFIGURED = a separate feature (background push, party bookings) that is simply
+--   switched off until its own SQL file is applied; the rest of the app keeps working.
+-- READY rows always say 'No action needed'. Run only the file named on a row that is NOT READY.
 
 WITH dependencies(component, required, ready, next_step) AS (
   SELECT 'Shared orders table', true, to_regclass('public.orders') IS NOT NULL,
@@ -107,13 +111,30 @@ WITH dependencies(component, required, ready, next_step) AS (
            ),
          'Apply only supabase/staff-push-notifications.sql (after verifying a backup)'
   UNION ALL
+  -- role-notifications.sql defines this RPC without push tokens; only the version installed by
+  -- staff-push-notifications.sql returns dispatch_tokens, so inspect the function body.
   SELECT 'Guest waiter-call / bill-request RPC with push dispatch tokens', false,
-         to_regprocedure('public.mm_create_guest_notification(uuid, text, text)') IS NOT NULL,
+         COALESCE(
+           pg_get_functiondef(to_regprocedure('public.mm_create_guest_notification(uuid, text, text)')) ILIKE '%dispatch_tokens%',
+           false),
          'Apply only supabase/staff-push-notifications.sql (after verifying a backup)'
   UNION ALL
   SELECT 'Staff push device registration RPC (re-enrol a shared phone)', false,
          to_regprocedure('public.mm_register_staff_push_subscription(text, jsonb, text, text, text)') IS NOT NULL,
          'Apply only supabase/staff-push-notifications.sql (after verifying a backup)'
+  UNION ALL
+  SELECT 'Party booking table', false,
+         to_regclass('public.mm_party_bookings') IS NOT NULL,
+         'Apply only supabase/party-bookings.sql (after verifying a backup)'
+  UNION ALL
+  SELECT 'Party booking submit RPC (customer request form)', false,
+         to_regprocedure('public.mm_submit_party_booking(text, text, text, date, time, integer, text)') IS NOT NULL,
+         'Apply only supabase/party-bookings.sql (after verifying a backup)'
+  UNION ALL
+  SELECT 'Party booking owner list and status RPCs', false,
+         to_regprocedure('public.mm_admin_list_party_bookings(integer)') IS NOT NULL
+           AND to_regprocedure('public.mm_admin_update_party_booking(uuid, text, text)') IS NOT NULL,
+         'Apply only supabase/party-bookings.sql (after verifying a backup)'
 )
 SELECT
   component,
@@ -122,7 +143,8 @@ SELECT
     WHEN required THEN 'ACTION REQUIRED'
     ELSE 'OPTIONAL — NOT CONFIGURED'
   END AS status,
-  next_step
+  -- A READY component needs nothing. Never tell the owner to rerun a migration that is already applied.
+  CASE WHEN ready THEN 'No action needed' ELSE next_step END AS next_step
 FROM dependencies
 ORDER BY
   CASE WHEN ready THEN 2 WHEN required THEN 0 ELSE 1 END,
