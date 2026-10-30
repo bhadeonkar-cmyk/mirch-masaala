@@ -1,0 +1,251 @@
+name: Apply Simple Clean UI Refinement
+
+on:
+  push:
+    branches:
+      - claude/simple-clean-ui
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refine-ui:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Patch existing UI without changing application logic
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          html = p.read_text(encoding='utf-8')
+
+          css = r'''
+          /* ===== Mirch Masaala — Simple Clean UI refinement ===== */
+          :root {
+            --mm-bg: #120c0a;
+            --mm-surface: #211713;
+            --mm-surface-2: #2a1d18;
+            --mm-gold: #d2ad62;
+            --mm-gold-soft: #e8d3a3;
+            --mm-cream: #faf5ec;
+            --mm-muted: #ad9f91;
+            --mm-line: rgba(232,211,163,.16);
+            --mm-ok: #69b58c;
+            --mm-warn: #d6a45b;
+            --mm-bad: #c97878;
+          }
+
+          body { background: var(--mm-bg); color: var(--mm-cream); }
+          button { -webkit-user-select: none; user-select: none; }
+          button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: 2px solid var(--mm-gold-soft);
+            outline-offset: 2px;
+          }
+
+          .screen.on { animation: mmFade .18s ease; }
+          @keyframes mmFade { from { opacity: .92; } to { opacity: 1; } }
+
+          /* Quiet the animated hero. Keep branding; remove visual competition. */
+          .chef-scene { width: 64px; height: 64px; margin: 0 auto 2px; transform: scale(.68); transform-origin: center top; opacity: .78; }
+          .chef-3d, .chef-pot, .steam { animation: none !important; }
+          .chef-body { font-size: 42px; filter: none; }
+          .chef-pot, .steam { opacity: .55; }
+          .brand-name { font-size: 1.55rem; letter-spacing: .4px; }
+          .brand-sub { letter-spacing: 1.4px; }
+          .logo-row { gap: 8px; margin-bottom: 4px; }
+
+          /* Consistent surfaces: fewer borders, softer shadows, no glowing UI. */
+          .btn, .big-link, .card, .place, .stat, .tbtn, .kcard, .login-box input, .search {
+            box-shadow: none !important;
+          }
+          .btn-main {
+            background: var(--mm-gold);
+            color: #21170f;
+            box-shadow: none !important;
+          }
+          .btn-soft, .big-link {
+            background: var(--mm-surface);
+            border-color: var(--mm-line);
+          }
+          .btn-main:hover, .btn-soft:hover, .big-link:hover { filter: brightness(1.04); }
+          .big-link { padding: 13px 14px; margin: 6px 0; border-radius: 14px; gap: 12px; }
+          .big-link span.ic { font-size: 23px; }
+          .big-link small { font-size: 11px; line-height: 1.3; }
+
+          /* Customer home: one clear primary action, quiet secondary actions. */
+          .wrap { padding: 14px; }
+          .wrap > .center > .muted { max-width: 330px; margin-left: auto; margin-right: auto; }
+          .wrap .btn-main { min-height: 50px; border-radius: 13px; }
+          .wrap .pill { margin: 6px 0 10px; }
+          .wrap .big-link + .big-link { margin-top: 5px; }
+
+          /* Navigation/header: compact and consistent. */
+          .topbar { padding: 9px 12px; background: rgba(18,12,10,.97); border-bottom-color: var(--mm-line); }
+          .back { padding: 7px 10px; background: var(--mm-surface); border-color: var(--mm-line); }
+          .tabs { border-bottom-color: var(--mm-line); }
+          .tabs button { padding: 10px 7px; min-width: 64px; font-size: 11px; }
+          .tabs button.on { color: var(--mm-gold-soft); border-bottom-color: var(--mm-gold); }
+
+          /* Table grid: operational clarity without oversized cards. */
+          .table-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+          .tbtn { border: 1px solid var(--mm-line); border-radius: 12px; background: var(--mm-surface); color: var(--mm-gold-soft); font-size: 16px; }
+          .tbtn.on, .tbtn:active { background: rgba(210,173,98,.13); border-color: var(--mm-gold); }
+
+          /* Kitchen display: make the three work states visually equal. */
+          .kds { gap: 7px; padding: 8px; }
+          .kcol { background: #17110f; border: 1px solid rgba(232,211,163,.08); padding: 7px; min-height: 35vh; }
+          .kcol h3 { padding: 7px; margin-bottom: 7px; background: transparent !important; }
+          .kcard { border-left: 3px solid var(--mm-gold); padding: 9px; }
+          .kcard button { margin-top: 7px; padding: 9px; }
+
+          /* Cards/forms: compact enough for busy staff screens. */
+          .card { padding: 12px; margin: 6px 0; border-radius: 14px; border-color: var(--mm-line); background: var(--mm-surface); }
+          .card .pic { width: 50px; height: 50px; background: var(--mm-surface-2); }
+          .place { padding: 14px; margin: 7px 0; border-radius: 14px; border-color: var(--mm-line); background: var(--mm-surface); }
+          .place .hero { height: 76px; margin-bottom: 9px; background: var(--mm-surface-2); }
+          .stats { gap: 7px; padding: 10px 0; }
+          .stat { padding: 10px 5px; background: var(--mm-surface); border-color: var(--mm-line); }
+
+          /* Fixed cart/action bar stays useful without looking like a glowing overlay. */
+          .bottom { padding: 9px 12px calc(9px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(18,12,10,.98) 34%); }
+          .bottom .btn-main { box-shadow: 0 5px 16px rgba(0,0,0,.28) !important; }
+
+          /* Prevent horizontal overflow on small devices. */
+          html, body { max-width: 100%; overflow-x: hidden; }
+          .screen, .drawer { max-width: 100vw; }
+
+          /* Small, non-blocking notification treatment. */
+          .mm-toast {
+            position: fixed;
+            left: 14px;
+            right: 14px;
+            bottom: calc(14px + env(safe-area-inset-bottom));
+            z-index: 100000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 10px 14px;
+            border: 1px solid rgba(232,211,163,.16);
+            border-radius: 12px;
+            background: rgba(33,23,19,.96);
+            color: var(--mm-cream);
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,.28);
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity .18s ease, transform .18s ease;
+          }
+          .mm-toast.on { opacity: 1; transform: translateY(0); }
+          .mm-toast::before { content: ''; width: 4px; height: 22px; border-radius: 4px; background: var(--mm-gold); margin-right: 9px; flex: 0 0 auto; }
+
+          /* This specific browser-level confirmation is feedback, not an operational alert. */
+          .mm-push-confirm-overlay { display: none !important; }
+
+          @media (min-width: 700px) {
+            .wrap { max-width: 760px; }
+            .big-link { max-width: 720px; margin-left: auto; margin-right: auto; }
+            .mm-toast { left: auto; right: 22px; max-width: 360px; }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .screen.on, .mm-toast { animation: none !important; transition: none !important; }
+          }
+          '''
+
+          js = r'''
+          (function () {
+            if (window.__mirchSimpleCleanUI) return;
+            window.__mirchSimpleCleanUI = true;
+
+            const toast = document.createElement('div');
+            toast.className = 'mm-toast';
+            toast.setAttribute('role', 'status');
+            toast.setAttribute('aria-live', 'polite');
+            document.body.appendChild(toast);
+            let toastTimer = null;
+
+            window.mmSimpleToast = function (message, duration) {
+              if (!message) return;
+              clearTimeout(toastTimer);
+              toast.textContent = String(message).trim();
+              toast.classList.add('on');
+              toastTimer = setTimeout(() => toast.classList.remove('on'), duration || 2600);
+            };
+
+            function visible(el) {
+              if (!el || !(el instanceof HTMLElement)) return false;
+              const s = getComputedStyle(el);
+              const r = el.getBoundingClientRect();
+              return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && r.width > 0 && r.height > 0;
+            }
+
+            function inspect(root) {
+              if (!(root instanceof HTMLElement)) return;
+              const text = (root.textContent || '').replace(/\s+/g, ' ').trim();
+              if (!text || text.length > 500) return;
+              if (/Push alerts enabled\.\s*This phone can alert the waiter/i.test(text)) {
+                root.classList.add('mm-push-confirm-overlay');
+                mmSimpleToast('Staff alerts enabled ✓');
+              }
+            }
+
+            const observer = new MutationObserver((mutations) => {
+              for (const m of mutations) {
+                for (const n of m.addedNodes) {
+                  if (n.nodeType === 1) {
+                    inspect(n);
+                    n.querySelectorAll && n.querySelectorAll('*').forEach(inspect);
+                  }
+                }
+              }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+
+            // Also catch a confirmation already rendered before the observer starts.
+            document.querySelectorAll('*').forEach(inspect);
+          })();
+          '''
+
+          # Make the patch idempotent. Never touch application logic outside these two markers.
+          html = re.sub(r'\n?<!-- MM_SIMPLE_CLEAN_UI_START -->.*?<!-- MM_SIMPLE_CLEAN_UI_END -->\n?', '', html, flags=re.S)
+          block = '\n<!-- MM_SIMPLE_CLEAN_UI_START -->\n<style id="mm-simple-clean-ui">\n' + css + '\n</style>\n<script id="mm-simple-clean-ui-script">\n' + js + '\n</script>\n<!-- MM_SIMPLE_CLEAN_UI_END -->\n'
+          html = html.replace('</head>', block + '</head>', 1)
+          p.write_text(html, encoding='utf-8')
+          print('Applied Simple Clean UI refinement to index.html')
+          PY
+
+      - name: Validate HTML and JS markers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('index.html').read_text(encoding='utf-8')
+          assert '<!-- MM_SIMPLE_CLEAN_UI_START -->' in html
+          assert 'id="mm-simple-clean-ui"' in html
+          assert 'id="mm-simple-clean-ui-script"' in html
+          assert '</head>' in html
+          assert html.count('MM_SIMPLE_CLEAN_UI_START') == 1
+          print('UI patch validation passed')
+          PY
+
+      - name: Commit generated UI refinement
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No UI changes to commit"
+          else
+            git commit -m "refactor(ui): simplify and calm visual experience"
+            git push
+          fi
