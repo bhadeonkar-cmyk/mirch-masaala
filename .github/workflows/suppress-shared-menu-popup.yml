@@ -1,0 +1,133 @@
+name: Remove intrusive shared-menu popup
+
+on:
+  push:
+    branches:
+      - claude/simple-clean-ui
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refine-notification:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Remove shared-menu connection popup without changing app logic
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          html = p.read_text(encoding='utf-8')
+
+          css = r'''
+          /* ===== Mirch Masaala — suppress non-operational shared-menu popup ===== */
+          .mm-shared-menu-popup-hidden {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+          }
+          '''
+
+          js = r'''
+          (function () {
+            if (window.__mirchSharedMenuPopupSuppressed) return;
+            window.__mirchSharedMenuPopupSuppressed = true;
+
+            const TARGET = /shared\s+menu\s+connected\.?/i;
+
+            function normalize(value) {
+              return String(value || '').replace(/\s+/g, ' ').trim();
+            }
+
+            function hideTarget(node) {
+              if (!(node instanceof HTMLElement)) return;
+              const text = normalize(node.textContent);
+              if (!TARGET.test(text) || text.length > 120) return;
+
+              let target = node;
+              let current = node;
+
+              // Prefer the actual overlay container rather than leaving an empty border behind.
+              for (let i = 0; i < 7 && current && current.parentElement; i++) {
+                const parent = current.parentElement;
+                const style = getComputedStyle(parent);
+                const rect = parent.getBoundingClientRect();
+                const positioned = style.position === 'fixed' || style.position === 'absolute' || style.position === 'sticky';
+                const overlayLike = positioned || Number(style.zIndex || 0) >= 100 || parent.getAttribute('role') === 'alert' || parent.getAttribute('role') === 'dialog';
+                if (overlayLike && rect.width >= 180) target = parent;
+                current = parent;
+              }
+
+              target.classList.add('mm-shared-menu-popup-hidden');
+            }
+
+            function scan(root) {
+              if (!(root instanceof HTMLElement)) return;
+              hideTarget(root);
+              root.querySelectorAll('*').forEach(hideTarget);
+            }
+
+            const observer = new MutationObserver((mutations) => {
+              for (const mutation of mutations) {
+                mutation.addedNodes.forEach(node => {
+                  if (node.nodeType === 1) scan(node);
+                });
+              }
+            });
+
+            function start() {
+              if (!document.body) return;
+              scan(document.body);
+              observer.observe(document.body, { childList: true, subtree: true });
+            }
+
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', start, { once: true });
+            } else {
+              start();
+            }
+          })();
+          '''
+
+          marker_start = '<!-- MM_SHARED_MENU_POPUP_FIX_START -->'
+          marker_end = '<!-- MM_SHARED_MENU_POPUP_FIX_END -->'
+          html = re.sub(r'\n?<!-- MM_SHARED_MENU_POPUP_FIX_START -->.*?<!-- MM_SHARED_MENU_POPUP_FIX_END -->\n?', '', html, flags=re.S)
+          block = '\n' + marker_start + '\n<style id="mm-shared-menu-popup-fix">\n' + css + '\n</style>\n<script id="mm-shared-menu-popup-fix-script">\n' + js + '\n</script>\n' + marker_end + '\n'
+          if '</head>' not in html:
+              raise SystemExit('Missing </head> in index.html')
+          html = html.replace('</head>', block + '</head>', 1)
+          p.write_text(html, encoding='utf-8')
+          print('Applied shared-menu popup suppression')
+          PY
+
+      - name: Validate patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('index.html').read_text(encoding='utf-8')
+          assert 'MM_SHARED_MENU_POPUP_FIX_START' in html
+          assert 'shared\\s+menu\\s+connected' in html
+          assert 'mm-shared-menu-popup-hidden' in html
+          assert html.count('MM_SHARED_MENU_POPUP_FIX_START') == 1
+          print('Shared-menu popup suppression validation passed')
+          PY
+
+      - name: Commit generated fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "fix(ui): suppress shared menu connection popup"
+            git push
+          fi
