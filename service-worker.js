@@ -10,10 +10,10 @@ self.addEventListener('activate', function(event) {
 });
 
 /*
- * The shared-menu connection is a background readiness event, not a user-facing
- * notification. Keep the existing Supabase code and data flow untouched, but
- * suppress only that one informational toast at the network boundary.
- * This avoids changing order, payment, alert or push-notification behaviour.
+ * These connection/setup confirmations are background readiness events, not
+ * user-facing operational alerts. Keep the existing Supabase code and data
+ * flow untouched, but suppress only these informational toasts at the network
+ * boundary. Real staff push notifications remain unchanged below.
  */
 self.addEventListener('fetch', function(event) {
   var requestUrl;
@@ -23,10 +23,15 @@ self.addEventListener('fetch', function(event) {
   event.respondWith(fetch(event.request).then(async function(response) {
     try {
       var source = await response.text();
-      var patched = source.replace(
-        "if (ok) notifySuccess('Shared menu connected.');",
-        "if (ok) { /* Shared menu connection is intentionally silent. */ }"
-      );
+      var patched = source
+        .replace(
+          "if (ok) notifySuccess('Shared menu connected.');",
+          "if (ok) { /* Shared menu connection is intentionally silent. */ }"
+        )
+        .replace(
+          "notifySuccess('Push alerts enabled. This phone can alert the waiter when a guest calls, even if the app is in the background.');",
+          "/* Push setup succeeded silently; operational push alerts remain enabled. */"
+        );
       return new Response(patched, {
         status: response.status,
         statusText: response.statusText,
