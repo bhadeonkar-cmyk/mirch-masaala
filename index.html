@@ -305,6 +305,75 @@ button, input, select, textarea { font: inherit; }
 .waiter-table-card[data-glance="active"] .glance-dot { background: #d6a45b; }
 .waiter-table-card[data-glance="attention"] .glance-dot { background: #c97878; }
 
+/* Quiet snackbar — bottom, soft ease, never covers center workspace */
+.mm-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%) translateY(10px);
+  opacity: 0;
+  z-index: 9990;
+  max-width: min(92vw, 340px);
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(28, 20, 16, .94);
+  border: 1px solid rgba(232, 211, 163, .22);
+  color: #faf5ec;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 8px 28px rgba(0,0,0,.28);
+  transition: opacity .28s ease, transform .28s ease;
+}
+.mm-toast.on {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+/* Soften legacy toast similarly */
+.toast {
+  bottom: 22px !important;
+  top: auto !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateY(10px) !important;
+  opacity: 0;
+  transition: opacity .28s ease, transform .28s ease !important;
+  max-width: min(92vw, 340px);
+  z-index: 9990;
+  pointer-events: none;
+}
+.toast.on {
+  opacity: 1 !important;
+  transform: translateX(-50%) translateY(0) !important;
+}
+/* Waiter table micro-interactions */
+.waiter-table-card.is-new-order {
+  animation: mmTableNewOrder 1.6s ease-in-out infinite;
+}
+@keyframes mmTableNewOrder {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(214,164,91,0); }
+  50% { box-shadow: 0 0 0 3px rgba(214,164,91,.28), 0 0 14px rgba(214,164,91,.18); }
+}
+.waiter-table-card.is-attention-pulse {
+  animation: mmTableAttention 1.8s ease-in-out infinite;
+}
+@keyframes mmTableAttention {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201,120,120,0); }
+  50% { box-shadow: 0 0 0 3px rgba(201,120,120,.32), 0 0 12px rgba(201,120,120,.16); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .waiter-table-card.is-new-order,
+  .waiter-table-card.is-attention-pulse,
+  .waiter-table-card.is-freeing { animation: none !important; }
+  .mm-toast, .toast { transition: none !important; }
+}
+/* Keep urgent role alerts compact; never full-screen takeover */
+.role-alert-host { max-height: 40vh; overflow-y: auto; }
+.role-alert-card { max-width: 420px !important; margin: 6px auto !important; padding: 10px 12px !important; }
+.role-alert-card .urgent-table-number { font-size: 22px !important; }
+.role-alert-message { font-size: 12px !important; font-weight: 600 !important; }
+
+
 /* Waiter simple lifecycle cards */
 .waiter-table-card {
   min-height: 92px;
@@ -2932,9 +3001,11 @@ function maybeSuggestSpecial() {
 function startTable(n) {
   if (!isOpen) { toast(SETTINGS.closedMessage || 'Restaurant is closed'); return; }
   table = String(n).padStart(2, '0');
+  try { window.table = table; } catch (e) {}
   try { localStorage.setItem('mm_customer_active_table', table); } catch (e) {}
   dishSpicePrefs = load('mm_spice_pref_' + table, {}) || {};
   cart = load('mm_c_' + table, []);
+  try { window.cart = cart; } catch (e) {}
   cat = 'all'; dietFilter = 'all';
   document.getElementById('search').value = '';
   document.getElementById('tbl-label').textContent = window.mmI18n('Table','टेबल') + ' ' + table;
@@ -2994,7 +3065,7 @@ async function refreshCustomerTableGate(force) {
     mmCustomerGateState = status;
     var st = String(status.status || 'UNKNOWN').toUpperCase();
     var canOrder = !!status.can_order;
-    if (st === 'OPEN' && canOrder) {
+    if (st === 'OPEN' || canOrder) {
       gate.hidden = false;
       gate.setAttribute('data-state', 'ready');
       if (title) title.textContent = window.mmI18n('Table ' + table, 'टेबल ' + table);
@@ -3007,11 +3078,9 @@ async function refreshCustomerTableGate(force) {
       if (copy) copy.textContent = window.mmI18n('Table ' + table + ' is identified. Ordering unlocks after the waiter seats you.', 'टेबल ' + table + ' ओळखले आहे. वेटर बसवल्यानंतर ऑर्डर उघडेल.');
       setPlaceOrderBlocked(true, 'Wait for waiter');
     } else {
-      gate.hidden = false;
-      gate.setAttribute('data-state', 'blocked');
-      if (title) title.textContent = window.mmI18n('Table ' + table + ' needs staff help', 'टेबल ' + table + ' साठी स्टाफ मदत आवश्यक');
-      if (copy) copy.textContent = status.message || window.mmI18n('Please ask the waiter for assistance.', 'कृपया वेटरची मदत घ्या.');
-      setPlaceOrderBlocked(true, 'Staff assistance needed');
+      // UNKNOWN / transient: do not permanently lock ordering — server validates on submit.
+      gate.hidden = true;
+      setPlaceOrderBlocked(false);
     }
   } catch (e) {
     gate.hidden = false;
@@ -3456,6 +3525,7 @@ function qty(id, d) {
   if (document.getElementById('cart').classList.contains('on')) drawCart();
 }
 function updCart() {
+  try { window.cart = cart; window.table = table; } catch (e) {}
   var n = cart.reduce(function(s,c){ return s + c.qty; }, 0);
   var tot = cart.reduce(function(s,c){ return s + c.price * c.qty; }, 0);
   document.getElementById('badge').textContent = n;
@@ -3573,7 +3643,7 @@ function makeTicketId(tableNo, date) {
 }
 function placeOrder() {
   if (window.MM_SUPABASE_REQUIRED && !window.MM_SUPABASE_ENABLED) { toast(window.mmI18n('Online ordering is connecting. Please wait a moment and try again.','ऑनलाइन ऑर्डर जोडली जात आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.')); return; }
-  if (!window.role && mmCustomerGateState && mmCustomerGateState.can_order === false) {
+  if (!window.role && mmCustomerGateState && String(mmCustomerGateState.status || '').toUpperCase() === 'AVAILABLE' && mmCustomerGateState.can_order === false) {
     toast(window.mmI18n('This table is not active yet. Please ask the waiter to activate it.', 'हे टेबल अजून सक्रिय नाही. कृपया वेटरला सक्रिय करण्यास सांगा.'));
     refreshCustomerTableGate(true);
     return;
@@ -4710,6 +4780,21 @@ function updateWaiterTableIndicators() {
       b.classList.add('is-freeing');
       setTimeout(function () { b.classList.remove('is-freeing'); }, 900);
     }
+    var hasNew = tableOrders.some(function (o) {
+      return String(o.status || '').toUpperCase() === 'NEW';
+    });
+    b.classList.toggle('is-new-order', !!(hasNew && glance === 'active' && String(wTable || '') !== num));
+    b.classList.toggle('is-attention-pulse', glance === 'attention');
+    var itemCount = tableOrders.reduce(function (s, o) {
+      var items = o.items || o.order_items || [];
+      if (Array.isArray(items) && items.length) {
+        return s + items.reduce(function (n, it) { return n + (Number(it.qty) || 1); }, 0);
+      }
+      return s + 1;
+    }, 0);
+    if (glance === 'active' && hasNew && itemCount) {
+      actionLabel = window.mmI18n('New order', 'नवीन ऑर्डर') + (itemCount ? ' · ' + itemCount : '');
+    }
     b.innerHTML = '<span class="wt-num"><span class="glance-dot" aria-hidden="true"></span>' + esc(num) + '</span>' +
       '<span class="wt-state">' + esc(stateLabel) + '</span>' +
       '<span class="wt-action">' + esc(actionLabel) + '</span>';
@@ -4772,6 +4857,11 @@ function pickW(n, card) {
   var hint = document.getElementById('w-table-picker-hint'); if (hint) hint.style.display = 'none';
   document.getElementById('w-search').value = '';
   document.getElementById('w-notes').value = wNotesDrafts[wTable] || '';
+  document.querySelectorAll('#w-tables .waiter-table-card').forEach(function (b) {
+    if (String(b.getAttribute('data-table-number') || '').padStart(2, '0') === wTable) {
+      b.classList.remove('is-new-order');
+    }
+  });
   drawWDietFilters(); wCats(); wMenu(); wDrawCart(); drawWaiterOrders();
 }
 function wCats() {
@@ -5062,6 +5152,20 @@ async function cancelUnexpectedTableOrders(tableNumber, orderList) {
   updateWaiterTableIndicators();
   if (typeof drawWaiterOrders === 'function') drawWaiterOrders();
 }
+
+
+window.mmOnCustomerOrderPlaced = function (order) {
+  try {
+    var num = String(order && order.table || '').padStart(2, '0');
+    if (typeof updateWaiterTableIndicators === 'function') updateWaiterTableIndicators();
+    if (typeof drawWaiterOrders === 'function') drawWaiterOrders();
+    document.querySelectorAll('#w-tables .waiter-table-card').forEach(function (b) {
+      if (String(b.getAttribute('data-table-number') || '').padStart(2, '0') === num) {
+        b.classList.add('is-new-order');
+      }
+    });
+  } catch (e) {}
+};
 
 window.mmOnTableFreed = function (tableNumber, reason) {
   var num = String(tableNumber || '').padStart(2, '0');

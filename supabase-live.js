@@ -56,7 +56,14 @@
   }
 
   function notifySuccess(message) {
-    if (typeof window.toast === 'function') window.toast(message);
+    message = String(message || '').trim();
+    if (!message) return;
+    // Prefer quiet snackbar; never block UI for routine success.
+    if (typeof window.mmSimpleToast === 'function') {
+      window.mmSimpleToast(message, 2600);
+    } else if (typeof window.toast === 'function') {
+      window.toast(message);
+    }
   }
   
   var staffNotificationBusy = false;
@@ -1395,19 +1402,44 @@
 
   async function placeCustomerOrder() {
     if (window.MM_ORDER_SENDING) return;
-    if (!window.cart || !window.cart.length) return;
+    // Prefer live page globals; window.* may lag behind local vars in some browsers.
+    var tableNo = '';
+    try {
+      if (typeof table !== 'undefined' && table) tableNo = String(table);
+      else if (window.table) tableNo = String(window.table);
+    } catch (e) { tableNo = String(window.table || ''); }
+    tableNo = String(tableNo || '').padStart(2, '0');
+    if (!tableNo || tableNo === '00') {
+      notifyError(window.mmI18n
+        ? window.mmI18n('Table is missing. Scan the table QR again.', 'टेबल सापडले नाही. टेबल QR पुन्हा स्कॅन करा.')
+        : 'Table is missing. Scan the table QR again.');
+      return;
+    }
+    var liveCart = null;
+    try {
+      if (typeof cart !== 'undefined' && Array.isArray(cart) && cart.length) liveCart = cart;
+      else if (Array.isArray(window.cart) && window.cart.length) liveCart = window.cart;
+    } catch (e) { liveCart = window.cart; }
+    if (!liveCart || !liveCart.length) return;
+
+    // Soft pre-check only. Server remains the authority via createSharedOrder/ensure.
+    // Never block solely on UNKNOWN / network hiccups — only hard-stop when the table is
+    // definitively AVAILABLE (not seated).
     if (!window.role) {
       try {
-        var gate = await getPublicTableVisitStatus(window.table);
-        if (!gate || !gate.can_order) {
+        var gate = await getPublicTableVisitStatus(tableNo);
+        var st = String(gate && gate.status || '').toUpperCase();
+        if (st === 'AVAILABLE' && !gate.can_order) {
           notifyError(gate && gate.message
             ? gate.message
-            : 'This table is not active yet. Please ask the waiter to activate it.');
+            : (window.mmI18n
+              ? window.mmI18n('Please wait for the waiter to activate this table.', 'कृपया वेटरने हे टेबल सक्रिय करेपर्यंत थांबा.')
+              : 'Please wait for the waiter to activate this table.'));
           if (typeof window.refreshCustomerTableGate === 'function') window.refreshCustomerTableGate(true);
           return;
         }
       } catch (gateErr) {
-        // Fall through to createSharedOrder which still validates on the server.
+        // Fall through — createSharedOrder validates on the server.
       }
     }
     if (!window.MM_MENU_READY) {
@@ -1417,7 +1449,7 @@
       return;
     }
     window.MM_ORDER_SENDING = true;
-    var originalCart = window.cart.slice();
+    var originalCart = liveCart.slice();
     var notesEl = document.getElementById('notes');
     var noteText = notesEl ? notesEl.value.trim() : '';
     var orderButton = document.getElementById('place-order-button');
@@ -1426,7 +1458,7 @@
       orderButton.textContent = window.mmI18n ? window.mmI18n('Sending order…','ऑर्डर पाठवत आहे…') : 'Sending order…';
     }
     try {
-      var order = await createSharedOrder(window.table || '01', originalCart, noteText);
+      var order = await createSharedOrder(tableNo, originalCart, noteText);
       window.orders = window.orders || [];
       window.orders.unshift(order);
       try { localStorage.setItem('mm_o', JSON.stringify(window.orders)); } catch (e) {}
@@ -1445,8 +1477,16 @@
       if (host) host.innerHTML = window.progressMarkup(order) + '<p class="waiting-joke" id="waiting-joke">Your order is confirmed and sent directly to the kitchen. No approval is needed.</p>';
       if (typeof window.startWaitFun === 'function') window.startWaitFun(order.id);
       if (typeof window.confetti === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) window.confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
-      if (typeof window.mmSimpleToast === 'function') window.mmSimpleToast('✓ Order placed'); else notifySuccess('✓ Order placed');
-      refreshCustomerOrders();
+      try {
+        if (typeof window.mmSimpleToast === 'function') window.mmSimpleToast(window.mmI18n ? window.mmI18n('✓ Order placed', '✓ ऑर्डर झाली') : '✓ Order placed');
+        else notifySuccess('✓ Order placed');
+      } catch (toastErr) {}
+      try { refreshCustomerOrders(); } catch (refErr) {}
+      try {
+        if (typeof window.mmOnCustomerOrderPlaced === 'function') {
+          window.mmOnCustomerOrderPlaced(order);
+        }
+      } catch (uiErr) {}
     } catch (e) {
       var raw = String(e && e.message || '');
       var ended = /not open for online orders/i.test(raw) ||
