@@ -305,6 +305,55 @@ button, input, select, textarea { font: inherit; }
 .waiter-table-card[data-glance="active"] .glance-dot { background: #d6a45b; }
 .waiter-table-card[data-glance="attention"] .glance-dot { background: #c97878; }
 
+/* Waiter simple lifecycle cards */
+.waiter-table-card {
+  min-height: 92px;
+  padding: 10px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: border-color .35s ease, box-shadow .35s ease, transform .35s ease, background .35s ease;
+}
+.waiter-table-card .wt-num {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  color: var(--mm-gold-soft, var(--gold2));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.waiter-table-card .wt-state {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  color: var(--mm-muted, var(--muted));
+}
+.waiter-table-card .wt-action {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--mm-gold, var(--gold2));
+  opacity: .9;
+}
+.waiter-table-card[data-glance="attention"] .wt-action { color: #e08a8a; }
+.waiter-table-card.is-freeing {
+  animation: mmTableFree .85s ease;
+}
+@keyframes mmTableFree {
+  0% { transform: scale(1); box-shadow: none; }
+  35% { transform: scale(1.04); box-shadow: 0 0 0 2px rgba(105,181,140,.45), 0 0 18px rgba(105,181,140,.25); border-color: rgba(105,181,140,.7) !important; }
+  100% { transform: scale(1); box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .waiter-table-card.is-freeing { animation: none; }
+}
+
+
 .splash {
   position: fixed; inset: 0; z-index: 100; background: #0c0806;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -2089,7 +2138,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
   </div>
   <div id="w-urgent-alert" class="role-alert-host" aria-live="assertive"></div>
   <div class="wrap">
-    <p class="waiter-pick-hint muted" id="w-table-picker-hint">Tap a table to start. Highlighted tables already have orders.</p>
+    <p class="waiter-pick-hint muted" id="w-table-picker-hint">Green = free · Orange = occupied · Red = needs you</p>
     <div class="tstate-legend" id="w-legend" aria-label="Table status guide"></div>
     <div class="table-grid waiter-tables-grid" id="w-tables"></div>
     <div id="w-secondary-alert" class="role-alert-host" aria-live="polite"></div>
@@ -3776,7 +3825,8 @@ async function markPaidMethod(method) {
         toast('Payment saved. Remaining balance: ₹' + remaining.toFixed(2));
         return;
       }
-      toast('Payment saved to shared accounts · Table ' + (visitResult.table || payContext.table) + ' · Visit settled');
+      if (typeof window.mmSimpleToast === 'function') window.mmSimpleToast(window.mmI18n('✓ Payment confirmed · Table available', '✓ पेमेंट पुष्ट · टेबल उपलब्ध')); else toast(window.mmI18n('Payment confirmed · Table available', 'पेमेंट पुष्ट · टेबल उपलब्ध'));
+      if (typeof window.mmOnTableFreed === 'function') window.mmOnTableFreed(visitResult.table || payContext.table, 'payment');
       closePayQR();
       payContext.visitId = null;
       payContext.customerSessionId = null;
@@ -4604,9 +4654,10 @@ function mmTableInactivity(num) {
 function mmDuration(min) { return min >= 60 ? Math.floor(min / 60) + 'h ' + (min % 60) + 'm' : min + 'm'; }
 function renderTableLegend() {
   var host = document.getElementById('w-legend'); if (!host) return;
-  host.innerHTML = ['available','occupied','placed','preparing','ready','served','pay-requested','pay-pending','inactive'].map(function (k) {
-    return '<span class="tstate tstate-' + k + '"><i aria-hidden="true"></i>' + mmStateLabel(k) + '</span>';
-  }).join('');
+  host.innerHTML =
+    '<span class="tstate tstate-available"><i aria-hidden="true"></i>' + window.mmI18n('Available','उपलब्ध') + '</span>' +
+    '<span class="tstate tstate-occupied"><i aria-hidden="true"></i>' + window.mmI18n('Occupied','व्यापलेले') + '</span>' +
+    '<span class="tstate tstate-pay-pending"><i aria-hidden="true"></i>' + window.mmI18n('Attention','लक्ष द्या') + '</span>';
 }
 function mmAgo(iso) {
   var t = new Date(iso || 0).getTime(); if (!t) return '';
@@ -4618,38 +4669,51 @@ function mmAgo(iso) {
 function updateWaiterTableIndicators() {
   document.querySelectorAll('#w-tables .waiter-table-card').forEach(function (b) {
     var num = String(b.getAttribute('data-table-number') || '').padStart(2, '0');
-    var draftCount = (wDrafts[num] || []).reduce(function (sum, item) { return sum + (Number(item.qty) || 0); }, 0);
     var tableOrders = (orders || []).filter(function(o) {
       return o && !o.is_test_order && !o.archived_at &&
         String(o.table || '').padStart(2, '0') === num &&
         ['NEW','PREPARING','READY'].indexOf(String(o.status || '').toUpperCase()) >= 0;
     }).sort(function(a,b){ return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); });
-    var active = tableOrders.length ? String(tableOrders[0].status || 'NEW').toUpperCase() : '';
     var visit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[num];
     var inService = !!(window.MM_TABLE_VISITS_READY && visit && String(visit.status).toUpperCase() === 'OPEN');
-    b.classList.toggle('on', num === wTable);
-    b.classList.toggle('has-draft', draftCount > 0);
-    b.classList.toggle('has-live-order', tableOrders.length > 0);
-    b.classList.toggle('has-ready-order', active === 'READY');
-    b.classList.toggle('is-in-service', inService);
-
-    var tState = mmTableState(num, { active: active, inService: inService, visitsReady: !!window.MM_TABLE_VISITS_READY });
-    var pill = draftCount
-      ? '<small class="tstate tstate-draft"><i aria-hidden="true"></i>' + draftCount + ' ' + window.mmI18n('item' + (draftCount === 1 ? '' : 's') + ' selected', 'पदार्थ निवडले') + '</small>'
-      : (tState ? '<small class="tstate tstate-' + tState.key + '"><i aria-hidden="true"></i>' + tState.label + '</small>' : '<small class="tstate tstate-unknown"><i aria-hidden="true"></i>…</small>');
     var alertTypes = (Array.isArray(window.MM_ROLE_NOTIFICATIONS) ? window.MM_ROLE_NOTIFICATIONS : []).filter(function (n) {
-      return n && String(n.table_number || '').padStart(2, '0') === num;
+      return n && String(n.table_number || '').padStart(2, '0') === num && !n.resolved_at;
     }).map(function (n) { return String(n.notification_type || '').toUpperCase(); });
+    var paymentAttention = alertTypes.indexOf('PAYMENT_CHECK') >= 0 || alertTypes.indexOf('GUEST_LEFT_UNPAID') >= 0 || alertTypes.indexOf('BILL_REQUEST') >= 0 || alertTypes.indexOf('CASH_AT_COUNTER') >= 0;
+    var unexpected = tableOrders.length > 0 && !inService;
     var glance = 'available';
-    if (alertTypes.indexOf('PAYMENT_CHECK') >= 0 || alertTypes.indexOf('GUEST_LEFT_UNPAID') >= 0 || alertTypes.indexOf('BILL_REQUEST') >= 0 || alertTypes.indexOf('CASH_AT_COUNTER') >= 0) glance = 'attention';
-    else if (tableOrders.length || inService) glance = 'active';
+    var stateLabel = window.mmI18n('Available', 'उपलब्ध');
+    var actionLabel = window.mmI18n('Seat customer', 'ग्राहक बसवा');
+    if (unexpected) {
+      glance = 'attention';
+      stateLabel = window.mmI18n('Unexpected order', 'अनपेक्षित ऑर्डर');
+      actionLabel = window.mmI18n('Cancel order', 'ऑर्डर रद्द करा');
+    } else if (paymentAttention) {
+      glance = 'attention';
+      stateLabel = window.mmI18n('Needs attention', 'लक्ष द्या');
+      actionLabel = window.mmI18n('View', 'पहा');
+    } else if (tableOrders.length || inService) {
+      glance = 'active';
+      stateLabel = window.mmI18n('Occupied', 'व्यापलेले');
+      actionLabel = window.mmI18n('View order', 'ऑर्डर पहा');
+    }
+    var prevGlance = b.getAttribute('data-glance') || '';
+    b.classList.toggle('on', num === wTable);
+    b.classList.toggle('has-live-order', tableOrders.length > 0);
+    b.classList.toggle('is-in-service', inService);
     b.setAttribute('data-glance', glance);
-    b.setAttribute('data-state', draftCount ? 'draft' : (tState ? tState.key : 'unknown'));
-    b.innerHTML = '<strong><span class="glance-dot" aria-hidden="true"></span>' + esc(num) + '</strong>' + pill;
-    b.setAttribute('aria-label', window.mmI18n('Table','टेबल') + ' ' + num +
-      (active ? ', ' + window.mmI18n(active, ({READY:'तयार',PREPARING:'बनत आहे',NEW:'नवीन ऑर्डर'})[active] || active.toLowerCase()) :
-       (window.MM_TABLE_VISITS_READY ? (inService ? ', in service' : ', ready for next guest') : '')) +
-      (draftCount ? ', ' + draftCount + ' ' + window.mmI18n('draft items','ड्राफ्ट पदार्थ') : ''));
+    b.setAttribute('data-unexpected', unexpected ? '1' : '0');
+    b.setAttribute('data-state', glance === 'available' ? 'available' : (glance === 'attention' ? 'attention' : 'occupied'));
+    if (prevGlance === 'active' && glance === 'available') {
+      b.classList.remove('is-freeing');
+      void b.offsetWidth;
+      b.classList.add('is-freeing');
+      setTimeout(function () { b.classList.remove('is-freeing'); }, 900);
+    }
+    b.innerHTML = '<span class="wt-num"><span class="glance-dot" aria-hidden="true"></span>' + esc(num) + '</span>' +
+      '<span class="wt-state">' + esc(stateLabel) + '</span>' +
+      '<span class="wt-action">' + esc(actionLabel) + '</span>';
+    b.setAttribute('aria-label', window.mmI18n('Table','टेबल') + ' ' + num + ', ' + stateLabel);
   });
 }
 function renderWaiterTables() {
@@ -4669,11 +4733,32 @@ function saveWaiterDraft() {
   updateWaiterTableIndicators();
 }
 function pickW(n, card) {
+  var num = String(n).padStart(2, '0');
+  var visit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[num];
+  var inService = !!(window.MM_TABLE_VISITS_READY && visit && String(visit.status).toUpperCase() === 'OPEN');
+  var unexpectedOrders = (orders || []).filter(function (o) {
+    return o && !o.is_test_order && !o.archived_at &&
+      String(o.table || '').padStart(2, '0') === num &&
+      ['NEW','PREPARING','READY'].indexOf(String(o.status || '').toUpperCase()) >= 0;
+  });
+  if (unexpectedOrders.length && !inService) {
+    if (confirm(window.mmI18n(
+      'Table ' + num + ' has an unexpected order and no seated customer.\nCancel this order?',
+      'टेबल ' + num + ' वर अनपेक्षित ऑर्डर आहे आणि ग्राहक बसवलेला नाही.\nही ऑर्डर रद्द करायची?'
+    ))) {
+      cancelUnexpectedTableOrders(num, unexpectedOrders);
+    }
+    return;
+  }
+  if (!inService && !unexpectedOrders.length && typeof window.MM_SET_TABLE_VISIT_STATUS === 'function') {
+    // Available: primary action is seat customer (one tap path from grid).
+    // Still open the table detail so waiter can confirm identity if needed.
+  }
   if (wTable) {
     wDrafts[wTable] = (wCart || []).map(function (item) { return Object.assign({}, item); });
     var oldNotes = document.getElementById('w-notes'); wNotesDrafts[wTable] = oldNotes ? oldNotes.value : '';
   }
-  wTable = String(n).padStart(2, '0');
+  wTable = num;
   wCart = (wDrafts[wTable] || []).map(function (item) { return Object.assign({}, item); });
   wCat = 'all'; wDietFilter = 'all';
   document.querySelectorAll('#w-tables .waiter-table-card').forEach(function (b) {
@@ -4940,8 +5025,53 @@ function renderWaiterVisitControl() {
     (hasActiveTickets ? 'disabled title="Serve or cancel all active tickets first" ' : '') +
     'style="width:auto">Finish &amp; settle</button><button type="button" class="btn btn-main btn-sm' + (mmTableInactivity(num).inactive ? ' release-suggested' : '') + '" onclick="releaseAbandonedTableVisit()" ' +
     (hasActiveTickets ? 'disabled title="Serve or cancel all active tickets first" ' : '') +
-    'style="width:auto">Guest left · free table</button></div>';
+    'style="width:auto;opacity:.75;font-size:11px">More · release table</button></div>';
 }
+
+async function cancelUnexpectedTableOrders(tableNumber, orderList) {
+  var list = Array.isArray(orderList) ? orderList : [];
+  if (!list.length) return;
+  var reason = 'Unexpected order on empty table — cancelled by staff';
+  for (var i = 0; i < list.length; i++) {
+    var o = list[i];
+    var ticket = String(o.id || o.ticket_id || '');
+    if (!ticket) continue;
+    try {
+      if (typeof window.MM_CANCEL_ADMIN_ORDER === 'function') {
+        await window.MM_CANCEL_ADMIN_ORDER(ticket, reason);
+      } else if (typeof cancelAdminOrder === 'function') {
+        await cancelAdminOrder(ticket);
+      } else {
+        toast(window.mmI18n('Order cancel is not available on this device.', 'या डिव्हाइसवर ऑर्डर रद्द उपलब्ध नाही.'));
+        return;
+      }
+    } catch (e) {
+      toast(e && e.message ? e.message : window.mmI18n('Could not cancel the order.', 'ऑर्डर रद्द झाली नाही.'));
+      return;
+    }
+  }
+  if (typeof window.mmSimpleToast === 'function') {
+    window.mmSimpleToast(window.mmI18n('✓ Unexpected order cancelled', '✓ अनपेक्षित ऑर्डर रद्द'));
+  } else {
+    toast(window.mmI18n('Unexpected order cancelled', 'अनपेक्षित ऑर्डर रद्द'));
+  }
+  if (typeof window.MM_REFRESH_TABLE_VISITS === 'function') window.MM_REFRESH_TABLE_VISITS();
+  if (typeof window.refreshStaffOrders === 'function') {
+    /* staff orders refresh via interval */
+  }
+  updateWaiterTableIndicators();
+  if (typeof drawWaiterOrders === 'function') drawWaiterOrders();
+}
+
+window.mmOnTableFreed = function (tableNumber, reason) {
+  var num = String(tableNumber || '').padStart(2, '0');
+  if (!num || num === '00') return;
+  updateWaiterTableIndicators();
+  if (typeof renderWaiterVisitControl === 'function') renderWaiterVisitControl();
+  if (typeof window.mmSimpleToast === 'function') {
+    window.mmSimpleToast(window.mmI18n('Table ' + num + ' is now available ✓', 'टेबल ' + num + ' आता उपलब्ध आहे ✓'));
+  }
+};
 
 async function startTableVisit() {
   if (!wTable) return;
@@ -4955,6 +5085,7 @@ async function startTableVisit() {
     var result = await window.MM_SET_TABLE_VISIT_STATUS(wTable, 'START', waiterCode);
     var assigned = result && result.assigned_waiter_code ? String(result.assigned_waiter_code) : waiterCode;
     if (typeof window.mmSimpleToast === 'function') window.mmSimpleToast('✓ Table ' + wTable + ' activated'); else toast('✓ Table ' + wTable + ' activated');
+    updateWaiterTableIndicators();
     renderWaiterVisitControl();
   } catch (e) {
     toast(e && e.message ? e.message : 'Could not start the table visit.');
@@ -7577,7 +7708,7 @@ window.setWDietFilter = setWDietFilter;
       'sp-not-now': 'Not now',
       'w-back-tables': '← Tables',
       'waiter-header-title': 'Waiter',
-      'w-table-picker-hint': 'Tap a table to start. Highlighted tables already have orders.',
+      'w-table-picker-hint': 'Green = free · Orange = occupied · Red = needs you',
       'w-taking-order-label': 'TAKING ORDER FOR',
       'w-table-word': 'Table',
       'w-change-table': '← Change table',

@@ -1643,6 +1643,13 @@
     await refreshRoleNotifications();
     await refreshTableVisits();
     if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    try {
+      var vs = String(data && data.visit_status || '').toUpperCase();
+      var tn = String((data && data.table) || '').padStart(2, '0');
+      if (vs === 'CLOSED' && tn && tn !== '00') {
+        if (typeof window.mmOnTableFreed === 'function') window.mmOnTableFreed(tn, 'payment');
+      }
+    } catch (e) {}
     return data;
   }
 
@@ -1660,7 +1667,17 @@
     if (result.error) throw new Error(result.error.message || 'Could not record the payment.');
     var data = rpcPayload(result.data);
     await refreshStaffOrders();
+    await refreshTableVisits();
     if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    try {
+      var tn = String(tableNumber || (data && data.table) || '').padStart(2, '0');
+      // Table payment path may settle the last open balance; refresh may show AVAILABLE.
+      if (tn && tn !== '00' && typeof window.mmOnTableFreed === 'function') {
+        var visit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[tn];
+        var stillOpen = !!(visit && String(visit.status || '').toUpperCase() === 'OPEN');
+        if (!stillOpen) window.mmOnTableFreed(tn, 'payment');
+      }
+    } catch (e) {}
     return data;
   }
 
