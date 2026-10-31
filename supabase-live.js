@@ -519,7 +519,7 @@
       }
       if (saved.error) throw saved.error;
       try { localStorage.setItem('mm_push_enabled_' + String(window.role), '1'); } catch (e) {}
-      notifySuccess('Push alerts enabled. This phone can alert the waiter when a guest calls, even if the app is in the background.');
+      if (typeof window.mmSimpleToast === 'function') window.mmSimpleToast('Staff alerts enabled ✓'); else notifySuccess('Staff alerts enabled ✓');
       if (typeof window.MM_REFRESH_ROLE_NOTIFICATIONS === 'function') window.MM_REFRESH_ROLE_NOTIFICATIONS(true);
       return true;
     } catch (e) {
@@ -1199,6 +1199,68 @@
     return visit;
   }
 
+  async function getPublicTableVisitStatus(tableNumber) {
+    if (!client || !window.MM_SUPABASE_ENABLED) {
+      return {
+        table_number: String(tableNumber || '').padStart(2, '0'),
+        status: 'UNKNOWN',
+        can_order: false,
+        message: 'Online ordering is connecting. Please wait a moment.'
+      };
+    }
+    var result = await client.rpc('mm_public_table_visit_status', {
+      p_table_number: String(tableNumber || '').padStart(2, '0')
+    });
+    if (result.error) {
+      var detail = String(result.error.message || '');
+      // Backward compatible: older projects without this RPC still use ensure.
+      if (result.error.code === 'PGRST202' || result.error.code === '42883' ||
+          /mm_public_table_visit_status/i.test(detail)) {
+        try {
+          var ensured = await ensurePublicTableVisit(tableNumber);
+          return {
+            table_number: String(tableNumber || '').padStart(2, '0'),
+            status: 'OPEN',
+            can_order: true,
+            visit_id: ensured && ensured.visit_id,
+            message: 'You are ready to order.'
+          };
+        } catch (ensureErr) {
+          var msg = String(ensureErr && ensureErr.message || '');
+          if (/not open for online orders/i.test(msg) || /not open for ordering/i.test(msg)) {
+            return {
+              table_number: String(tableNumber || '').padStart(2, '0'),
+              status: 'AVAILABLE',
+              can_order: false,
+              message: 'Please wait for the waiter to activate this table.'
+            };
+          }
+          return {
+            table_number: String(tableNumber || '').padStart(2, '0'),
+            status: 'UNKNOWN',
+            can_order: false,
+            message: msg || 'Could not verify this table. Please ask the waiter.'
+          };
+        }
+      }
+      return {
+        table_number: String(tableNumber || '').padStart(2, '0'),
+        status: 'UNKNOWN',
+        can_order: false,
+        message: detail || 'Could not verify this table. Please ask the waiter.'
+      };
+    }
+    var data = rpcPayload(result.data) || result.data || {};
+    return {
+      table_number: String(data.table_number || tableNumber || '').padStart(2, '0'),
+      status: String(data.status || 'UNKNOWN').toUpperCase(),
+      can_order: !!data.can_order,
+      visit_id: data.visit_id || null,
+      started_at: data.started_at || null,
+      message: String(data.message || '')
+    };
+  }
+
   function customerSessionIdForVisit(visitId) {
     var visitKey = String(visitId || '').trim();
     if (!visitKey) throw new Error('The active table visit is missing. Refresh and try again.');
@@ -1334,6 +1396,20 @@
   async function placeCustomerOrder() {
     if (window.MM_ORDER_SENDING) return;
     if (!window.cart || !window.cart.length) return;
+    if (!window.role) {
+      try {
+        var gate = await getPublicTableVisitStatus(window.table);
+        if (!gate || !gate.can_order) {
+          notifyError(gate && gate.message
+            ? gate.message
+            : 'This table is not active yet. Please ask the waiter to activate it.');
+          if (typeof window.refreshCustomerTableGate === 'function') window.refreshCustomerTableGate(true);
+          return;
+        }
+      } catch (gateErr) {
+        // Fall through to createSharedOrder which still validates on the server.
+      }
+    }
     if (!window.MM_MENU_READY) {
       notifyError(window.MM_MENU_LOAD_ERROR
         ? (window.mmI18n ? window.mmI18n('The restaurant menu could not load. Check your connection and refresh.', 'रेस्टॉरंटचा मेनू लोड झाला नाही. इंटरनेट तपासून पेज पुन्हा उघडा.') : 'The restaurant menu could not load. Refresh and try again.')
@@ -1369,15 +1445,35 @@
       if (host) host.innerHTML = window.progressMarkup(order) + '<p class="waiting-joke" id="waiting-joke">Your order is confirmed and sent directly to the kitchen. No approval is needed.</p>';
       if (typeof window.startWaitFun === 'function') window.startWaitFun(order.id);
       if (typeof window.confetti === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) window.confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
-      notifySuccess('Your order is confirmed and sent directly to the kitchen. No approval is needed.');
+      if (typeof window.mmSimpleToast === 'function') window.mmSimpleToast('✓ Order placed'); else notifySuccess('✓ Order placed');
       refreshCustomerOrders();
     } catch (e) {
-      notifyError(window.mmFriendlyError ? window.mmFriendlyError(e, 'customer-order') : (e && e.message ? e.message : 'Could not send the order. Please ask your waiter.'));
+      var raw = String(e && e.message || '');
+      var ended = /not open for online orders/i.test(raw) ||
+        /not open for ordering/i.test(raw) ||
+        /visit has ended/i.test(raw) ||
+        /table session has ended/i.test(raw) ||
+        /no longer active/i.test(raw);
+      if (ended) {
+        notifyError(window.mmI18n
+          ? window.mmI18n('Your table session has ended. Please ask the waiter to start a new visit.', 'आपली टेबल भेट संपली आहे. कृपया वेटरला नवीन भेट सुरू करण्यास सांगा.')
+          : 'Your table session has ended. Please ask the waiter to start a new visit.');
+        if (typeof window.refreshCustomerTableGate === 'function') window.refreshCustomerTableGate(true);
+      } else {
+        notifyError(window.mmFriendlyError ? window.mmFriendlyError(e, 'customer-order') : (raw || 'Could not send the order. Please ask your waiter.'));
+      }
     } finally {
       window.MM_ORDER_SENDING = false;
       if (orderButton) {
-        orderButton.disabled = false;
-        orderButton.textContent = window.mmI18n ? window.mmI18n('Place order','ऑर्डर द्या') : 'Place order';
+        if (!window.role && typeof window.refreshCustomerTableGate === 'function') {
+          window.refreshCustomerTableGate(true);
+        } else {
+          orderButton.disabled = false;
+          orderButton.textContent = window.mmI18n ? window.mmI18n('Place order','ऑर्डर द्या') : 'Place order';
+        }
+        if (!orderButton.disabled) {
+          orderButton.textContent = window.mmI18n ? window.mmI18n('Place order','ऑर्डर द्या') : 'Place order';
+        }
       }
     }
   }
@@ -1547,6 +1643,13 @@
     await refreshRoleNotifications();
     await refreshTableVisits();
     if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    try {
+      var vs = String(data && data.visit_status || '').toUpperCase();
+      var tn = String((data && data.table) || '').padStart(2, '0');
+      if (vs === 'CLOSED' && tn && tn !== '00') {
+        if (typeof window.mmOnTableFreed === 'function') window.mmOnTableFreed(tn, 'payment');
+      }
+    } catch (e) {}
     return data;
   }
 
@@ -1564,7 +1667,17 @@
     if (result.error) throw new Error(result.error.message || 'Could not record the payment.');
     var data = rpcPayload(result.data);
     await refreshStaffOrders();
+    await refreshTableVisits();
     if (typeof window.refreshProgressViews === 'function') window.refreshProgressViews();
+    try {
+      var tn = String(tableNumber || (data && data.table) || '').padStart(2, '0');
+      // Table payment path may settle the last open balance; refresh may show AVAILABLE.
+      if (tn && tn !== '00' && typeof window.mmOnTableFreed === 'function') {
+        var visit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[tn];
+        var stillOpen = !!(visit && String(visit.status || '').toUpperCase() === 'OPEN');
+        if (!stillOpen) window.mmOnTableFreed(tn, 'payment');
+      }
+    } catch (e) {}
     return data;
   }
 
@@ -2388,6 +2501,7 @@
     window.MM_SEND_WHATSAPP_BROADCAST = sendWhatsAppBroadcast;
     window.MM_CREATE_GUEST_NOTIFICATION = createGuestNotification;
     window.MM_REQUEST_PAYMENT_VERIFICATION = requestPaymentVerification;
+    window.MM_GET_PUBLIC_TABLE_VISIT_STATUS = getPublicTableVisitStatus;
     window.MM_REFRESH_TABLE_VISITS = refreshTableVisits;
     window.MM_SET_TABLE_VISIT_STATUS = setTableVisitStatus;
     window.MM_SET_TABLE_CAPACITY = setTableCapacity;
@@ -2491,7 +2605,7 @@
     if (loginForm) loginForm.setAttribute('autocomplete', 'current-password');
 
     loadMenu(false, false).then(function (ok) {
-      if (ok) notifySuccess('Shared menu connected.');
+      if (ok) { /* Shared menu connection is intentionally silent. */ }
     });
     // Payment/UPI settings are shared centrally and refresh on every device.
     loadSharedRestaurantConfig().catch(function (e) {
