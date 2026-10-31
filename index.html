@@ -346,20 +346,26 @@ button, input, select, textarea { font: inherit; }
   opacity: 1 !important;
   transform: translateX(-50%) translateY(0) !important;
 }
-/* Waiter table micro-interactions */
+/* Waiter table micro-interactions — short, one-shot, premium restraint */
 .waiter-table-card.is-new-order {
-  animation: mmTableNewOrder 1.6s ease-in-out infinite;
+  animation: mmTableNewOrder 1.05s ease-out 1 both;
 }
 @keyframes mmTableNewOrder {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(214,164,91,0); }
-  50% { box-shadow: 0 0 0 3px rgba(214,164,91,.28), 0 0 14px rgba(214,164,91,.18); }
+  0%   { box-shadow: 0 0 0 0 rgba(214,164,91,0); transform: translateY(0); }
+  35%  { box-shadow: 0 0 0 3px rgba(214,164,91,.30), 0 0 12px rgba(214,164,91,.16); transform: translateY(-1px); }
+  100% { box-shadow: 0 0 0 0 rgba(214,164,91,0); transform: translateY(0); }
 }
 .waiter-table-card.is-attention-pulse {
-  animation: mmTableAttention 1.8s ease-in-out infinite;
+  animation: mmTableAttention 1.1s ease-out 1 both;
 }
 @keyframes mmTableAttention {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(201,120,120,0); }
-  50% { box-shadow: 0 0 0 3px rgba(201,120,120,.32), 0 0 12px rgba(201,120,120,.16); }
+  0%   { box-shadow: 0 0 0 0 rgba(201,120,120,0); }
+  40%  { box-shadow: 0 0 0 3px rgba(201,120,120,.28), 0 0 10px rgba(201,120,120,.14); }
+  100% { box-shadow: 0 0 0 0 rgba(201,120,120,0); }
+}
+/* Soft static cue for tables that currently have a NEW order (no continuous motion) */
+.waiter-table-card.has-new-order-static {
+  box-shadow: inset 0 0 0 1px rgba(214,164,91,.22);
 }
 @media (prefers-reduced-motion: reduce) {
   .waiter-table-card.is-new-order,
@@ -822,6 +828,18 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 .kitchen-item-note b{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}
 .kcard.has-note{border-top-color:rgba(229,208,155,.48)!important}
 .kitchen-status-btn{width:100%;margin-top:9px;padding:10px 12px;font-size:12px;border-radius:10px;border:0;font-weight:750;cursor:pointer;background:var(--ticket-accent,var(--gold2));color:#17140d}
+.kcard.kcard-enter {
+  animation: mmKitchenEnter .55s ease-out both;
+}
+@keyframes mmKitchenEnter {
+  0%   { opacity: 0; transform: translateY(8px); }
+  60%  { opacity: 1; transform: translateY(0); box-shadow: 0 0 0 2px rgba(214,164,91,.22); }
+  100% { opacity: 1; transform: translateY(0); box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kcard.kcard-enter { animation: none !important; }
+}
+
 @media(max-width:699px){.kds{grid-template-columns:1fr;gap:8px}.kcol{min-height:0}.kcard{padding:10px!important}#home .cook-stage#home-cook{width:90px!important;height:86px!important}}
 @media(prefers-reduced-motion:reduce){#tables .table-carousel-card,#tables .table-carousel-card.table-pop{animation:none!important;transition:none!important}.ambient-spark{animation:none!important}}
 
@@ -4783,8 +4801,17 @@ function updateWaiterTableIndicators() {
     var hasNew = tableOrders.some(function (o) {
       return String(o.status || '').toUpperCase() === 'NEW';
     });
-    b.classList.toggle('is-new-order', !!(hasNew && glance === 'active' && String(wTable || '') !== num));
-    b.classList.toggle('is-attention-pulse', glance === 'attention');
+    // Ongoing NEW state: quiet static cue only (no continuous animation).
+    b.classList.toggle('has-new-order-static', !!(hasNew && glance === 'active'));
+    // Attention: one short pulse when the glance becomes attention; otherwise clear.
+    if (glance === 'attention' && prevGlance !== 'attention') {
+      b.classList.remove('is-attention-pulse');
+      void b.offsetWidth;
+      b.classList.add('is-attention-pulse');
+      setTimeout(function () { b.classList.remove('is-attention-pulse'); }, 1200);
+    } else if (glance !== 'attention') {
+      b.classList.remove('is-attention-pulse');
+    }
     var itemCount = tableOrders.reduce(function (s, o) {
       var items = o.items || o.order_items || [];
       if (Array.isArray(items) && items.length) {
@@ -5154,16 +5181,27 @@ async function cancelUnexpectedTableOrders(tableNumber, orderList) {
 }
 
 
+window.mmPulseWaiterTable = function (tableNumber, kind) {
+  try {
+    var num = String(tableNumber || '').padStart(2, '0');
+    if (!num || num === '00') return;
+    var cls = (kind === 'attention') ? 'is-attention-pulse' : 'is-new-order';
+    document.querySelectorAll('#w-tables .waiter-table-card').forEach(function (b) {
+      if (String(b.getAttribute('data-table-number') || '').padStart(2, '0') !== num) return;
+      b.classList.remove(cls);
+      void b.offsetWidth;
+      b.classList.add(cls);
+      setTimeout(function () { b.classList.remove(cls); }, 1200);
+    });
+  } catch (e) {}
+};
+
 window.mmOnCustomerOrderPlaced = function (order) {
   try {
     var num = String(order && order.table || '').padStart(2, '0');
     if (typeof updateWaiterTableIndicators === 'function') updateWaiterTableIndicators();
     if (typeof drawWaiterOrders === 'function') drawWaiterOrders();
-    document.querySelectorAll('#w-tables .waiter-table-card').forEach(function (b) {
-      if (String(b.getAttribute('data-table-number') || '').padStart(2, '0') === num) {
-        b.classList.add('is-new-order');
-      }
-    });
+    if (typeof window.mmPulseWaiterTable === 'function') window.mmPulseWaiterTable(num, 'new-order');
   } catch (e) {}
 };
 
@@ -5327,7 +5365,8 @@ function drawK() {
         return '<div class="kitchen-item-note"><span>NOTE · ' + esc(i.name) + '</span><b>' + esc(i.notes) + '</b></div>';
       }).join('') + '</div>';
     }
-    return '<article class="kcard' + (hasNotes ? ' has-note' : '') + '" style="border-color:' + col + '">' +
+    var isNewCol = String(next || '').toUpperCase() === 'PREPARING';
+    return '<article class="kcard' + (hasNotes ? ' has-note' : '') + (isNewCol ? ' kcard-enter' : '') + '" style="border-color:' + col + '">' +
       '<div class="kitchen-ticket-head"><b>Table ' + esc(o.table || '—') + '</b><span class="kitchen-ticket-id">#' + esc(o.orderNumber || o.id || '') + '</span></div>' +
       (o.items || []).map(function(i){ return '<div class="kitchen-item-row"><span>' + (Number(i.qty) || 1) + '× ' + esc(i.name) + ' <small>🌶️ ' + esc(spiceLabel(i.spiceLevel || i.spice_level || 'normal')) + '</small></span></div>'; }).join('') +
       noteHtml +

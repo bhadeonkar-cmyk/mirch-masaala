@@ -707,6 +707,9 @@
     var english = raw || 'An unexpected error occurred. Please ask your waiter for help.';
     if (/pgrst202|42883|schema cache|could not find the function|function public\.mm_place_order|mm_place_order.*(not found|does not exist)|secure table ordering is not activated|run .*sql|sql.*function/i.test(combined)) {
       english = 'Order setup needs an update. Please tell the owner to apply the required QR-order SQL migration, then try again.';
+    } else if (/^start this table first\.?$/i.test(String(raw || '').trim())) {
+      // Waiter-specific short message — do not rewrite to customer wording.
+      english = 'Start this table first.';
     } else if (/mm_ensure_public_table_visit|table is not open for ordering|active table visit|visit is not active|not open for ordering|this table is not active|start the visit|start this table|table visit has changed/i.test(combined)) {
       english = 'This table has not been started by a waiter yet. Please ask your waiter to start the table, then try again.';
     } else if (/menu item.*(unavailable|not found)|price.*changed|menu.*changed|not available anymore/i.test(combined)) {

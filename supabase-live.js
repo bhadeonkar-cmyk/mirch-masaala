@@ -1338,9 +1338,38 @@
   async function createSharedOrder(tableNumber, cartItems, notes) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected yet. Please refresh and try again.');
     var actorRole = String(window.role || '');
-    var visit = await ensurePublicTableVisit(tableNumber);
-    if (!visit || !visit.visit_id) {
-      throw new Error('This table is not open for ordering yet. Please ask your waiter to start the visit.');
+    var tableKey = String(tableNumber || '').padStart(2, '0');
+    var visit = null;
+
+    // Staff (waiter/admin) must use the existing OPEN visit from staff table state.
+    // Never route waiter orders through the public/customer visit gate.
+    // Customer path continues to use mm_ensure_public_table_visit (no visit creation).
+    if (actorRole === 'waiter' || actorRole === 'admin') {
+      async function resolveStaffOpenVisit() {
+        if (!window.MM_TABLE_VISITS_READY || !window.MM_TABLE_VISITS) {
+          await refreshTableVisits();
+        }
+        var staffVisit = window.MM_TABLE_VISITS && window.MM_TABLE_VISITS[tableKey];
+        if (staffVisit && String(staffVisit.status || '').toUpperCase() === 'OPEN' && staffVisit.visit_id) {
+          return { visit_id: staffVisit.visit_id, status: 'OPEN', table_number: tableKey };
+        }
+        return null;
+      }
+      visit = await resolveStaffOpenVisit();
+      if (!visit) {
+        // One refresh retry in case START TABLE just completed.
+        await refreshTableVisits();
+        visit = await resolveStaffOpenVisit();
+      }
+      if (!visit || !visit.visit_id) {
+        throw new Error('Start this table first.');
+      }
+    } else {
+      // Customer / public path — protected; never creates a visit.
+      visit = await ensurePublicTableVisit(tableNumber);
+      if (!visit || !visit.visit_id) {
+        throw new Error('This table is not open for ordering yet. Please ask your waiter to start the visit.');
+      }
     }
     // Each guest phone has a separate session ID tied to the current visit.
     var customerSessionId = !actorRole ? customerSessionIdForVisit(visit.visit_id) : null;
@@ -1555,10 +1584,22 @@
       if (typeof window.wDrawCart === 'function') window.wDrawCart();
       if (typeof window.wMenu === 'function') window.wMenu();
       if (typeof window.drawWaiterOrders === 'function') window.drawWaiterOrders();
-      notifySuccess('Ticket ' + order.id + ' sent · Table ' + order.table);
+      // Quiet bottom snackbar — no center takeover.
+      notifySuccess('Order sent to kitchen ✓');
+      // Soft attention on the active table card for a moment.
+      try {
+        if (typeof window.mmPulseWaiterTable === 'function') {
+          window.mmPulseWaiterTable(String(window.wTable).padStart(2, '0'), 'new-order');
+        }
+      } catch (vfxErr) {}
       await refreshStaffOrders();
     } catch (e) {
-      notifyError(window.mmFriendlyError ? window.mmFriendlyError(e, 'waiter-order') : (e && e.message ? e.message : 'Could not send the waiter order.'));
+      var msg = String(e && e.message || '');
+      if (/start this table first/i.test(msg)) {
+        notifyError('Start this table first.');
+      } else {
+        notifyError(window.mmFriendlyError ? window.mmFriendlyError(e, 'waiter-order') : (msg || 'Could not send the waiter order.'));
+      }
     } finally {
       window.MM_ORDER_SENDING = false;
     }
