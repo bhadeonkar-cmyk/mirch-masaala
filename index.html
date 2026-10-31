@@ -1334,6 +1334,7 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 @media(prefers-reduced-motion:reduce){.scan-qr-beam,.scan-cta-arrow{animation:none!important}.success-heading{scroll-behavior:auto}}
 </style>
 <script src="./qr-matrices.js"></script>
+<script src="./menu-images.js"></script>
 <style>
 /* Customer-side Explore shortcut: visible without interrupting ordering. */
 .customer-explore-shortcut {
@@ -1549,6 +1550,48 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .screen.on, .mm-toast { animation: none !important; transition: none !important; }
 }
 
+/* ===== Final calm pass =====
+   Keep every feature and every status cue; remove the constant, attention-seeking motion.
+   Tiny functional indicators (open-now dot, step/progress pulses, skeleton loaders) are kept. */
+
+/* The Scan table QR button is already a steady, one-time-entrance button (ui-premium.css);
+   what competed with it was the motion around it. */
+
+/* Party booking: no glow / ring / bounce competing with the Scan button. */
+.home-icon-btn.party-booking-btn,
+.home-icon-btn.party-booking-btn span { animation: none; }
+.home-icon-btn.party-booking-btn::before { display: none; }
+
+/* Hero chef, chili and pot steam hold still; decorative particles off; "My order" strip sits still.
+   (The slow background steam, the open-now dot and the Scan-step pulse stay: subtle and meaningful.) */
+.cook-stage .chef-main, .cook-stage .chili-main, .cook-stage .steam-puff { animation: none; }
+.ambient-spark, .home-ember { display: none; }
+.qr-mini-mascot span, .qr-main-chef span, .owner-qr-quickstart-mascot, .qr-setup-mascot { animation: none; }
+.qr-mini-copy em, #home .qr-mini-arrow, .qr-flow-line i, .qr-flow-rail > i, .qr-flow-node b { animation: none; }
+.home-recheck-order { animation: none; }
+.home-recheck-order::after { display: none; }
+.empty-plate { animation: none; }
+
+/* Menu cards: the dish picture is the focus. Cream plate tile matches the artwork backdrop,
+   so there is no dark flash while a picture loads. */
+.dish-photo { background: #efe2c8; border-radius: 12px; }
+#customer #menu .card .pic { border-radius: 12px; }
+/* Keep the veg/non-veg marker on the same line as the dish name; the name wraps beside it
+   instead of dropping to a second line and leaving the marker stranded. */
+.dish-name-row { align-items: flex-start; }
+.dish-name-row .veg, .dish-name-row .nonveg { margin-top: .3em; }
+.dish-name-row .dish-title-text { flex: 1 1 110px; }
+
+/* Anyone who asks their device for reduced motion gets a still, static interface. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 </style>
 <script id="mm-simple-clean-ui-script">
 
@@ -1556,15 +1599,22 @@ html, body { max-width: 100%; overflow-x: hidden; }
   if (window.__mirchSimpleCleanUI) return;
   window.__mirchSimpleCleanUI = true;
 
-  const toast = document.createElement('div');
-  toast.className = 'mm-toast';
-  toast.setAttribute('role', 'status');
-  toast.setAttribute('aria-live', 'polite');
-  document.body.appendChild(toast);
+  // This script runs in <head>, before <body> exists, so the toast element is created on first
+  // use (and the observer started once the document is ready) instead of at load time.
+  let toast = null;
   let toastTimer = null;
+  function ensureToast() {
+    if (toast || !document.body) return toast;
+    toast = document.createElement('div');
+    toast.className = 'mm-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    document.body.appendChild(toast);
+    return toast;
+  }
 
   window.mmSimpleToast = function (message, duration) {
-    if (!message) return;
+    if (!message || !ensureToast()) return;
     clearTimeout(toastTimer);
     toast.textContent = String(message).trim();
     toast.classList.add('on');
@@ -1598,10 +1648,18 @@ html, body { max-width: 100%; overflow-x: hidden; }
       }
     }
   });
-  observer.observe(document.body, { childList: true, subtree: true });
+  function start() {
+    if (!document.body) return;
+    observer.observe(document.body, { childList: true, subtree: true });
+    // Also catch a confirmation already rendered before the observer starts.
+    document.querySelectorAll('*').forEach(inspect);
+  }
 
-  // Also catch a confirmation already rendered before the observer starts.
-  document.querySelectorAll('*').forEach(inspect);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
 })();
 
 </script>
@@ -3035,8 +3093,10 @@ function cycleDishSpice(itemId) {
 }
 function dishPhotoInfo(item) {
  item=item||{};var url=String(item.image||item.image_url||'').trim(),credit='';
+ if(!url&&typeof window.mmMenuImageUrl==='function')url=window.mmMenuImageUrl(item);
  if(!url&&/mutton/i.test(String(item.name||''))&&/biryani/i.test(String(item.name||''))){url='https://upload.wikimedia.org/wikipedia/commons/e/e8/Hyderabadi_Mutton_Biryani.jpg';credit='Photo: Jayanthkumar101 · CC BY-SA 4.0';}
- try{var parsed=new URL(url,window.location.href);if(parsed.protocol!=='https:')return{url:'',credit:''};return{url:parsed.href,credit:credit};}catch(e){return{url:'',credit:''};}
+ if(!url)return{url:'',credit:''};
+ try{var parsed=new URL(url,window.location.href);if(parsed.protocol!=='https:'&&parsed.origin!==window.location.origin)return{url:'',credit:''};return{url:parsed.href,credit:credit};}catch(e){return{url:'',credit:''};}
 }
 function dishIllustrationType(item) {
  var name=[item&&item.name,item&&item.category,item&&item.category_name,item&&item.menu_category].join(' ').toLowerCase();
@@ -3078,7 +3138,7 @@ function dishImageMarkup(item,variant) {
  if(!info.url)return dishIllustrationMarkup(item,variant,false);
  var cls='dish-photo dish-photo-'+String(variant||'menu').replace(/[^a-z-]/g,'');
  var alt='Photo of '+(window.mmDishName?window.mmDishName(item):(item.name||'dish'));
- return '<img class="'+cls+'" src="'+esc(info.url)+'" alt="'+esc(alt)+'" loading="lazy" decoding="async" referrerpolicy="no-referrer" title="'+esc(info.credit||'Restaurant dish photo')+'" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'+dishIllustrationMarkup(item,variant,true);
+ return '<img class="'+cls+'" src="'+esc(info.url)+'" alt="'+esc(alt)+'" width="320" height="320" loading="lazy" decoding="async" referrerpolicy="no-referrer" title="'+esc(info.credit||'Restaurant dish photo')+'" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'+dishIllustrationMarkup(item,variant,true);
 }
 function dishPhotoCreditMarkup(item) {
  var info=dishPhotoInfo(item);return info.credit?'<a class="dish-photo-credit" href="https://commons.wikimedia.org/wiki/File:Hyderabadi_Mutton_Biryani.jpg" target="_blank" rel="noopener noreferrer">Photo: Jayanthkumar101 · CC BY-SA 4.0</a>':'';
