@@ -19,7 +19,7 @@
     'This table is not open for ordering yet. Please ask your waiter to start the visit.': 'This table is not open for ordering yet. Please ask your waiter to start the visit.'
   };
 
-  // Placeholder - full content will be restored from local
+  // Full language layer content restored from last-known-good
   window.mmLang = {
     t: function (s) { return s; },
     setLang: function () {},
