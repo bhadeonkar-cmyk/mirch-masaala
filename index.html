@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <title>Mirch Masaala</title>
-  <link rel="stylesheet" href="./css/app.css?v=4">
+  <link rel="stylesheet" href="./css/app.css?v=5">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
@@ -34,7 +34,7 @@
       });
       setTimeout(function () {
         if (!MM.booted) MM.showFatal({ message: 'boot watchdog: app did not start' });
-      }, 12000);
+      }, 15000);
     })();
   </script>
 </head>
@@ -51,7 +51,6 @@
 
   <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
 
-  <!-- ========== WELCOME HOME ========== -->
   <div id="screen-welcome" class="screen on">
     <header class="top top-home">
       <div class="brand">
@@ -63,28 +62,21 @@
       </div>
       <button type="button" class="lang-btn" id="btn-lang" aria-label="Language">मराठी</button>
     </header>
-
     <main class="main main-home">
       <section class="hero">
         <div class="hero-visual" aria-hidden="true">🍽️</div>
         <h1 class="hero-title" data-i18n="welcome_title">Welcome</h1>
         <p class="hero-sub muted" data-i18n="welcome_sub">Authentic flavours · Warm hospitality</p>
       </section>
-
       <div class="home-actions">
-        <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-scan-qr" data-i18n="scan_qr_cta">
-          Scan QR to Order
-        </button>
+        <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-scan-qr" data-i18n="scan_qr_cta">Scan QR to Order</button>
         <p class="muted small center" data-i18n="scan_qr_hint">Point your camera at the QR code on your table</p>
-
         <div class="home-secondary">
           <button type="button" class="btn btn-soft" id="btn-view-menu" data-i18n="view_menu">View Menu</button>
           <button type="button" class="btn btn-soft" id="btn-party" data-i18n="party_booking">Party Booking</button>
         </div>
-
         <button type="button" class="link staff-link" id="btn-staff" data-i18n="staff">Staff Login</button>
       </div>
-
       <section id="current-order-home" class="order-strip" hidden>
         <div class="order-strip-left">
           <span class="order-strip-label" data-i18n="your_order">Your current order</span>
@@ -95,7 +87,6 @@
     </main>
   </div>
 
-  <!-- ========== MENU (after QR or View Menu) ========== -->
   <div id="screen-menu" class="screen">
     <header class="top">
       <div class="brand brand-sm">
@@ -110,13 +101,11 @@
         <button type="button" class="back" id="btn-menu-home" aria-label="Home">⌂</button>
       </div>
     </header>
-
     <main class="main">
       <section id="gate" class="gate" hidden>
         <p id="gate-msg"></p>
         <button type="button" class="btn btn-sm" id="btn-gate-retry" data-i18n="check_again" hidden>Check again</button>
       </section>
-
       <section id="current-order" class="order-strip" hidden>
         <div class="order-strip-left">
           <span class="order-strip-label" data-i18n="your_order">Your current order</span>
@@ -124,7 +113,6 @@
         </div>
         <button type="button" class="btn btn-sm" id="btn-view-order" data-i18n="view">View</button>
       </section>
-
       <div class="search-row">
         <input type="search" id="search-food" placeholder="Search food…" autocomplete="off" data-i18n-placeholder="search_food">
       </div>
@@ -133,14 +121,12 @@
         <div class="loading" data-i18n="loading_menu">Loading menu…</div>
       </div>
     </main>
-
     <footer class="cart-bar" id="cart-bar" hidden>
       <div class="cart-info"><span id="cart-count">0</span> · ₹<span id="cart-total">0</span></div>
       <button type="button" class="btn btn-primary" id="btn-open-cart" data-i18n="view_cart">View cart</button>
     </footer>
   </div>
 
-  <!-- ========== CART ========== -->
   <div id="screen-cart" class="screen">
     <header class="top">
       <button type="button" class="back" id="btn-cart-back" aria-label="Back">←</button>
@@ -161,7 +147,6 @@
     </main>
   </div>
 
-  <!-- ========== ORDER PLACED ========== -->
   <div id="screen-placed" class="screen">
     <main class="main center">
       <div class="ok-mark" aria-hidden="true">✓</div>
@@ -172,19 +157,15 @@
     </main>
   </div>
 
-  <!-- ========== ORDER DETAIL ========== -->
   <div id="screen-order" class="screen">
     <header class="top">
       <button type="button" class="back" id="btn-order-back" aria-label="Back">←</button>
       <strong data-i18n="your_order_title">Your order</strong>
       <span></span>
     </header>
-    <main class="main">
-      <div id="order-detail"></div>
-    </main>
+    <main class="main"><div id="order-detail"></div></main>
   </div>
 
-  <!-- ========== PAYMENT ========== -->
   <div id="screen-pay" class="screen">
     <header class="top">
       <button type="button" class="back" id="btn-pay-back" aria-label="Back">←</button>
@@ -209,7 +190,6 @@
     </main>
   </div>
 
-  <!-- ========== PARTY BOOKING ========== -->
   <div id="screen-party" class="screen">
     <header class="top">
       <button type="button" class="back" id="btn-party-back" aria-label="Back">←</button>
@@ -240,7 +220,6 @@
     </main>
   </div>
 
-  <!-- ========== STAFF LOGIN ========== -->
   <div id="screen-login" class="screen">
     <header class="top">
       <button type="button" class="back" id="btn-login-back" aria-label="Back">←</button>
@@ -262,7 +241,6 @@
     </main>
   </div>
 
-  <!-- ========== WAITER ========== -->
   <div id="screen-waiter" class="screen">
     <header class="top">
       <strong data-i18n="waiter">Waiter</strong>
@@ -280,7 +258,6 @@
     </main>
   </div>
 
-  <!-- ========== KITCHEN ========== -->
   <div id="screen-kitchen" class="screen">
     <header class="top">
       <strong data-i18n="kitchen">Kitchen</strong>
@@ -289,12 +266,9 @@
         <button type="button" class="btn btn-sm" id="btn-kitchen-logout" data-i18n="logout">Logout</button>
       </div>
     </header>
-    <main class="main">
-      <div class="kds" id="kitchen-board"></div>
-    </main>
+    <main class="main"><div class="kds" id="kitchen-board"></div></main>
   </div>
 
-  <!-- ========== OWNER ========== -->
   <div id="screen-owner" class="screen">
     <header class="top">
       <strong data-i18n="owner">Owner</strong>
@@ -314,10 +288,10 @@
     <main class="main" id="owner-panel"></main>
   </div>
 
-  <script src="./js/vendor/supabase-2.58.0.js"></script>
-  <script src="./js/config.js?v=4"></script>
-  <script src="./js/i18n.js?v=4"></script>
-  <script src="./js/supabase.js?v=4"></script>
-  <script src="./js/app.js?v=4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+  <script src="./js/config.js?v=5"></script>
+  <script src="./js/i18n.js?v=5"></script>
+  <script src="./js/supabase.js?v=5"></script>
+  <script src="./js/app.js?v=5"></script>
 </body>
 </html>
