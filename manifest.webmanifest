@@ -1,72 +1,15 @@
 {
-  "id": "./",
   "name": "Mirch Masaala",
-  "short_name": "Mirch",
-  "description": "Mirch Masaala menu, ordering and staff workspaces.",
+  "short_name": "Mirch Masaala",
   "start_url": "./",
-  "scope": "./",
   "display": "standalone",
-  "display_override": [
-    "standalone",
-    "minimal-ui"
-  ],
-  "orientation": "portrait",
-  "background_color": "#101012",
-  "theme_color": "#101012",
-  "prefer_related_applications": false,
+  "background_color": "#120c0a",
+  "theme_color": "#1a120c",
   "icons": [
     {
-      "src": "./icons/mirch-masaala-garden-resto-192.png",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Waiter workspace",
-      "short_name": "Waiter",
-      "description": "Open waiter sign-in or restore the signed-in waiter session.",
-      "url": "./?staff=waiter",
-      "icons": [
-        {
-          "src": "./icons/mirch-masaala-garden-resto-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "Kitchen display",
-      "short_name": "Kitchen",
-      "description": "Open kitchen sign-in or restore the signed-in kitchen session.",
-      "url": "./?staff=kitchen",
-      "icons": [
-        {
-          "src": "./icons/mirch-masaala-garden-resto-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "Owner dashboard",
-      "short_name": "Owner",
-      "description": "Open owner sign-in or restore the signed-in owner session.",
-      "url": "./?staff=admin",
-      "icons": [
-        {
-          "src": "./icons/mirch-masaala-garden-resto-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
+      "type": "image/png"
     }
   ]
 }

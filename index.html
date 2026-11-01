@@ -1,1 +1,289 @@
-PLACEHOLDER_WILL_REPLACE
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a120c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Mirch Masaala</title>
+  <link rel="stylesheet" href="./css/app.css?v=3">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <script>
+    /* Crash guard — runs before everything else, needs no other file.
+       Any uncaught error, failed script, or a boot that never finishes shows the
+       friendly screen instead of a white page. Technical detail goes to the console only. */
+    (function () {
+      window.MM = window.MM || {};
+      MM.ctx = 'boot';
+      MM.showFatal = function (reason) {
+        try { console.error('[MM fatal]', reason, 'route/context:', MM.ctx, location.href); } catch (e) {}
+        var el = document.getElementById('fatal');
+        if (el) el.hidden = false;
+      };
+      window.addEventListener('error', function (ev) {
+        /* Script/CSS load failures arrive on the capture phase with a target element. */
+        var t = ev && ev.target;
+        if (t && t !== window && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+          if (t.hasAttribute('data-optional')) return;
+          MM.showFatal({ failedToLoad: t.src || t.href });
+          return;
+        }
+        MM.showFatal({ message: ev && ev.message, stack: ev && ev.error && ev.error.stack });
+      }, true);
+      window.addEventListener('unhandledrejection', function (ev) {
+        /* Network/rpc failures are handled where they happen; this catches the rest. */
+        try { console.error('[MM unhandled rejection]', ev.reason, 'context:', MM.ctx); } catch (e) {}
+      });
+      setTimeout(function () {
+        if (!MM.booted) MM.showFatal({ message: 'boot watchdog: app did not start in 10s' });
+      }, 10000);
+    })();
+  </script>
+</head>
+<body>
+  <!-- Fatal screen (never a white page) -->
+  <div id="fatal" class="fatal" hidden>
+    <div class="fatal-card">
+      <div class="fatal-icon" aria-hidden="true">⚠️</div>
+      <h1>Something went wrong</h1>
+      <p>We couldn’t load the restaurant.</p>
+      <p class="muted small">काहीतरी चुकले. आम्हाला रेस्टॉरंट लोड करता आले नाही.</p>
+      <button type="button" class="btn btn-primary" onclick="location.reload()">Try Again</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
+
+  <!-- ========== CUSTOMER HOME ========== -->
+  <div id="screen-home" class="screen on">
+    <header class="top">
+      <div class="brand" id="brand">
+        <span class="brand-mark" aria-hidden="true">🌶️</span>
+        <div>
+          <strong>Mirch Masaala</strong>
+          <span class="muted small" id="home-status"></span>
+        </div>
+      </div>
+      <button type="button" class="lang-btn" id="btn-lang" aria-label="Language">मराठी</button>
+    </header>
+
+    <main class="main">
+      <section id="gate" class="gate" hidden>
+        <p id="gate-msg"></p>
+        <button type="button" class="btn btn-sm" id="btn-gate-retry" data-i18n="check_again" hidden>Check again</button>
+      </section>
+
+      <section id="current-order" class="order-strip" hidden>
+        <div class="order-strip-left">
+          <span class="order-strip-label" data-i18n="your_order">Your current order</span>
+          <strong id="co-summary">—</strong>
+        </div>
+        <button type="button" class="btn btn-sm" id="btn-view-order" data-i18n="view">View</button>
+      </section>
+
+      <div class="search-row">
+        <input type="search" id="search-food" placeholder="Search food…" autocomplete="off" data-i18n-placeholder="search_food">
+      </div>
+      <div class="cats" id="categories"></div>
+      <div class="menu-list" id="menu-list">
+        <div class="loading" data-i18n="loading_menu">Loading menu…</div>
+      </div>
+
+      <p class="home-links">
+        <button type="button" class="link" id="btn-party" data-i18n="party_booking">Party booking</button>
+        <button type="button" class="link" id="btn-staff" data-i18n="staff">Staff</button>
+      </p>
+    </main>
+
+    <footer class="cart-bar" id="cart-bar" hidden>
+      <div class="cart-info"><span id="cart-count">0</span> · ₹<span id="cart-total">0</span></div>
+      <button type="button" class="btn btn-primary" id="btn-open-cart" data-i18n="view_cart">View cart</button>
+    </footer>
+  </div>
+
+  <!-- ========== CART ========== -->
+  <div id="screen-cart" class="screen">
+    <header class="top">
+      <button type="button" class="back" id="btn-cart-back" aria-label="Back">←</button>
+      <strong data-i18n="your_cart">Your cart</strong>
+      <span></span>
+    </header>
+    <main class="main">
+      <div id="cart-items"></div>
+      <div id="cart-footer" hidden>
+        <div class="cart-total-row">
+          <span data-i18n="total">Total</span>
+          <strong>₹<span id="cart-page-total">0</span></strong>
+        </div>
+        <textarea id="order-notes" rows="2" maxlength="1000" placeholder="Any special request?" data-i18n-placeholder="special_request"></textarea>
+        <p class="error-line" id="order-error" hidden></p>
+        <button type="button" class="btn btn-primary btn-block" id="btn-place-order" data-i18n="place_order">Place order</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- ========== ORDER PLACED ========== -->
+  <div id="screen-placed" class="screen">
+    <main class="main center">
+      <div class="ok-mark" aria-hidden="true">✓</div>
+      <h1 data-i18n="order_placed">Order placed</h1>
+      <p class="big-total" id="placed-number"></p>
+      <p class="muted" data-i18n="sent_to_kitchen">Your order has been sent to the kitchen.</p>
+      <button type="button" class="btn btn-primary btn-block" id="btn-placed-view" data-i18n="view_my_order">View My Order</button>
+    </main>
+  </div>
+
+  <!-- ========== ORDER DETAIL ========== -->
+  <div id="screen-order" class="screen">
+    <header class="top">
+      <button type="button" class="back" id="btn-order-back" aria-label="Back">←</button>
+      <strong data-i18n="your_order_title">Your order</strong>
+      <span></span>
+    </header>
+    <main class="main">
+      <div id="order-detail"></div>
+    </main>
+  </div>
+
+  <!-- ========== PAYMENT ========== -->
+  <div id="screen-pay" class="screen">
+    <header class="top">
+      <button type="button" class="back" id="btn-pay-back" aria-label="Back">←</button>
+      <strong data-i18n="payment">Payment</strong>
+      <span></span>
+    </header>
+    <main class="main center">
+      <p class="muted" data-i18n="amount_due">Amount due</p>
+      <p class="big-total">₹<span id="pay-total">0</span></p>
+      <div id="pay-choices">
+        <p class="muted" data-i18n="choose_payment">Choose payment</p>
+        <button type="button" class="btn btn-primary btn-block" id="btn-pay-upi" data-i18n="upi">UPI</button>
+        <button type="button" class="btn btn-soft btn-block" id="btn-pay-cash" data-i18n="cash_counter">Cash / Counter</button>
+      </div>
+      <div id="pay-upi" hidden>
+        <p class="muted small" data-i18n="pay_upi_hint">Pay with any UPI app, then tell us you have paid.</p>
+        <a class="btn btn-soft btn-block" id="btn-upi-open" href="#" hidden data-i18n="open_upi_app">Open UPI app</a>
+        <p class="muted small" id="upi-id-line"></p>
+        <button type="button" class="btn btn-primary btn-block" id="btn-upi-paid" data-i18n="i_have_paid">I have paid</button>
+      </div>
+      <p class="muted" id="pay-msg"></p>
+    </main>
+  </div>
+
+  <!-- ========== PARTY BOOKING ========== -->
+  <div id="screen-party" class="screen">
+    <header class="top">
+      <button type="button" class="back" id="btn-party-back" aria-label="Back">←</button>
+      <strong data-i18n="party_booking">Party booking</strong>
+      <span></span>
+    </header>
+    <main class="main">
+      <form id="party-form" class="form" novalidate>
+        <label><span data-i18n="name">Name</span><input name="name" required maxlength="80" autocomplete="name"></label>
+        <label><span data-i18n="phone">Phone</span><input name="phone" type="tel" inputmode="numeric" required maxlength="15" autocomplete="tel" placeholder="10-digit mobile" data-i18n-placeholder="phone_hint"></label>
+        <label><span data-i18n="occasion">Occasion</span>
+          <select name="eventType" required>
+            <option value="Birthday" data-i18n="occ_birthday">Birthday</option>
+            <option value="Anniversary" data-i18n="occ_anniversary">Anniversary</option>
+            <option value="Family gathering" data-i18n="occ_family">Family gathering</option>
+            <option value="Office party" data-i18n="occ_office">Office party</option>
+            <option value="Other celebration" data-i18n="occ_other">Other celebration</option>
+          </select>
+        </label>
+        <label><span data-i18n="date">Choose a date</span><input name="date" type="date" required></label>
+        <label><span data-i18n="time">Time</span><input name="time" type="time" required></label>
+        <label><span data-i18n="guests">Number of people</span><input name="guests" type="number" inputmode="numeric" min="1" max="500" required></label>
+        <label><span data-i18n="message">Message / requirements</span><textarea name="message" rows="3" maxlength="1000"></textarea></label>
+        <p class="error-line" id="party-error" hidden></p>
+        <button type="submit" class="btn btn-primary btn-block" id="btn-party-send" data-i18n="send_request">Send request</button>
+      </form>
+      <p class="ok-line" id="party-ok" hidden></p>
+    </main>
+  </div>
+
+  <!-- ========== STAFF LOGIN ========== -->
+  <div id="screen-login" class="screen">
+    <header class="top">
+      <button type="button" class="back" id="btn-login-back" aria-label="Back">←</button>
+      <strong data-i18n="staff_login">Staff login</strong>
+      <span></span>
+    </header>
+    <main class="main">
+      <div class="role-tabs" id="role-tabs">
+        <button type="button" class="role-tab on" data-role="waiter" data-i18n="role_waiter">Waiter</button>
+        <button type="button" class="role-tab" data-role="kitchen" data-i18n="role_kitchen">Kitchen</button>
+        <button type="button" class="role-tab" data-role="admin" data-i18n="role_admin">Owner</button>
+      </div>
+      <form id="login-form" class="form" novalidate>
+        <label><span data-i18n="username">Username</span><input type="text" name="username" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
+        <label><span data-i18n="password">Password</span><input type="password" name="password" required autocomplete="current-password"></label>
+        <p class="error-line" id="login-error" hidden></p>
+        <button type="submit" class="btn btn-primary btn-block" id="btn-login" data-i18n="login">Login</button>
+      </form>
+    </main>
+  </div>
+
+  <!-- ========== WAITER ========== -->
+  <div id="screen-waiter" class="screen">
+    <header class="top">
+      <strong data-i18n="waiter">Waiter</strong>
+      <div class="top-actions">
+        <button type="button" class="lang-btn" data-action="lang" aria-label="Language">मराठी</button>
+        <button type="button" class="btn btn-sm" id="btn-waiter-logout" data-i18n="logout">Logout</button>
+      </div>
+    </header>
+    <main class="main">
+      <div id="waiter-tables-view">
+        <h2 class="section-title" data-i18n="tables">Tables</h2>
+        <div class="table-grid" id="waiter-tables"></div>
+      </div>
+      <div id="waiter-visit" hidden></div>
+    </main>
+  </div>
+
+  <!-- ========== KITCHEN ========== -->
+  <div id="screen-kitchen" class="screen">
+    <header class="top">
+      <strong data-i18n="kitchen">Kitchen</strong>
+      <div class="top-actions">
+        <button type="button" class="lang-btn" data-action="lang" aria-label="Language">मराठी</button>
+        <button type="button" class="btn btn-sm" id="btn-kitchen-logout" data-i18n="logout">Logout</button>
+      </div>
+    </header>
+    <main class="main">
+      <div class="kds" id="kitchen-board"></div>
+    </main>
+  </div>
+
+  <!-- ========== OWNER ========== -->
+  <div id="screen-owner" class="screen">
+    <header class="top">
+      <strong data-i18n="owner">Owner</strong>
+      <div class="top-actions">
+        <button type="button" class="lang-btn" data-action="lang" aria-label="Language">मराठी</button>
+        <button type="button" class="btn btn-sm" id="btn-owner-logout" data-i18n="logout">Logout</button>
+      </div>
+    </header>
+    <nav class="owner-nav" id="owner-nav">
+      <button type="button" class="on" data-panel="orders" data-i18n="nav_orders">Orders</button>
+      <button type="button" data-panel="tables" data-i18n="nav_tables">Tables</button>
+      <button type="button" data-panel="payments" data-i18n="nav_payments">Payments</button>
+      <button type="button" data-panel="menu" data-i18n="nav_menu">Menu</button>
+      <button type="button" data-panel="bookings" data-i18n="nav_bookings">Bookings</button>
+      <button type="button" data-panel="settings" data-i18n="nav_settings">Settings</button>
+    </nav>
+    <main class="main" id="owner-panel"></main>
+  </div>
+
+  <!-- Order of scripts matters. supabase-js (pinned 2.58.0) is served from this site, not a CDN,
+       so a blocked/slow CDN can never stop the app from starting. -->
+  <script src="./js/vendor/supabase-2.58.0.js"></script>
+  <script src="./js/config.js?v=3"></script>
+  <script src="./js/i18n.js?v=3"></script>
+  <script src="./js/supabase.js?v=3"></script>
+  <script src="./js/app.js?v=3"></script>
+</body>
+</html>
