@@ -1,1 +1,214 @@
-PLACEHOLDER_WILL_REPLACE
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1a120c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Mirch Masaala</title>
+  <link rel="stylesheet" href="./css/app.css">
+  <link rel="manifest" href="./manifest.webmanifest">
+</head>
+<body>
+  <!-- Global error UI (never white screen) -->
+  <div id="fatal" class="fatal" hidden>
+    <div class="fatal-card">
+      <div class="fatal-icon">⚠️</div>
+      <h1>Something went wrong</h1>
+      <p>We couldn’t load the restaurant. Please try again.</p>
+      <button type="button" class="btn btn-primary" onclick="location.reload()">Try Again</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- ========== CUSTOMER HOME ========== -->
+  <div id="screen-home" class="screen on">
+    <header class="top">
+      <div class="brand">
+        <span class="brand-mark">🌶️</span>
+        <div>
+          <strong>Mirch Masaala</strong>
+          <span class="muted small" id="home-status">Loading…</span>
+        </div>
+      </div>
+      <button type="button" class="lang-btn" id="btn-lang" aria-label="Language">मराठी</button>
+    </header>
+
+    <main class="main">
+      <section id="current-order" class="order-strip" hidden>
+        <div class="order-strip-left">
+          <span class="order-strip-label" data-i18n="your_order">Your current order</span>
+          <strong id="co-summary">—</strong>
+        </div>
+        <button type="button" class="btn btn-sm" id="btn-view-order" data-i18n="view">View</button>
+      </section>
+
+      <div class="search-row">
+        <input type="search" id="search-food" placeholder="Search food…" autocomplete="off" data-i18n-placeholder="search_food">
+      </div>
+
+      <div class="cats" id="categories" role="tablist"></div>
+
+      <div class="menu-list" id="menu-list">
+        <div class="loading" id="menu-loading">Loading menu…</div>
+      </div>
+    </main>
+
+    <footer class="cart-bar" id="cart-bar" hidden>
+      <div class="cart-info">
+        <span id="cart-count">0</span> items · ₹<span id="cart-total">0</span>
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-open-cart" data-i18n="view_cart">View cart</button>
+    </footer>
+
+    <button type="button" class="staff-entry" id="btn-staff" hidden>Staff</button>
+  </div>
+
+  <!-- CART -->
+  <div id="screen-cart" class="screen">
+    <header class="top">
+      <button type="button" class="back" id="btn-cart-back">←</button>
+      <strong data-i18n="your_cart">Your cart</strong>
+      <span></span>
+    </header>
+    <main class="main">
+      <div id="cart-items"></div>
+      <div class="cart-total-row">
+        <span data-i18n="total">Total</span>
+        <strong>₹<span id="cart-page-total">0</span></strong>
+      </div>
+      <textarea id="order-notes" rows="2" placeholder="Any special request?" data-i18n-placeholder="special_request"></textarea>
+      <button type="button" class="btn btn-primary btn-block" id="btn-place-order" data-i18n="place_order">Place order</button>
+    </main>
+  </div>
+
+  <!-- ORDER -->
+  <div id="screen-order" class="screen">
+    <header class="top">
+      <button type="button" class="back" id="btn-order-back">←</button>
+      <strong data-i18n="your_order">Your order</strong>
+      <span></span>
+    </header>
+    <main class="main">
+      <div id="order-detail"></div>
+    </main>
+  </div>
+
+  <!-- PAY -->
+  <div id="screen-pay" class="screen">
+    <header class="top">
+      <button type="button" class="back" id="btn-pay-back">←</button>
+      <strong data-i18n="payment">Payment</strong>
+      <span></span>
+    </header>
+    <main class="main center">
+      <p class="big-total">₹<span id="pay-total">0</span></p>
+      <p class="muted" data-i18n="choose_payment">Choose payment</p>
+      <button type="button" class="btn btn-primary btn-block" id="btn-pay-upi">UPI</button>
+      <button type="button" class="btn btn-soft btn-block" id="btn-pay-cash" data-i18n="cash_counter">Cash / Counter</button>
+      <p class="muted small" id="pay-msg"></p>
+    </main>
+  </div>
+
+  <!-- PARTY -->
+  <div id="screen-party" class="screen">
+    <header class="top">
+      <button type="button" class="back" id="btn-party-back">←</button>
+      <strong data-i18n="party_booking">Party booking</strong>
+      <span></span>
+    </header>
+    <main class="main">
+      <form id="party-form" class="form">
+        <label><span data-i18n="name">Name</span><input name="name" required></label>
+        <label><span data-i18n="phone">Phone</span><input name="phone" type="tel" required pattern="[0-9]{10}" placeholder="10-digit mobile"></label>
+        <label><span data-i18n="date">Date</span><input name="date" type="date" required></label>
+        <label><span data-i18n="time">Time</span><input name="time" type="time" required></label>
+        <label><span data-i18n="guests">Number of people</span><input name="guests" type="number" min="1" max="100" required></label>
+        <label><span data-i18n="message">Message / requirements</span><textarea name="message" rows="3"></textarea></label>
+        <button type="submit" class="btn btn-primary btn-block" data-i18n="send_request">Send request</button>
+      </form>
+    </main>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="screen-login" class="screen">
+    <header class="top">
+      <button type="button" class="back" id="btn-login-back">←</button>
+      <strong>Staff login</strong>
+      <span></span>
+    </header>
+    <main class="main center">
+      <div class="role-tabs">
+        <button type="button" class="role-tab on" data-role="waiter">Waiter</button>
+        <button type="button" class="role-tab" data-role="kitchen">Kitchen</button>
+        <button type="button" class="role-tab" data-role="admin">Owner</button>
+      </div>
+      <form id="login-form" class="form">
+        <label>Email<input type="email" name="email" required autocomplete="username"></label>
+        <label>Password<input type="password" name="password" required autocomplete="current-password"></label>
+        <button type="submit" class="btn btn-primary btn-block">Login</button>
+      </form>
+      <p class="muted small" id="login-error"></p>
+    </main>
+  </div>
+
+  <!-- WAITER -->
+  <div id="screen-waiter" class="screen">
+    <header class="top">
+      <strong>Waiter</strong>
+      <button type="button" class="btn btn-sm" id="btn-waiter-logout">Logout</button>
+    </header>
+    <main class="main">
+      <h2 class="section-title">Tables</h2>
+      <div class="table-grid" id="waiter-tables"></div>
+      <div id="waiter-visit" hidden>
+        <h2 class="section-title">Table <span id="waiter-table-num"></span></h2>
+        <div id="waiter-actions"></div>
+        <div id="waiter-menu"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- KITCHEN -->
+  <div id="screen-kitchen" class="screen">
+    <header class="top">
+      <strong>Kitchen</strong>
+      <button type="button" class="btn btn-sm" id="btn-kitchen-logout">Logout</button>
+    </header>
+    <main class="main">
+      <div class="kds" id="kitchen-board">
+        <div class="kcol"><h3>New</h3><div id="k-new"></div></div>
+        <div class="kcol"><h3>Preparing</h3><div id="k-prep"></div></div>
+        <div class="kcol"><h3>Ready</h3><div id="k-ready"></div></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- OWNER -->
+  <div id="screen-owner" class="screen">
+    <header class="top">
+      <strong>Owner</strong>
+      <button type="button" class="btn btn-sm" id="btn-owner-logout">Logout</button>
+    </header>
+    <nav class="owner-nav">
+      <button type="button" class="on" data-panel="orders">Orders</button>
+      <button type="button" data-panel="tables">Tables</button>
+      <button type="button" data-panel="menu">Menu</button>
+      <button type="button" data-panel="bookings">Bookings</button>
+      <button type="button" data-panel="settings">Settings</button>
+    </nav>
+    <main class="main" id="owner-panel">
+      <div id="owner-orders"></div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="./js/config.js"></script>
+  <script src="./js/i18n.js"></script>
+  <script src="./js/supabase.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
