@@ -85,49 +85,48 @@
       return first(await rpc('mm_public_table_visit_status', { p_table_number: pad2(table) }));
     },
 
+    _menuCache: null,
+    _menuCacheAt: 0,
+    _configCache: null,
+    _configCacheAt: 0,
+
     loadMenu: async function () {
+      var now = Date.now();
+      if (api._menuCache && (now - api._menuCacheAt) < 60000) return api._menuCache;
       var c = need();
-      var cats = await c.from('categories')
-        .select('id,name,sort_order,is_active')
-        .eq('restaurant_id', RID)
-        .order('sort_order', { ascending: true });
-      if (cats.error) throw cats.error;
-      var items = await c.from('menu_items')
-        .select('id,category_id,name,description,price,image_url,is_available,sort_order,is_veg,is_bestseller,spicy_level')
-        .eq('restaurant_id', RID)
-        .order('sort_order', { ascending: true });
-      if (items.error) throw items.error;
-      return { categories: cats.data || [], items: items.data || [] };
+      var pair = await Promise.all([
+        c.from('categories').select('id,name,sort_order,is_active').eq('restaurant_id', RID).order('sort_order', { ascending: true }),
+        c.from('menu_items').select('id,category_id,name,description,price,image_url,is_available,sort_order,is_veg,is_bestseller,spicy_level').eq('restaurant_id', RID).order('sort_order', { ascending: true })
+      ]);
+      if (pair[0].error) throw pair[0].error;
+      if (pair[1].error) throw pair[1].error;
+      var result = { categories: pair[0].data || [], items: pair[1].data || [] };
+      api._menuCache = result;
+      api._menuCacheAt = now;
+      return result;
     },
 
     loadConfig: async function () {
+      var now = Date.now();
+      if (api._configCache && (now - api._configCacheAt) < 120000) return api._configCache;
       var r = await need().from('mm_restaurant_config')
         .select('restaurant_name,tagline,admin_phone,upi_id,upi_name,phonepe_upi,whatsapp_number,whatsapp_name,google_reviews_url,pay_note,accept_card,accept_cash')
         .eq('restaurant_id', RID).maybeSingle();
       if (r.error) throw r.error;
-      return r.data || null;
+      api._configCache = r.data || null;
+      api._configCacheAt = now;
+      return api._configCache;
     },
 
     placeOrder: async function (opts) {
-      /* Live mm_place_order reads only menu_item_id + quantity per line. It has no
-       * per-dish spice/notes columns, so we do not send them. The order-level note
-       * (p_notes) IS stored in orders.notes. */
       var items = (opts.items || []).map(function (i) {
-        return {
-          menu_item_id: i.id,
-          quantity: Math.max(1, Math.min(99, Number(i.qty) || 1))
-        };
+        return { menu_item_id: i.id, quantity: Math.max(1, Math.min(99, Number(i.qty) || 1)) };
       });
       if (!items.length) throw new Error('EMPTY_CART');
       var args = {
-        p_restaurant_id: RID,
-        p_table_number: pad2(opts.table),
-        p_ticket_id: opts.ticket || ticketId(opts.table),
-        p_notes: String(opts.notes || '').slice(0, 1000),
-        p_items: items,
-        p_table_visit_id: opts.visitId,
-        p_customer_session_id: opts.sessionId || null,
-        p_guest_order_code: null
+        p_restaurant_id: RID, p_table_number: pad2(opts.table), p_ticket_id: opts.ticket || ticketId(opts.table),
+        p_notes: String(opts.notes || '').slice(0, 1000), p_items: items, p_table_visit_id: opts.visitId,
+        p_customer_session_id: opts.sessionId || null, p_guest_order_code: null
       };
       var created = first(await rpc('mm_place_order', args));
       if (!created || !created.id || !created.publicToken) throw new Error('ORDER_NOT_CONFIRMED');
@@ -158,12 +157,9 @@
 
     submitParty: async function (p) {
       return first(await rpc('mm_submit_party_booking', {
-        p_name: String(p.name || '').trim(),
-        p_phone: String(p.phone || '').trim(),
-        p_event_type: String(p.eventType || ''),
-        p_event_date: String(p.date || ''),
-        p_event_time: String(p.time || ''),
-        p_guest_count: Number(p.guests),
+        p_name: String(p.name || '').trim(), p_phone: String(p.phone || '').trim(),
+        p_event_type: String(p.eventType || ''), p_event_date: String(p.date || ''),
+        p_event_time: String(p.time || ''), p_guest_count: Number(p.guests),
         p_notes: String(p.message || '').trim()
       }));
     },
@@ -212,8 +208,7 @@
     },
 
     staffTables: async function () {
-      var r = await need().from('restaurant_tables')
-        .select('id,table_number').eq('restaurant_id', RID).eq('is_active', true);
+      var r = await need().from('restaurant_tables').select('id,table_number').eq('restaurant_id', RID).eq('is_active', true);
       if (r.error) throw r.error;
       return r.data || [];
     },
@@ -228,29 +223,21 @@
     },
     orderItems: async function (orderIds) {
       if (!orderIds.length) return [];
-      var r = await need().from('order_items')
-        .select('order_id,item_name,quantity,price').in('order_id', orderIds);
+      var r = await need().from('order_items').select('order_id,item_name,quantity,price').in('order_id', orderIds);
       if (r.error) throw r.error;
       return r.data || [];
     },
     setOrderStatus: async function (ticket, status) {
       var next = upper(status);
-      var r = await need().from('orders').update({ status: next })
-        .eq('restaurant_id', RID).eq('ticket_id', ticket)
-        .select('ticket_id,status').maybeSingle();
+      var r = await need().from('orders').update({ status: next }).eq('restaurant_id', RID).eq('ticket_id', ticket).select('ticket_id,status').maybeSingle();
       if (r.error) throw r.error;
       if (!r.data || upper(r.data.status) !== next) throw new Error('NOT_UPDATED');
       return r.data;
     },
 
-    /* staffCode: the waiter's code (e.g. W01). Waiters only receive alerts addressed to
-     * their own code (plus unaddressed ones) when it is supplied. */
     notifications: async function (limit, staffCode) {
       var code = String(staffCode || '').trim().toUpperCase();
-      var d = await rpc('mm_staff_notifications', {
-        p_limit: limit || 40,
-        p_staff_code: code || null
-      });
+      var d = await rpc('mm_staff_notifications', { p_limit: limit || 40, p_staff_code: code || null });
       return Array.isArray(d) ? d : [];
     },
     visitBill: async function (visitId) {
@@ -265,15 +252,13 @@
 
     updatePrice: async function (id, price) {
       var p = Math.round(Number(price));
-      var r = await need().from('menu_items').update({ price: p })
-        .eq('restaurant_id', RID).eq('id', id).select('id,price').maybeSingle();
+      var r = await need().from('menu_items').update({ price: p }).eq('restaurant_id', RID).eq('id', id).select('id,price').maybeSingle();
       if (r.error) throw r.error;
       if (!r.data || Number(r.data.price) !== p) throw new Error('NOT_UPDATED');
       return r.data;
     },
     setAvailable: async function (id, on) {
-      var r = await need().from('menu_items').update({ is_available: !!on })
-        .eq('restaurant_id', RID).eq('id', id).select('id,is_available').maybeSingle();
+      var r = await need().from('menu_items').update({ is_available: !!on }).eq('restaurant_id', RID).eq('id', id).select('id,is_available').maybeSingle();
       if (r.error) throw r.error;
       if (!r.data || r.data.is_available !== !!on) throw new Error('NOT_UPDATED');
       return r.data;
