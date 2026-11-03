@@ -258,8 +258,118 @@
     }, 30);
   }, true);
 
+  /* ---------- Compact customer navigation ---------- */
+  var CUSTOMER_SCREENS = {
+    'screen-welcome': 'home',
+    'screen-menu': 'menu',
+    'screen-cart': 'cart',
+    'screen-order': 'order',
+    'screen-placed': 'order',
+    'screen-pay': 'order',
+    'screen-party': 'home'
+  };
+  var STAFF_PREFIX = ['screen-login', 'screen-waiter', 'screen-kitchen', 'screen-owner'];
+
+  function activeScreenId() {
+    var on = document.querySelector('.screen.on');
+    return on ? on.id : '';
+  }
+
+  function isStaffScreen(id) {
+    return STAFF_PREFIX.some(function (p) { return id === p; });
+  }
+
+  function updateCustomerNav() {
+    var nav = document.getElementById('customer-nav');
+    if (!nav) return;
+    var id = activeScreenId();
+    var staff = isStaffScreen(id);
+    nav.hidden = !!staff;
+    document.body.classList.toggle('has-cnav', !staff);
+    var key = CUSTOMER_SCREENS[id] || '';
+    nav.querySelectorAll('[data-cnav]').forEach(function (btn) {
+      btn.classList.toggle('on', btn.getAttribute('data-cnav') === key);
+    });
+  }
+
+  function goCustomer(target) {
+    if (target === 'home') {
+      document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
+      var w = document.getElementById('screen-welcome');
+      if (w) w.classList.add('on');
+      try { history.pushState({ mm: 'home' }, '', location.pathname + location.search); } catch (e) {}
+      updateCustomerNav();
+      return;
+    }
+    if (target === 'menu') {
+      var back = document.getElementById('btn-menu-home');
+      var view = document.getElementById('btn-view-menu');
+      var menu = document.getElementById('screen-menu');
+      if (menu && menu.querySelector('.food-card')) {
+        document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
+        menu.classList.add('on');
+        try { history.pushState({ mm: 'menu' }, '', location.pathname + location.search); } catch (e) {}
+        updateCustomerNav();
+        return;
+      }
+      if (view) { view.click(); updateCustomerNav(); return; }
+      if (back) { back.click(); updateCustomerNav(); return; }
+      document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
+      if (menu) menu.classList.add('on');
+      updateCustomerNav();
+      return;
+    }
+    if (target === 'cart') {
+      var open = document.getElementById('btn-open-cart');
+      if (open) open.click();
+      else {
+        document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
+        var c = document.getElementById('screen-cart');
+        if (c) c.classList.add('on');
+      }
+      try { history.pushState({ mm: 'cart' }, '', location.pathname + location.search); } catch (e) {}
+      setTimeout(updateCustomerNav, 50);
+      return;
+    }
+    if (target === 'order') {
+      var o1 = document.getElementById('btn-view-order-home');
+      var o2 = document.getElementById('btn-view-order');
+      var o3 = document.getElementById('btn-placed-view');
+      var coh = document.getElementById('current-order-home');
+      if (o1 && coh && !coh.hidden) o1.click();
+      else if (o3) o3.click();
+      else if (o2) o2.click();
+      else {
+        document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
+        var od = document.getElementById('screen-order');
+        if (od) od.classList.add('on');
+      }
+      try { history.pushState({ mm: 'order' }, '', location.pathname + location.search); } catch (e) {}
+      setTimeout(updateCustomerNav, 50);
+      return;
+    }
+  }
+
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('[data-cnav]');
+    if (!btn) return;
+    ev.preventDefault();
+    goCustomer(btn.getAttribute('data-cnav'));
+  }, true);
+
+  window.addEventListener('popstate', function () {
+    setTimeout(updateCustomerNav, 30);
+  });
+
+  var screenRoot = document.body;
+  if (screenRoot) {
+    new MutationObserver(function () { updateCustomerNav(); })
+      .observe(screenRoot, { subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+  }
+
   function boot() {
     enhanceHome();
+    updateCustomerNav();
     enhanceMenuList();
     enhanceCategories();
     enhanceOrderDetail();
