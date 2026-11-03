@@ -1,0 +1,146 @@
+/* ===== V2 layout bridge (customer only) ===== */
+.hero { position: relative; overflow: hidden; }
+.home-steam-layer {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+}
+.hero-title, .hero-sub, .hero-visual { position: relative; z-index: 1; }
+
+#btn-scan-qr.scan-cta,
+button.scan-cta {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px !important;
+  border-radius: 18px !important;
+  min-height: 76px;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  background: linear-gradient(135deg, #c45a28 0%, #a84820 100%) !important;
+  box-shadow: 0 10px 24px rgba(196, 90, 40, 0.28);
+}
+.scan-qr-copy { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.scan-qr-copy b { font-size: 15px; font-weight: 700; color: #fff; }
+.scan-qr-copy small { font-size: 11px; color: rgba(255,255,255,.78); font-weight: 500; }
+.scan-cta-arrow { font-size: 1.2rem; opacity: .85; }
+
+.food-media {
+  position: relative;
+  width: 104px; height: 104px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #221a14;
+  flex-shrink: 0;
+}
+.food-media .dish-photo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; z-index: 2;
+}
+.food-media .dish-art {
+  position: absolute; inset: 0; z-index: 1;
+}
+.food-card.just-added .dish-art { animation: mmDishPop .4s ease-out both; }
+.food-card.just-added .dish-art-steam path { animation: mmDishSteamLiftAgain 2.2s ease-in-out 2; }
+
+.cat-with-art {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  padding-left: 8px !important;
+}
+.cat-art {
+  width: 22px; height: 22px;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.cat-art .dish-art { min-height: 22px; border-radius: 6px; }
+.cat-art .dish-art svg { min-height: 22px; }
+
+.cart-row.cart-line {
+  grid-template-columns: 52px 1fr auto auto;
+  align-items: center;
+}
+.cart-pic {
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  background: #221a14;
+}
+.cart-pic .dish-photo,
+.cart-pic .dish-art {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+}
+.cart-pic .dish-photo { object-fit: cover; z-index: 2; }
+
+#cart-bar.bump { animation: mmBump .36s ease-out; }
+
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; padding: 36px 16px; color: var(--muted, #a89888); text-align: center;
+}
+.empty-plate { width: 120px; height: 80px; color: rgba(245,230,210,.35); margin-bottom: 4px; }
+.empty-state b { color: var(--text-soft, #e8dccb); font-size: 1rem; }
+.empty-state span { font-size: 0.85rem; }
+
+.success-hero { margin-bottom: 8px; }
+.success-plate { display: block; margin: 0 auto; }
+.success-steam path { animation: mmSuccessSteam 2.8s ease-in-out infinite; }
+
+.order-progress {
+  background: linear-gradient(135deg, rgba(212,168,75,.12), rgba(38,28,24,.95));
+  border: 1px solid rgba(245,230,210,.1);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 14px 0;
+}
+.progress-heading { display: flex; align-items: center; gap: 8px; }
+.progress-chef { font-size: 1.25rem; }
+.progress-title { flex: 1; font-size: 0.9rem; font-weight: 700; }
+.progress-percent { color: #d4b483; font-weight: 800; font-variant-numeric: tabular-nums; }
+.progress-track {
+  height: 8px; background: rgba(255,255,255,.09); border-radius: 999px;
+  overflow: hidden; margin: 12px 0 10px;
+}
+.progress-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #bd822b, #f0d78c);
+  transition: width .6s cubic-bezier(.2,.8,.2,1);
+  position: relative;
+}
+.progress-fill::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.4), transparent);
+  animation: mmShimmer 2.2s linear infinite;
+}
+.progress-steps { display: flex; justify-content: space-between; gap: 4px; }
+.progress-steps > span {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  position: relative; text-align: center;
+}
+.progress-steps > span + span::before {
+  content: ""; position: absolute; top: 6px; right: 50%; width: 100%; height: 2px;
+  background: rgba(255,255,255,.12); z-index: 0;
+}
+.progress-steps > span.done + span::before,
+.progress-steps > span.active::before { background: #3dba6e; }
+.step-dot {
+  width: 14px; height: 14px; border-radius: 50%; position: relative; z-index: 1;
+  background: #2b2420; border: 2px solid rgba(255,255,255,.22); display: block;
+}
+.progress-steps > span.done .step-dot { background: #3dba6e; border-color: #3dba6e; }
+.progress-steps > span.active .step-dot {
+  border-color: #e08a4a; box-shadow: 0 0 0 3px rgba(196,90,40,.25); background: #c45a28;
+}
+.progress-steps em { font-style: normal; font-size: 11px; color: #a89888; }
+.progress-steps > span.done em,
+.progress-steps > span.active em { color: #e8dccb; font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-steam, .scan-qr-beam, .success-steam path,
+  .dish-art-steam path, .progress-fill::after, #cart-bar.bump,
+  .food-card.just-added .dish-art { animation: none !important; }
+}
