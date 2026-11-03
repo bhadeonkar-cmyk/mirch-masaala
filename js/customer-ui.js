@@ -279,17 +279,37 @@
     return STAFF_PREFIX.some(function (p) { return id === p; });
   }
 
+  var _navBusy = false;
+  var _started = false;
+  var _observed = false;
+
   function updateCustomerNav() {
+    if (_navBusy) return;
     var nav = document.getElementById('customer-nav');
     if (!nav) return;
-    var id = activeScreenId();
-    var staff = isStaffScreen(id);
-    nav.hidden = !!staff;
-    document.body.classList.toggle('has-cnav', !staff);
-    var key = CUSTOMER_SCREENS[id] || '';
-    nav.querySelectorAll('[data-cnav]').forEach(function (btn) {
-      btn.classList.toggle('on', btn.getAttribute('data-cnav') === key);
-    });
+    _navBusy = true;
+    try {
+      var id = activeScreenId();
+      var staff = isStaffScreen(id);
+      var hide = !!staff;
+      if (nav.hidden !== hide) nav.hidden = hide;
+      if (!staff) {
+        if (!document.body.classList.contains('has-cnav')) document.body.classList.add('has-cnav');
+      } else {
+        if (document.body.classList.contains('has-cnav')) document.body.classList.remove('has-cnav');
+      }
+      var key = CUSTOMER_SCREENS[id] || '';
+      nav.querySelectorAll('[data-cnav]').forEach(function (btn) {
+        var on = btn.getAttribute('data-cnav') === key;
+        if (on) {
+          if (!btn.classList.contains('on')) btn.classList.add('on');
+        } else {
+          if (btn.classList.contains('on')) btn.classList.remove('on');
+        }
+      });
+    } finally {
+      _navBusy = false;
+    }
   }
 
   function goCustomer(target) {
@@ -312,8 +332,8 @@
         updateCustomerNav();
         return;
       }
-      if (view) { view.click(); updateCustomerNav(); return; }
-      if (back) { back.click(); updateCustomerNav(); return; }
+      if (view) { view.click(); setTimeout(updateCustomerNav, 50); return; }
+      if (back) { back.click(); setTimeout(updateCustomerNav, 50); return; }
       document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
       if (menu) menu.classList.add('on');
       updateCustomerNav();
@@ -361,12 +381,6 @@
     setTimeout(updateCustomerNav, 30);
   });
 
-  var screenRoot = document.body;
-  if (screenRoot) {
-    new MutationObserver(function () { updateCustomerNav(); })
-      .observe(screenRoot, { subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
-  }
-
   function boot() {
     enhanceHome();
     updateCustomerNav();
@@ -378,20 +392,43 @@
   }
 
   function observe() {
-    ['menu-list', 'order-detail', 'screen-placed', 'cart-items', 'categories'].forEach(function (id) {
+    if (_observed) return;
+    _observed = true;
+
+    /* Only watch screen class changes on .screen elements — not body-wide.
+       Avoids loops: updateCustomerNav toggles body/nav classes. */
+    document.querySelectorAll('.screen').forEach(function (el) {
+      new MutationObserver(function () {
+        updateCustomerNav();
+      }).observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+
+    /* Content enhancers: childList only, no attribute resets that re-trigger insert */
+    var targets = {
+      'menu-list': enhanceMenuList,
+      'order-detail': enhanceOrderDetail,
+      'screen-placed': enhancePlaced,
+      'cart-items': enhanceCart,
+      'categories': enhanceCategories
+    };
+    Object.keys(targets).forEach(function (id) {
       var el = document.getElementById(id);
       if (!el) return;
+      var pending = false;
       new MutationObserver(function () {
-        if (id === 'menu-list') enhanceMenuList();
-        if (id === 'categories') { el.removeAttribute('data-mm-cats'); enhanceCategories(); }
-        if (id === 'order-detail') enhanceOrderDetail();
-        if (id === 'screen-placed') enhancePlaced();
-        if (id === 'cart-items') enhanceCart();
-      }).observe(el, { childList: true, subtree: true });
+        if (pending) return;
+        pending = true;
+        setTimeout(function () {
+          pending = false;
+          targets[id]();
+        }, 0);
+      }).observe(el, { childList: true, subtree: false });
     });
   }
 
   function start() {
+    if (_started) return;
+    _started = true;
     observe();
     boot();
   }
@@ -400,6 +437,6 @@
   } else {
     setTimeout(start, 300);
   }
-  setTimeout(start, 1000);
-  setTimeout(start, 2200);
+  /* One late catch if menu loads after first boot — does not re-register observers */
+  setTimeout(function () { if (_started) boot(); }, 1500);
 })();
