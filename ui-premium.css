@@ -21,3 +21,269 @@
   from { transform: translateY(16px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* ---------------------------------------------------------
+   Mirch Masaala customer-home premium layer
+   UI only — no backend/application behaviour changes.
+   --------------------------------------------------------- */
+#screen-welcome {
+  overflow: hidden;
+}
+
+#screen-welcome .hero {
+  position: relative;
+  isolation: isolate;
+  padding-top: clamp(8px, 2vh, 18px);
+}
+
+/* Chef: integrated restaurant character, intentionally secondary to QR. */
+#screen-welcome .hero-visual {
+  position: relative;
+  z-index: 2;
+  width: clamp(108px, 30vw, 154px);
+  height: clamp(108px, 30vw, 154px);
+  margin: 0 auto 6px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: clamp(54px, 14vw, 78px);
+  line-height: 1;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(246,217,172,.20), transparent 42%),
+    radial-gradient(circle at 50% 80%, rgba(184,78,44,.18), transparent 68%);
+  box-shadow: 0 18px 45px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.10);
+  animation: chefFloat 4.8s ease-in-out infinite;
+}
+#screen-welcome .hero-visual::before {
+  content: "👨‍🍳";
+  display: block;
+  filter: drop-shadow(0 7px 10px rgba(0,0,0,.24));
+}
+#screen-welcome .hero-visual::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(246,217,172,.18);
+  border-radius: inherit;
+  pointer-events: none;
+}
+#screen-welcome .hero-visual { color: transparent; }
+
+@keyframes chefFloat {
+  0%, 100% { transform: translate3d(0,0,0) rotate(-1deg); }
+  50% { transform: translate3d(0,-4px,0) rotate(1deg); }
+}
+
+/* Soft culinary ambience behind the chef/scanner. */
+#screen-welcome .hero::before,
+#screen-welcome .hero::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  z-index: -1;
+  filter: blur(18px);
+}
+#screen-welcome .hero::before {
+  width: 180px;
+  height: 180px;
+  left: 4%;
+  top: 4%;
+  background: rgba(184,78,44,.11);
+  animation: ambienceDrift 8s ease-in-out infinite;
+}
+#screen-welcome .hero::after {
+  width: 150px;
+  height: 150px;
+  right: 3%;
+  top: 26%;
+  background: rgba(246,217,172,.08);
+  animation: ambienceDrift 10s ease-in-out -3s infinite reverse;
+}
+@keyframes ambienceDrift {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); opacity: .65; }
+  50% { transform: translate3d(8px,-10px,0) scale(1.06); opacity: 1; }
+}
+
+/* Lightweight steam/particles supplied by the existing customer visual layer. */
+#screen-welcome .home-steam-layer {
+  position: absolute;
+  inset: 5% 8% 35%;
+  pointer-events: none;
+  z-index: 3;
+}
+#screen-welcome .home-steam {
+  position: absolute;
+  left: var(--steam-x);
+  bottom: 0;
+  width: 3px;
+  height: 34px;
+  border-radius: 999px;
+  background: linear-gradient(to top, rgba(246,217,172,.05), rgba(246,217,172,.45), transparent);
+  opacity: 0;
+  filter: blur(.3px);
+  animation: steamRise 5.5s ease-out var(--steam-delay) infinite;
+}
+@keyframes steamRise {
+  0% { opacity: 0; transform: translate3d(0,8px,0) scale(.8); }
+  18% { opacity: .48; }
+  70% { opacity: .18; }
+  100% { opacity: 0; transform: translate3d(8px,-38px,0) scale(1.15); }
+}
+
+/* Scanner remains the strongest visual/action on Home. */
+#screen-welcome .scan-cta {
+  position: relative;
+  overflow: hidden;
+  min-height: clamp(116px, 25vw, 150px);
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  transform: translateZ(0);
+  box-shadow: 0 18px 42px rgba(0,0,0,.24), 0 0 0 1px rgba(246,217,172,.08) inset;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+#screen-welcome .scan-cta:active {
+  transform: scale(.975);
+}
+#screen-welcome .scan-cta:hover {
+  transform: translateY(-2px);
+}
+#screen-welcome .scan-qr-visual {
+  position: relative;
+  flex: 0 0 clamp(66px, 17vw, 92px);
+  width: clamp(66px, 17vw, 92px);
+  height: clamp(66px, 17vw, 92px);
+  border-radius: 18px;
+  border: 1px solid rgba(246,217,172,.28);
+  background: rgba(0,0,0,.12);
+  box-shadow: inset 0 0 22px rgba(246,217,172,.06);
+}
+#screen-welcome .scan-qr-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: rgba(246,217,172,.95);
+}
+#screen-welcome .scan-qr-tl { left: 10px; top: 10px; border-left: 2px solid; border-top: 2px solid; }
+#screen-welcome .scan-qr-tr { right: 10px; top: 10px; border-right: 2px solid; border-top: 2px solid; }
+#screen-welcome .scan-qr-bl { left: 10px; bottom: 10px; border-left: 2px solid; border-bottom: 2px solid; }
+#screen-welcome .scan-qr-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  left: 50%;
+  top: 50%;
+  margin: -6px;
+  border-radius: 3px;
+  background: rgba(246,217,172,.82);
+  box-shadow: 0 0 14px rgba(246,217,172,.30);
+}
+#screen-welcome .scan-qr-beam {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 13px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(246,217,172,.72);
+  box-shadow: 0 0 10px rgba(246,217,172,.38);
+  animation: scanBeam 2.4s ease-in-out infinite;
+}
+@keyframes scanBeam {
+  0%, 100% { transform: translateY(0); opacity: .35; }
+  50% { transform: translateY(58px); opacity: .85; }
+}
+#screen-welcome .scan-qr-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+#screen-welcome .scan-qr-copy b {
+  font-size: clamp(18px, 4.5vw, 23px);
+  letter-spacing: .01em;
+}
+#screen-welcome .scan-qr-copy small {
+  opacity: .72;
+  line-height: 1.35;
+}
+#screen-welcome .scan-cta-arrow {
+  font-size: 24px;
+  opacity: .65;
+  transition: transform 180ms ease;
+}
+#screen-welcome .scan-cta:hover .scan-cta-arrow { transform: translateX(3px); }
+
+/* Secondary actions stay useful but visually quiet. */
+#screen-welcome .home-secondary {
+  gap: 10px;
+}
+#screen-welcome .home-secondary .btn-soft {
+  border-radius: 16px;
+  min-height: 46px;
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+#screen-welcome .home-secondary .btn-soft:active {
+  transform: scale(.97);
+}
+
+/* Premium screen/window depth transition. */
+.screen.on {
+  animation: screenEnter 280ms cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes screenEnter {
+  from { opacity: .72; transform: scale(.965) translateY(5px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Food cards get a restrained depth entrance; no continuous heavy animation. */
+#screen-menu.screen.on .food-card {
+  animation: cardDepthIn 300ms cubic-bezier(.22,1,.36,1) both;
+}
+#screen-menu.screen.on .food-card:nth-child(2n) { animation-delay: 24ms; }
+#screen-menu.screen.on .food-card:nth-child(3n) { animation-delay: 48ms; }
+@keyframes cardDepthIn {
+  from { opacity: .82; transform: scale(.985) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@media (max-width: 520px) {
+  #screen-welcome .hero-visual {
+    width: 116px;
+    height: 116px;
+    font-size: 60px;
+  }
+  #screen-welcome .scan-cta {
+    min-height: 128px;
+    gap: 11px;
+    padding: 12px;
+  }
+  #screen-welcome .scan-qr-visual {
+    flex-basis: 70px;
+    width: 70px;
+    height: 70px;
+  }
+  #screen-welcome .scan-qr-copy small {
+    font-size: 11px;
+  }
+  #screen-welcome .scan-cta-arrow { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #screen-welcome .hero-visual,
+  #screen-welcome .hero::before,
+  #screen-welcome .hero::after,
+  #screen-welcome .home-steam,
+  #screen-welcome .scan-qr-beam,
+  .screen.on,
+  #screen-menu.screen.on .food-card {
+    animation: none !important;
+  }
+  #screen-welcome .scan-cta,
+  #screen-welcome .home-secondary .btn-soft {
+    transition: none !important;
+  }
+}
