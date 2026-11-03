@@ -109,14 +109,13 @@
     },
 
     placeOrder: async function (opts) {
+      /* Live mm_place_order reads only menu_item_id + quantity per line. It has no
+       * per-dish spice/notes columns, so we do not send them. The order-level note
+       * (p_notes) IS stored in orders.notes. */
       var items = (opts.items || []).map(function (i) {
-        var spice = String(i.spice || 'normal').toLowerCase();
-        if (['normal', 'mild', 'medium', 'hot'].indexOf(spice) < 0) spice = 'normal';
         return {
           menu_item_id: i.id,
-          quantity: Math.max(1, Number(i.qty) || 1),
-          spice_level: spice,
-          notes: String(i.notes || '').slice(0, 300)
+          quantity: Math.max(1, Math.min(99, Number(i.qty) || 1))
         };
       });
       if (!items.length) throw new Error('EMPTY_CART');
@@ -244,8 +243,14 @@
       return r.data;
     },
 
-    notifications: async function (limit) {
-      var d = await rpc('mm_staff_notifications', { p_limit: limit || 40, p_staff_code: null });
+    /* staffCode: the waiter's code (e.g. W01). Waiters only receive alerts addressed to
+     * their own code (plus unaddressed ones) when it is supplied. */
+    notifications: async function (limit, staffCode) {
+      var code = String(staffCode || '').trim().toUpperCase();
+      var d = await rpc('mm_staff_notifications', {
+        p_limit: limit || 40,
+        p_staff_code: code || null
+      });
       return Array.isArray(d) ? d : [];
     },
     visitBill: async function (visitId) {

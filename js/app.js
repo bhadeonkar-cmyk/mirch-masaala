@@ -113,16 +113,19 @@
     if (msg) msg.textContent = MM.t('checking_table');
     if (retry) retry.hidden = true;
     try {
+      /* Live contract (mm_public_table_visit_status): { status: OPEN|AVAILABLE|UNKNOWN,
+       * can_order: boolean, message, and visit_id + started_at only when OPEN }.
+       * Ordering is allowed only when can_order is true AND a visit id is present. */
       var st = await api.tableStatus(table);
       S.gate = st;
-      S.visitId = st && (st.visit_id || st.visitId || st.id) || null;
-      var status = String((st && (st.status || st.visit_status || st.state)) || '').toUpperCase();
-      var open = status === 'OPEN' || status === 'ACTIVE' || status === 'BUSY' || !!S.visitId;
-      if (!st) {
+      S.visitId = null;
+      if (!st || String(st.status || '').toUpperCase() === 'UNKNOWN') {
         if (msg) msg.textContent = MM.t('table_not_found');
         if (retry) retry.hidden = false;
         return false;
       }
+      var open = st.can_order === true && !!st.visit_id;
+      if (open) S.visitId = st.visit_id;
       if (!open) {
         if (msg) msg.textContent = MM.t('table_not_open');
         if (retry) retry.hidden = false;
@@ -164,7 +167,7 @@
     if (!el) return;
     var html = '<button type="button" class="cat on" data-cat="">' + MM.t('all') + '</button>';
     S.categories.forEach(function (c) {
-      html += '<button type="button" class="cat" data-cat="' + c.id + '">' + escapeHtml(c.name) + '</button>';
+      html += '<button type="button" class="cat" data-cat="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '</button>';
     });
     el.innerHTML = html;
     el.onclick = function (ev) {
@@ -194,28 +197,35 @@
     items.forEach(function (it) {
       var veg = it.is_veg ? '<span class="veg" title="Veg">●</span>' : '<span class="nonveg" title="Non-veg">●</span>';
       var price = Math.round(Number(it.price) || 0);
-      html += '<div class="food-card" data-id="' + it.id + '">' +
+      html += '<div class="food-card" data-id="' + escapeHtml(it.id) + '">' +
         '<div class="food-info">' +
           '<div class="food-name">' + veg + ' ' + escapeHtml(it.name) + '</div>' +
           (it.description ? '<div class="food-desc muted small">' + escapeHtml(it.description) + '</div>' : '') +
           '<div class="food-price">₹' + price + '</div>' +
         '</div>' +
-        '<button type="button" class="btn btn-sm btn-add" data-add="' + it.id + '">' + MM.t('add') + '</button>' +
+        '<button type="button" class="btn btn-sm btn-add" data-add="' + escapeHtml(it.id) + '">' + MM.t('add') + '</button>' +
       '</div>';
     });
     list.innerHTML = html;
   }
 
+  /* Escape for both text nodes and double/single-quoted attributes. */
   function escapeHtml(s) {
-    return String(s || '').replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"');
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
+  MM.escapeHtml = escapeHtml;
 
   function addToCart(id) {
     var it = S.menu.find(function (m) { return String(m.id) === String(id); });
     if (!it) return;
     var existing = S.cart.find(function (c) { return String(c.id) === String(id); });
     if (existing) existing.qty = (existing.qty || 1) + 1;
-    else S.cart.push({ id: it.id, name: it.name, price: Number(it.price) || 0, qty: 1, spice: 'normal', notes: '' });
+    else S.cart.push({ id: it.id, name: it.name, price: Number(it.price) || 0, qty: 1 });
     saveCart();
     updateCartBar();
     toast(it.name + ' +1');
@@ -260,6 +270,10 @@
       toast(MM.t('scan_qr'));
       return;
     }
+    if (!S.visitId) {
+      toast(MM.t('table_not_open'));
+      return;
+    }
     if (!S.cart.length) return;
     var btn = $('btn-place-order');
     var err = $('order-error');
@@ -273,14 +287,16 @@
         sessionId: sessionId,
         notes: (($('order-notes') || {}).value || '').trim(),
         items: S.cart.map(function (c) {
-          return { id: c.id, qty: c.qty || 1, spice: c.spice || 'normal', notes: c.notes || '' };
+          return { id: c.id, qty: c.qty || 1 };
         })
       });
-      var ticket = created.ticket_id || created.ticketId || created.ticket || '';
-      var token = created.publicToken || created.public_token || '';
-      var orderNumber = created.order_number || created.orderNumber || ticket;
+      /* Contract (mm_place_order): id = ticket id (T01-…), dbId = orders.id uuid,
+       * publicToken, orderNumber (integer), table, visitId, total, status. */
+      var ticket = created.id || '';
+      var token = created.publicToken || '';
+      var orderNumber = created.orderNumber != null ? created.orderNumber : ticket;
       saveMyOrder({
-        id: created.id,
+        id: created.dbId || created.id,
         ticket: ticket,
         token: token,
         table: S.table,
@@ -314,7 +330,8 @@
     if (!box) return;
     box.innerHTML = '<div class="loading">' + MM.t('loading_order') + '</div>';
     try {
-      var detail = await api.getPublicOrder(o.ticket, o.token);
+      var ticketId = o.ticket || (/^[A-Z0-9-]{8,64}$/.test(String(o.id || '')) ? o.id : '');
+      var detail = await api.getPublicOrder(ticketId, o.token);
       if (!detail) {
         box.innerHTML = '<div class="empty">' + MM.t('order_not_found') + '</div>';
         return;
@@ -363,9 +380,15 @@
     $('pay-upi').hidden = true;
     $('pay-msg').textContent = '';
     try {
+      /* Contract (mm_guest_get_visit_bill): { table, visit_id, visit_status, amount, order_count,
+       * orders_in_progress }. `amount` is the unpaid balance for this visit. */
       var bill = await api.guestBill(o.table, o.visitId, api.customerSessionId(o.visitId));
-      var due = bill && (bill.balance || bill.due || bill.total) || 0;
+      var due = Number(bill && bill.amount) || 0;
       $('pay-total').textContent = Math.round(due);
+      if (due <= 0.01) {
+        $('pay-choices').hidden = true;
+        $('pay-msg').textContent = MM.t('nothing_to_pay');
+      }
     } catch (e) {
       $('pay-total').textContent = '—';
     }
@@ -491,54 +514,185 @@
   }
 
   /* ---------- waiter ---------- */
+  /* Waiters share one login, so the person picks their name (from mm_list_waiters) and the
+   * app remembers it on this device. The code (e.g. W01) is required to start a visit and is
+   * passed to mm_staff_notifications so the waiter sees alerts addressed to them. */
+  var WAITER_KEY = 'mm_waiter_code';
+
+  function selectedWaiter() {
+    return String(MM.store.get(WAITER_KEY, '') || '').trim().toUpperCase();
+  }
+
+  function settle(promise) {
+    return Promise.resolve(promise).then(
+      function (value) { return { ok: true, value: value }; },
+      function (error) { console.error('[MM waiter]', error); return { ok: false, error: error }; }
+    );
+  }
+
+  function renderWaiterPicker(waiters) {
+    var sel = $('waiter-pick');
+    if (!sel) return;
+    var current = selectedWaiter();
+    var known = (waiters || []).some(function (w) { return String(w.waiter_code).toUpperCase() === current; });
+    if (!known) { current = ''; MM.store.remove(WAITER_KEY); }
+    var html = '<option value="">' + escapeHtml(MM.t('choose_waiter')) + '</option>';
+    (waiters || []).forEach(function (w) {
+      var code = String(w.waiter_code || '').toUpperCase();
+      html += '<option value="' + escapeHtml(code) + '"' + (code === current ? ' selected' : '') + '>' +
+        escapeHtml(w.display_name || code) + ' (' + escapeHtml(code) + ')</option>';
+    });
+    sel.innerHTML = html;
+    sel.onchange = function () {
+      var v = String(sel.value || '').toUpperCase();
+      if (v) MM.store.set(WAITER_KEY, v); else MM.store.remove(WAITER_KEY);
+      loadWaiterAlerts();
+    };
+    var hint = $('waiter-pick-hint');
+    if (hint) {
+      hint.hidden = (waiters || []).length > 0;
+      hint.textContent = MM.t('no_waiters');
+    }
+  }
+
+  async function loadWaiterAlerts() {
+    var box = $('waiter-alerts');
+    if (!box) return;
+    var r = await settle(api.notifications(10, selectedWaiter()));
+    if (!r.ok) { box.innerHTML = ''; return; }
+    var list = r.value || [];
+    if (!list.length) { box.innerHTML = ''; return; }
+    var html = '<h2 class="section-title">' + escapeHtml(MM.t('alerts')) + '</h2>';
+    list.forEach(function (n) {
+      html += '<div class="order-card compact">' +
+        (n.table_number ? '<strong>T' + escapeHtml(n.table_number) + '</strong> ' : '') +
+        '<span>' + escapeHtml(n.message || n.notification_type) + '</span>' +
+        (n.item_name ? '<div class="muted small">' + escapeHtml(n.item_name) + '</div>' : '') +
+        '</div>';
+    });
+    box.innerHTML = html;
+  }
+
   async function showWaiter() {
     showScreen('screen-waiter');
     var box = $('waiter-tables');
     if (!box) return;
     box.innerHTML = '<div class="loading">' + MM.t('loading') + '</div>';
-    try {
-      var visits = await api.tableVisits();
-      var tables = await api.staffTables();
-      var byNum = {};
-      (visits || []).forEach(function (v) {
-        byNum[api.pad2(v.table_number || v.tableNumber)] = v;
-      });
-      var html = '';
-      (tables || []).forEach(function (t) {
-        var num = api.pad2(t.table_number || t.tableNumber);
-        var v = byNum[num];
-        var open = v && String(v.status || v.visit_status || '').toUpperCase() === 'OPEN';
-        html += '<button type="button" class="table-card ' + (open ? 'busy' : 'free') + '" data-table="' + num + '">' +
-          '<strong>' + num + '</strong>' +
-          '<span class="muted small">' + (open ? MM.t('st_open') : MM.t('st_available')) + '</span>' +
-        '</button>';
-      });
-      if (!html) html = '<div class="empty">' + MM.t('tables_empty') + '</div>';
-      box.innerHTML = html;
-      box.onclick = async function (ev) {
-        var btn = ev.target.closest('.table-card');
-        if (!btn) return;
-        var num = btn.getAttribute('data-table');
-        var v = byNum[num];
-        var open = v && String(v.status || '').toUpperCase() === 'OPEN';
+
+    var res = await Promise.all([
+      settle(api.listWaiters()),
+      settle(api.tableVisits()),
+      settle(api.staffTables()),
+      settle(api.staffOrders(true))
+    ]);
+    var waitersR = res[0], visitsR = res[1], tablesR = res[2], ordersR = res[3];
+
+    if (!tablesR.ok && !visitsR.ok) {
+      box.innerHTML = '<div class="empty">' + MM.t('offline') + '</div>';
+      return;
+    }
+
+    var waiters = waitersR.ok ? waitersR.value : [];
+    renderWaiterPicker(waiters);
+
+    var visits = visitsR.ok ? visitsR.value : [];
+    var tables = tablesR.ok ? tablesR.value : [];
+    var byNum = {};
+    (visits || []).forEach(function (v) {
+      byNum[api.pad2(v.table_number || v.tableNumber)] = v;
+    });
+    var tableNumById = {};
+    (tables || []).forEach(function (t) { tableNumById[t.id] = api.pad2(t.table_number); });
+
+    var html = '';
+    (tables || []).slice().sort(function (a, b) {
+      return String(a.table_number).localeCompare(String(b.table_number), undefined, { numeric: true });
+    }).forEach(function (t) {
+      var num = api.pad2(t.table_number || t.tableNumber);
+      var v = byNum[num];
+      var open = !!v && String(v.status || v.visit_status || '').toUpperCase() === 'OPEN';
+      var who = open && v.assigned_waiter_code ? ' · ' + escapeHtml(v.assigned_waiter_code) : '';
+      html += '<button type="button" class="table-card ' + (open ? 'busy' : 'free') + '" data-table="' + escapeHtml(num) +
+        '" data-open="' + (open ? '1' : '0') + '">' +
+        '<strong>' + escapeHtml(num) + '</strong>' +
+        '<span class="muted small">' + (open ? MM.t('st_open') : MM.t('st_available')) + who + '</span>' +
+      '</button>';
+    });
+    if (!html) html = '<div class="empty">' + MM.t('tables_empty') + '</div>';
+    box.innerHTML = html;
+    box.onclick = async function (ev) {
+      var btn = ev.target.closest('.table-card');
+      if (!btn) return;
+      var num = btn.getAttribute('data-table');
+      if (btn.getAttribute('data-open') === '1') { showWaiter(); return; }
+      var code = selectedWaiter();
+      if (!code) {
+        toast(MM.t((waiters || []).length ? 'choose_waiter' : 'no_waiters'));
+        var sel = $('waiter-pick');
+        if (sel) sel.focus();
+        return;
+      }
+      try {
+        await api.startVisit(num, code);
+        toast(MM.t('visit_started'));
+        showWaiter();
+      } catch (e) {
+        console.error('[MM startVisit]', e);
+        toast(MM.t('visit_failed'));
+      }
+    };
+
+    /* Ready tickets: the kitchen marks READY, the waiter marks SERVED (database guard allows
+     * waiters only READY -> SERVED). */
+    var readyBox = $('waiter-ready');
+    if (readyBox) {
+      var ready = ordersR.ok ? (ordersR.value || []).filter(function (o) {
+        return String(o.status || '').toUpperCase() === 'READY';
+      }) : [];
+      if (!ready.length) {
+        readyBox.innerHTML = '';
+      } else {
+        var itemsR = await settle(api.orderItems(ready.map(function (o) { return o.id; })));
+        var byOrder = {};
+        (itemsR.ok ? itemsR.value : []).forEach(function (it) {
+          (byOrder[it.order_id] = byOrder[it.order_id] || []).push(it);
+        });
+        var rh = '<h2 class="section-title">' + escapeHtml(MM.t('ready_to_serve')) + '</h2>';
+        ready.forEach(function (o) {
+          var tn = tableNumById[o.table_id];
+          rh += '<div class="k-card" data-ticket="' + escapeHtml(o.ticket_id) + '">' +
+            '<div class="k-head"><strong>' + (tn ? 'T' + escapeHtml(tn) + ' · ' : '') +
+              escapeHtml(o.ticket_id || o.order_number) + '</strong></div><ul>';
+          (byOrder[o.id] || []).forEach(function (it) {
+            rh += '<li>' + escapeHtml(it.item_name) + ' × ' + (Number(it.quantity) || 1) + '</li>';
+          });
+          rh += '</ul><button type="button" class="btn btn-sm" data-serve="1">' + escapeHtml(MM.t('mark_served')) + '</button></div>';
+        });
+        readyBox.innerHTML = rh;
+      }
+      readyBox.onclick = async function (ev) {
+        var b = ev.target.closest('[data-serve]');
+        if (!b) return;
+        var card = b.closest('.k-card');
+        var ticket = card && card.getAttribute('data-ticket');
+        if (!ticket) return;
+        b.disabled = true;
         try {
-          if (!open) {
-            await api.startVisit(num, null);
-            toast(MM.t('visit_started'));
-          }
+          await api.setOrderStatus(ticket, 'SERVED');
           showWaiter();
         } catch (e) {
-          console.error(e);
-          toast(MM.t('visit_failed'));
+          console.error('[MM serve]', e);
+          b.disabled = false;
+          toast(MM.t('status_update_failed'));
         }
       };
-    } catch (e) {
-      console.error('[MM waiter]', e);
-      box.innerHTML = '<div class="empty">' + MM.t('offline') + '</div>';
     }
+
+    loadWaiterAlerts();
   }
 
   /* ---------- kitchen ---------- */
+  /* Kitchen can only move NEW -> PREPARING -> READY (database guard). Serving is the waiter's job. */
   async function showKitchen() {
     showScreen('screen-kitchen');
     var board = $('kitchen-board');
@@ -567,12 +721,12 @@
             '<div class="k-head"><strong>' + escapeHtml(o.ticket_id || o.order_number) + '</strong></div>' +
             '<ul>';
           lines.forEach(function (it) {
-            html += '<li>' + escapeHtml(it.item_name) + ' × ' + (it.quantity || 1) + '</li>';
+            html += '<li>' + escapeHtml(it.item_name) + ' × ' + (Number(it.quantity) || 1) + '</li>';
           });
           html += '</ul>';
+          if (o.notes) html += '<div class="muted small">' + escapeHtml(o.notes) + '</div>';
           if (lane === 'NEW') html += '<button type="button" class="btn btn-sm" data-next="PREPARING">' + MM.t('start') + '</button>';
           if (lane === 'PREPARING') html += '<button type="button" class="btn btn-sm" data-next="READY">' + MM.t('mark_ready') + '</button>';
-          if (lane === 'READY') html += '<button type="button" class="btn btn-sm" data-next="SERVED">' + MM.t('mark_served') + '</button>';
           html += '</div>';
         });
         html += '</div>';
@@ -631,7 +785,7 @@
           var num = api.pad2(v.table_number || v.tableNumber);
           var st = String(v.status || '').toUpperCase();
           html += '<div class="table-card ' + (st === 'OPEN' ? 'busy' : 'free') + '">' +
-            '<strong>' + num + '</strong><span class="muted small">' + st + '</span></div>';
+            '<strong>' + escapeHtml(num) + '</strong><span class="muted small">' + escapeHtml(st) + '</span></div>';
         });
         html += '</div>';
         box.innerHTML = html;
@@ -679,6 +833,7 @@
       }
       if (t.closest('#btn-view-menu')) {
         S.table = null;
+        S.visitId = null;
         showMenu();
         return;
       }
@@ -712,6 +867,7 @@
         if (S.table) checkTableGate(S.table).then(function (ok) { if (ok) loadMenuUI(); });
         return;
       }
+      if (t.closest('#btn-waiter-refresh')) { showWaiter(); return; }
       if (t.closest('#btn-waiter-logout') || t.closest('#btn-kitchen-logout') || t.closest('#btn-owner-logout')) {
         logout();
         return;
