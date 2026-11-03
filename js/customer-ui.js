@@ -77,16 +77,65 @@
     }
   }
 
+  /* Progressive menu enhance: never block first paint with 50+ SVG injections. */
+  var _menuEnhanceScheduled = false;
+  var _menuIO = null;
+
+  function ensureMenuIO() {
+    if (_menuIO || typeof IntersectionObserver === 'undefined') return _menuIO;
+    _menuIO = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        if (!e.isIntersecting) continue;
+        var card = e.target;
+        _menuIO.unobserve(card);
+        if (card.getAttribute('data-ui')) continue;
+        enhanceCard(card);
+      }
+    }, { root: null, rootMargin: '180px 0px', threshold: 0.01 });
+    return _menuIO;
+  }
+
   function enhanceMenuList() {
     var list = document.getElementById('menu-list');
     if (!list) return;
     var cards = list.querySelectorAll('.food-card');
-    for (var i = 0; i < cards.length; i++) enhanceCard(cards[i]);
-    if (!cards.length && V && !list.querySelector('.empty-state')) {
-      if (!list.querySelector('.loading')) {
+    if (!cards.length) {
+      if (V && !list.querySelector('.empty-state') && !list.querySelector('.loading')) {
         list.innerHTML = V.emptyPlateMarkup('No items', 'Try another search or category.');
       }
+      return;
     }
+    /* Prefer IntersectionObserver: only build dish-art for near-viewport cards. */
+    var io = ensureMenuIO();
+    if (io) {
+      for (var i = 0; i < cards.length; i++) {
+        if (cards[i].getAttribute('data-ui')) continue;
+        io.observe(cards[i]);
+      }
+      /* Eagerly enhance first few visible rows so menu does not look empty of art. */
+      var eager = Math.min(cards.length, 8);
+      for (var j = 0; j < eager; j++) {
+        if (!cards[j].getAttribute('data-ui')) enhanceCard(cards[j]);
+      }
+      return;
+    }
+    /* Fallback: RAF chunks of 6 — keeps main thread responsive. */
+    if (_menuEnhanceScheduled) return;
+    _menuEnhanceScheduled = true;
+    var idx = 0;
+    function chunk() {
+      var end = Math.min(idx + 6, cards.length);
+      for (; idx < end; idx++) {
+        if (!cards[idx].getAttribute('data-ui')) enhanceCard(cards[idx]);
+      }
+      if (idx < cards.length) {
+        requestAnimationFrame(chunk);
+      } else {
+        _menuEnhanceScheduled = false;
+      }
+    }
+    requestAnimationFrame(chunk);
   }
 
   function enhanceCategories() {
@@ -381,11 +430,14 @@
     setTimeout(updateCustomerNav, 30);
   });
 
-  function boot() {
+  function bootCritical() {
     enhanceHome();
     updateCustomerNav();
-    enhanceMenuList();
+  }
+
+  function bootDeferred() {
     enhanceCategories();
+    enhanceMenuList();
     enhanceOrderDetail();
     enhancePlaced();
     enhanceCart();
@@ -395,15 +447,12 @@
     if (_observed) return;
     _observed = true;
 
-    /* Only watch screen class changes on .screen elements — not body-wide.
-       Avoids loops: updateCustomerNav toggles body/nav classes. */
     document.querySelectorAll('.screen').forEach(function (el) {
       new MutationObserver(function () {
         updateCustomerNav();
       }).observe(el, { attributes: true, attributeFilter: ['class'] });
     });
 
-    /* Content enhancers: childList only, no attribute resets that re-trigger insert */
     var targets = {
       'menu-list': enhanceMenuList,
       'order-detail': enhanceOrderDetail,
@@ -418,10 +467,10 @@
       new MutationObserver(function () {
         if (pending) return;
         pending = true;
-        setTimeout(function () {
+        requestAnimationFrame(function () {
           pending = false;
           targets[id]();
-        }, 0);
+        });
       }).observe(el, { childList: true, subtree: false });
     });
   }
@@ -430,13 +479,17 @@
     if (_started) return;
     _started = true;
     observe();
-    boot();
+    bootCritical();
+    var run = function () { bootDeferred(); };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(run, { timeout: 600 });
+    } else {
+      setTimeout(run, 0);
+    }
   }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(start, 300); });
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(start, 0); });
   } else {
-    setTimeout(start, 300);
+    setTimeout(start, 0);
   }
-  /* One late catch if menu loads after first boot — does not re-register observers */
-  setTimeout(function () { if (_started) boot(); }, 1500);
 })();
