@@ -1,0 +1,226 @@
+/* Mirch Masaala identity — ported from 51e8b2d ui-premium.css (customer visuals only) */
+
+@keyframes mmDishSteamLift {
+  0%, 100% { opacity: .2; transform: translateY(2px) scaleX(.92); }
+  48% { opacity: .72; transform: translateY(-2px) scaleX(1.04); }
+}
+@keyframes mmDishSteamLiftAgain {
+  0%, 100% { opacity: .25; transform: translateY(1px) scaleX(.94); }
+  50% { opacity: .85; transform: translateY(-3px) scaleX(1.06); }
+}
+@keyframes mmDishArtArrive {
+  from { opacity: .65; transform: scale(.965); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes mmDishPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+@keyframes mmDishShine {
+  to { transform: translateX(120%); }
+}
+@keyframes mmBump {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+@keyframes mmBeamSweep {
+  0% { top: 8px; opacity: .35; }
+  50% { top: 34px; opacity: 1; }
+  100% { top: 8px; opacity: .35; }
+}
+@keyframes mmArrowNudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+@keyframes mmStatusPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196,90,40,.35); }
+  50% { box-shadow: 0 0 0 6px rgba(196,90,40,0); }
+}
+@keyframes mmSuccessSteam {
+  0%, 100% { opacity: .35; transform: translateY(2px); }
+  50% { opacity: .9; transform: translateY(-4px); }
+}
+@keyframes mmShimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@keyframes mmPlateIn {
+  from { opacity: 0; transform: scale(.92) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes mmFoodImageSettle {
+  from { opacity: .6; transform: scale(1.04); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes homeSteamRise {
+  0% { opacity: 0; transform: translate3d(0, 36px, 0) rotate(-7deg) scaleX(.68); }
+  18% { opacity: .58; }
+  58% { opacity: .32; transform: translate3d(10px, -24px, 0) rotate(8deg) scaleX(1.1); }
+  100% { opacity: 0; transform: translate3d(-6px, -72px, 0) rotate(-8deg) scaleX(.82); }
+}
+@keyframes mmBubbleRise {
+  0% { transform: translateY(4px); opacity: .4; }
+  60% { opacity: 1; }
+  100% { transform: translateY(-5px); opacity: 0; }
+}
+
+/* Dish art system */
+.dish-art {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  overflow: hidden;
+  border: 1px solid rgba(214,177,112,.18);
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 50% 72%, rgba(185,91,43,.18), transparent 56%),
+    linear-gradient(145deg, #322016 0%, #211611 54%, #17100d 100%);
+  box-shadow: inset 0 1px rgba(255,242,215,.045), inset 0 -5px 12px rgba(0,0,0,.12);
+  animation: mmDishArtArrive .32s ease-out both;
+}
+.dish-art::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 4px;
+  border: 1px solid rgba(244,211,158,.075);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.dish-art svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  overflow: visible;
+}
+.dish-art-steam {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.dish-art-steam path {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  stroke-dasharray: 20 5;
+  animation: mmDishSteamLift 2.6s ease-in-out infinite;
+}
+.dish-art-steam .steam-b { animation-delay: -.85s; }
+.dish-art-steam .steam-c { animation-delay: -1.55s; }
+.dish-art--rice { background: radial-gradient(ellipse at 48% 72%, rgba(229,180,72,.14), transparent 58%), linear-gradient(145deg,#302016,#1b130f); }
+.dish-art--curry { background: radial-gradient(ellipse at 48% 72%, rgba(193,77,39,.18), transparent 58%), linear-gradient(145deg,#322019,#1b130f); }
+.dish-art--bread { background: radial-gradient(ellipse at 48% 72%, rgba(218,155,57,.16), transparent 58%), linear-gradient(145deg,#322317,#1b130f); }
+.dish-art--snack { background: radial-gradient(ellipse at 48% 72%, rgba(205,129,43,.15), transparent 58%), linear-gradient(145deg,#322216,#1b130f); }
+.dish-art--thali { background: radial-gradient(ellipse at 48% 72%, rgba(185,91,43,.2), transparent 58%), linear-gradient(145deg,#322016,#1b130f); }
+.dish-art--south { background: radial-gradient(ellipse at 48% 72%, rgba(229,180,72,.14), transparent 58%), linear-gradient(145deg,#2e2014,#1b130f); }
+.dish-art--drink, .dish-art--cool-drink { background: radial-gradient(ellipse at 48% 72%, rgba(120,160,180,.14), transparent 58%), linear-gradient(145deg,#1e2428,#121618); }
+.dish-art--dessert { background: radial-gradient(ellipse at 48% 72%, rgba(200,120,80,.16), transparent 58%), linear-gradient(145deg,#322016,#1b130f); }
+.dish-art--signature { background: radial-gradient(ellipse at 48% 72%, rgba(185,91,43,.18), transparent 58%), linear-gradient(145deg,#322016,#1b130f); }
+.dish-art--cool-drink svg circle { animation: mmBubbleRise 2.6s ease-in 3 both; transform-box: fill-box; }
+.dish-art--cool-drink svg circle:nth-of-type(2) { animation-delay: .8s; }
+.dish-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 38%, rgba(255,244,214,.16) 50%, transparent 62%);
+  transform: translateX(-120%);
+  animation: mmDishShine 1.2s .45s ease-out 1 both;
+}
+.dish-photo { animation: mmFoodImageSettle .4s ease-out both; }
+
+/* Home steam */
+.home-steam {
+  position: absolute;
+  top: 58px;
+  left: var(--steam-x);
+  width: 29px;
+  height: 190px;
+  border-radius: 48% 52% 42% 58%;
+  opacity: 0;
+  filter: blur(13px);
+  background: linear-gradient(to top, transparent 0%, rgba(240,215,140,.025) 16%, rgba(255,245,221,.105) 48%, rgba(240,215,140,.035) 78%, transparent 100%);
+  transform-origin: 50% 100%;
+  animation: homeSteamRise 9.5s ease-in-out var(--steam-delay) infinite;
+  pointer-events: none;
+}
+.home-steam::before,
+.home-steam::after {
+  content: "";
+  position: absolute;
+  inset: 17% 6px 8%;
+  border-radius: 55% 45% 58% 42%;
+  background: inherit;
+  filter: blur(3px);
+}
+.home-steam::before { transform: translateX(-9px) rotate(13deg); }
+.home-steam::after { transform: translateX(8px) rotate(-12deg); }
+
+/* Scan QR visual */
+.scan-qr-visual {
+  position: relative;
+  flex: 0 0 50px;
+  width: 50px;
+  height: 50px;
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgba(212,168,75,.28);
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(0,0,0,.13));
+  box-shadow: inset 0 0 8px rgba(212,168,75,.025);
+}
+.scan-qr-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #c4a96d;
+  border-radius: 4px;
+}
+.scan-qr-tl { left: 7px; top: 7px; border-right: 0; border-bottom: 0; }
+.scan-qr-tr { right: 7px; top: 7px; border-left: 0; border-bottom: 0; }
+.scan-qr-bl { left: 7px; bottom: 7px; border-right: 0; border-top: 0; }
+.scan-qr-dot {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: #c4a96d;
+}
+.scan-qr-beam {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  top: 9px;
+  height: 2px;
+  border-radius: 2px;
+  background: #c4a96d;
+  box-shadow: 0 0 5px 1px rgba(196,169,109,.18);
+  animation: mmBeamSweep 2.5s ease-in-out infinite;
+}
+.scan-cta-arrow { animation: mmArrowNudge 1.8s ease-in-out infinite; }
+
+/* Success */
+.success-plate { animation: mmPlateIn .45s ease-out both; }
+.success-steam path { animation: mmSuccessSteam 2.8s ease-in-out infinite; }
+.success-steam path:nth-child(2) { animation-delay: .4s; }
+.success-steam path:nth-child(3) { animation-delay: .8s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-steam, .scan-qr-beam, .scan-cta-arrow,
+  .dish-art-steam path, .dish-art::after,
+  .success-steam path, .success-plate {
+    animation: none !important;
+  }
+}
