@@ -1,5 +1,23 @@
-/*
- * MIRCH MASAALA — Premium UI / Motion Layer
- * A presentation-only layer over the existing app.
- * PLACEHOLDER - full content will be restored
- */
+/* Premium motion accents — customer only */
+.food-card { will-change: transform; }
+.btn-primary { letter-spacing: 0.02em; }
+#screen-welcome.screen.on .hero-title {
+  animation: fadeUp 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+#screen-welcome.screen.on .hero-sub {
+  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both;
+}
+#screen-welcome.screen.on .home-actions {
+  animation: fadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) 100ms both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.cart-bar:not([hidden]) {
+  animation: cartSlide 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes cartSlide {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
