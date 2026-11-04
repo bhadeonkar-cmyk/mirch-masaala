@@ -77,7 +77,6 @@
     }
   }
 
-  /* Progressive menu enhance: never block first paint with 50+ SVG injections. */
   var _menuEnhanceScheduled = false;
   var _menuIO = null;
 
@@ -126,11 +125,8 @@
       for (; idx < end; idx++) {
         if (!cards[idx].getAttribute('data-ui')) enhanceCard(cards[idx]);
       }
-      if (idx < cards.length) {
-        requestAnimationFrame(chunk);
-      } else {
-        _menuEnhanceScheduled = false;
-      }
+      if (idx < cards.length) requestAnimationFrame(chunk);
+      else _menuEnhanceScheduled = false;
     }
     requestAnimationFrame(chunk);
   }
@@ -223,9 +219,23 @@
 
   function enhanceHome() {
     var scan = document.getElementById('btn-scan-qr');
-    if (scan && !scan.querySelector('.scan-qr-visual')) {
+    if (scan) {
+      var label = '';
+      var existingB = scan.querySelector('.scan-qr-copy b');
+      if (existingB && existingB.textContent.trim()) label = existingB.textContent.trim();
+      else label = (scan.textContent || '').replace(/\s+/g, ' ').trim() || 'Scan table QR';
+      if (window.MM && MM.t) {
+        try { label = MM.t('scan_qr_cta') || label; } catch (e) {}
+      }
+      var sub = 'Open your table menu and start ordering';
+      if (window.MM && MM.t) {
+        try {
+          var hint = MM.t('scan_qr_hint');
+          if (hint && hint !== 'scan_qr_hint') sub = hint;
+        } catch (e) {}
+      }
       scan.classList.add('scan-cta', 'btn-main');
-      var label = scan.textContent.trim() || 'Scan table QR';
+      scan.removeAttribute('data-i18n');
       scan.innerHTML =
         '<span class="scan-qr-visual" aria-hidden="true">' +
         '<span class="scan-qr-corner scan-qr-tl"></span>' +
@@ -234,11 +244,11 @@
         '<span class="scan-qr-dot"></span>' +
         '<span class="scan-qr-beam"></span></span>' +
         '<span class="scan-qr-copy"><b>' + label + '</b>' +
-        '<small>Open your table menu and start ordering</small></span>' +
+        '<small>' + sub + '</small></span>' +
         '<span class="scan-cta-arrow" aria-hidden="true">→</span>';
     }
     var hero = document.querySelector('#screen-welcome .hero');
-    if (hero && !hero.querySelector('.home-steam')) {
+    if (hero && !hero.querySelector('.home-steam-layer') && !hero.querySelector('.home-steam')) {
       var steam = document.createElement('div');
       steam.className = 'home-steam-layer';
       steam.setAttribute('aria-hidden', 'true');
@@ -251,10 +261,12 @@
     }
   }
 
-  /* Soft homepage actions — no new business logic / screens.
-   * QR help & How-to: instructional toasts (same pattern as scan hint).
-   * Places / Reviews: not implemented as customer screens in V2 — report via toast.
-   */
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest('#btn-lang, [data-action="lang"]')) return;
+    setTimeout(enhanceHome, 0);
+    setTimeout(enhanceHome, 50);
+  }, true);
+
   function softToast(key) {
     var msg = (window.MM && MM.t) ? MM.t(key) : key;
     var el = document.getElementById('toast');
@@ -267,35 +279,18 @@
 
   document.addEventListener('click', function (ev) {
     var help = ev.target.closest('#btn-qr-help, [data-action="qr-help"]');
-    if (help) {
-      ev.preventDefault();
-      softToast('qr_help_msg');
-      return;
-    }
+    if (help) { ev.preventDefault(); softToast('qr_help_msg'); return; }
     var howto = ev.target.closest('#btn-how-to, [data-action="how-to"]');
-    if (howto) {
-      ev.preventDefault();
-      softToast('how_to_msg');
-      return;
-    }
+    if (howto) { ev.preventDefault(); softToast('how_to_msg'); return; }
     var places = ev.target.closest('#btn-places, [data-action="places"]');
-    if (places) {
-      ev.preventDefault();
-      softToast('places_unavailable');
-      return;
-    }
+    if (places) { ev.preventDefault(); softToast('places_unavailable'); return; }
     var reviews = ev.target.closest('#btn-reviews, [data-action="reviews"]');
     if (reviews) {
       ev.preventDefault();
       var url = null;
-      try {
-        url = MM.state && MM.state.config && (MM.state.config.google_reviews_url || MM.state.config.google_review_url);
-      } catch (e) {}
-      if (url && /^https?:\/\//i.test(String(url))) {
-        window.open(String(url), '_blank', 'noopener');
-      } else {
-        softToast('reviews_unavailable');
-      }
+      try { url = MM.state && MM.state.config && (MM.state.config.google_reviews_url || MM.state.config.google_review_url); } catch (e) {}
+      if (url && /^https?:\/\//i.test(String(url))) window.open(String(url), '_blank', 'noopener');
+      else softToast('reviews_unavailable');
       return;
     }
   }, true);
@@ -395,15 +390,10 @@
       var key = CUSTOMER_SCREENS[id] || '';
       nav.querySelectorAll('[data-cnav]').forEach(function (btn) {
         var on = btn.getAttribute('data-cnav') === key;
-        if (on) {
-          if (!btn.classList.contains('on')) btn.classList.add('on');
-        } else {
-          if (btn.classList.contains('on')) btn.classList.remove('on');
-        }
+        if (on) { if (!btn.classList.contains('on')) btn.classList.add('on'); }
+        else { if (btn.classList.contains('on')) btn.classList.remove('on'); }
       });
-    } finally {
-      _navBusy = false;
-    }
+    } finally { _navBusy = false; }
   }
 
   function goCustomer(target) {
@@ -491,13 +481,9 @@
   function observe() {
     if (_observed) return;
     _observed = true;
-
     document.querySelectorAll('.screen').forEach(function (el) {
-      new MutationObserver(function () {
-        updateCustomerNav();
-      }).observe(el, { attributes: true, attributeFilter: ['class'] });
+      new MutationObserver(function () { updateCustomerNav(); }).observe(el, { attributes: true, attributeFilter: ['class'] });
     });
-
     var targets = {
       'menu-list': enhanceMenuList,
       'order-detail': enhanceOrderDetail,
@@ -512,10 +498,7 @@
       new MutationObserver(function () {
         if (pending) return;
         pending = true;
-        requestAnimationFrame(function () {
-          pending = false;
-          targets[id]();
-        });
+        requestAnimationFrame(function () { pending = false; targets[id](); });
       }).observe(el, { childList: true, subtree: false });
     });
   }
@@ -526,11 +509,8 @@
     observe();
     bootCritical();
     var run = function () { bootDeferred(); };
-    if (typeof requestIdleCallback === 'function') {
-      requestIdleCallback(run, { timeout: 600 });
-    } else {
-      setTimeout(run, 0);
-    }
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 600 });
+    else setTimeout(run, 0);
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { setTimeout(start, 0); });
