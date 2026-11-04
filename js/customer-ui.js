@@ -106,21 +106,18 @@
       }
       return;
     }
-    /* Prefer IntersectionObserver: only build dish-art for near-viewport cards. */
     var io = ensureMenuIO();
     if (io) {
       for (var i = 0; i < cards.length; i++) {
         if (cards[i].getAttribute('data-ui')) continue;
         io.observe(cards[i]);
       }
-      /* Eagerly enhance first few visible rows so menu does not look empty of art. */
       var eager = Math.min(cards.length, 8);
       for (var j = 0; j < eager; j++) {
         if (!cards[j].getAttribute('data-ui')) enhanceCard(cards[j]);
       }
       return;
     }
-    /* Fallback: RAF chunks of 6 — keeps main thread responsive. */
     if (_menuEnhanceScheduled) return;
     _menuEnhanceScheduled = true;
     var idx = 0;
@@ -254,6 +251,55 @@
     }
   }
 
+  /* Soft homepage actions — no new business logic / screens.
+   * QR help & How-to: instructional toasts (same pattern as scan hint).
+   * Places / Reviews: not implemented as customer screens in V2 — report via toast.
+   */
+  function softToast(key) {
+    var msg = (window.MM && MM.t) ? MM.t(key) : key;
+    var el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(softToast._t);
+    softToast._t = setTimeout(function () { el.hidden = true; }, 3600);
+  }
+
+  document.addEventListener('click', function (ev) {
+    var help = ev.target.closest('#btn-qr-help, [data-action="qr-help"]');
+    if (help) {
+      ev.preventDefault();
+      softToast('qr_help_msg');
+      return;
+    }
+    var howto = ev.target.closest('#btn-how-to, [data-action="how-to"]');
+    if (howto) {
+      ev.preventDefault();
+      softToast('how_to_msg');
+      return;
+    }
+    var places = ev.target.closest('#btn-places, [data-action="places"]');
+    if (places) {
+      ev.preventDefault();
+      softToast('places_unavailable');
+      return;
+    }
+    var reviews = ev.target.closest('#btn-reviews, [data-action="reviews"]');
+    if (reviews) {
+      ev.preventDefault();
+      var url = null;
+      try {
+        url = MM.state && MM.state.config && (MM.state.config.google_reviews_url || MM.state.config.google_review_url);
+      } catch (e) {}
+      if (url && /^https?:\/\//i.test(String(url))) {
+        window.open(String(url), '_blank', 'noopener');
+      } else {
+        softToast('reviews_unavailable');
+      }
+      return;
+    }
+  }, true);
+
   document.addEventListener('click', function (ev) {
     var plus = ev.target.closest('[data-qty-plus]');
     var minus = ev.target.closest('[data-qty-minus]');
@@ -307,7 +353,6 @@
     }, 30);
   }, true);
 
-  /* ---------- Compact customer navigation ---------- */
   var CUSTOMER_SCREENS = {
     'screen-welcome': 'home',
     'screen-menu': 'menu',
