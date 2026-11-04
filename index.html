@@ -7,10 +7,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <title>Mirch Masaala</title>
-  <link rel="stylesheet" href="./css/app.css?v=10">
-  <link rel="stylesheet" href="./ui-premium.css?v=10">
-  <link rel="stylesheet" href="./css/mm-identity.css?v=10">
-  <link rel="stylesheet" href="./css/mm-identity-bridge.css?v=10">
+  <link rel="stylesheet" href="./css/app.css?v=11">
+  <link rel="stylesheet" href="./ui-premium.css?v=11">
+  <link rel="stylesheet" href="./css/mm-identity.css?v=11">
+  <link rel="stylesheet" href="./css/mm-identity-bridge.css?v=11">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
@@ -55,31 +55,115 @@
   <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
 
   <div id="screen-welcome" class="screen on">
-    <header class="top top-home">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true">🌶️</span>
-        <div>
-          <strong>Mirch Masaala</strong>
-          <span class="muted small">Garden Restaurant</span>
-        </div>
+    <header class="top top-home home-status-bar">
+      <div class="home-status-left">
+        <span class="status-pill open" id="home-open-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span data-i18n="open_now">OPEN NOW</span>
+        </span>
+        <span class="status-signed" id="home-signed-status" data-i18n="signed_out">Signed out.</span>
       </div>
-      <button type="button" class="lang-btn" id="btn-lang" aria-label="Language">मराठी</button>
+      <div class="home-status-right">
+        <span class="lang-label muted small" data-i18n="language_label">Language / भाषा</span>
+        <button type="button" class="lang-btn" id="btn-lang" aria-label="Language">मराठी</button>
+      </div>
     </header>
+
     <main class="main main-home">
-      <section class="hero">
-        <div class="hero-visual" aria-hidden="true">🍽️</div>
-        <h1 class="hero-title" data-i18n="welcome_title">Welcome</h1>
-        <p class="hero-sub muted" data-i18n="welcome_sub">Authentic flavours · Warm hospitality</p>
-      </section>
-      <div class="home-actions">
-        <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-scan-qr" data-i18n="scan_qr_cta">Scan QR to Order</button>
-        <p class="muted small center" data-i18n="scan_qr_hint">Point your camera at the QR code on your table</p>
-        <div class="home-secondary">
-          <button type="button" class="btn btn-soft" id="btn-view-menu" data-i18n="view_menu">View Menu</button>
-          <button type="button" class="btn btn-soft" id="btn-party" data-i18n="party_booking">Party Booking</button>
+      <!-- My orders strip (wired by existing order state when present) -->
+      <button type="button" class="home-orders-card" id="btn-my-orders" hidden>
+        <span class="home-orders-icon" aria-hidden="true">🔄</span>
+        <span class="home-orders-copy">
+          <strong data-i18n="my_orders">My orders</strong>
+          <span class="muted small" data-i18n="check_items_status">Check items & status</span>
+        </span>
+        <span class="home-orders-count" id="home-orders-count">0</span>
+        <span class="home-orders-chevron" aria-hidden="true">›</span>
+      </button>
+
+      <section class="hero home-hero">
+        <div class="home-brand-lockup">
+          <div class="home-brand-visual" aria-hidden="true">
+            <span class="home-chef-pot">👨‍🍳</span>
+            <span class="home-chili">🌶️</span>
+          </div>
+          <div class="home-brand-text">
+            <h1 class="home-logo">MIRCH<br>MASAALA</h1>
+            <p class="home-logo-sub" data-i18n="indian_restaurant">INDIAN RESTAURANT</p>
+          </div>
         </div>
-        <button type="button" class="link staff-link" id="btn-staff" data-i18n="staff">Staff Login</button>
+        <p class="home-tagline" data-i18n="dine_easy">Dine in made easy — scan your table QR.</p>
+      </section>
+
+      <section class="home-start">
+        <div class="home-start-head">
+          <span class="home-start-chef" aria-hidden="true">👨‍🍳</span>
+          <div>
+            <strong data-i18n="start_with_qr">Start with your table QR</strong>
+            <p class="muted small" data-i18n="scan_flow_hint">Scan → choose dishes → track order</p>
+          </div>
+        </div>
+
+        <div class="home-flow" aria-hidden="true">
+          <div class="home-flow-step">
+            <span class="home-flow-ico">⬚</span>
+            <span>SCAN</span>
+          </div>
+          <span class="home-flow-line"></span>
+          <div class="home-flow-step">
+            <span class="home-flow-ico">🪑</span>
+            <span>TABLE</span>
+          </div>
+          <span class="home-flow-line"></span>
+          <div class="home-flow-step">
+            <span class="home-flow-ico">☰</span>
+            <span>MENU</span>
+          </div>
+          <span class="home-flow-line"></span>
+          <div class="home-flow-step">
+            <span class="home-flow-ico">✓</span>
+            <span>ORDER</span>
+          </div>
+        </div>
+
+        <!-- Primary CTA — keep id for existing handlers + customer-ui enhanceHome -->
+        <button type="button" class="btn btn-primary btn-block btn-lg scan-cta" id="btn-scan-qr" data-i18n="scan_qr_cta">
+          Scan table QR
+        </button>
+
+        <p class="home-qr-help muted small" data-i18n="scan_qr_help">
+          Scan the QR sticker on your table, or tap Scan table QR to use the in-app scanner. If the sticker is missing, ask your waiter to share the exact table link.
+        </p>
+      </section>
+
+      <nav class="home-quick" aria-label="Quick actions">
+        <button type="button" class="home-quick-item" id="btn-qr-help" data-action="qr-help">
+          <span class="home-quick-ico" aria-hidden="true">📱</span>
+          <span data-i18n="qr_help">QR help</span>
+        </button>
+        <button type="button" class="home-quick-item" id="btn-how-to" data-action="how-to">
+          <span class="home-quick-ico" aria-hidden="true">📖</span>
+          <span data-i18n="how_to_use">How to use</span>
+        </button>
+        <button type="button" class="home-quick-item" id="btn-party" data-i18n-title="party_booking">
+          <span class="home-quick-ico" aria-hidden="true">🎉</span>
+          <span data-i18n="party_booking_short">Party booking</span>
+        </button>
+        <button type="button" class="home-quick-item" id="btn-places" data-action="places">
+          <span class="home-quick-ico" aria-hidden="true">🗺️</span>
+          <span data-i18n="places_to_visit">Places to visit</span>
+        </button>
+        <button type="button" class="home-quick-item" id="btn-reviews" data-action="reviews">
+          <span class="home-quick-ico" aria-hidden="true">⭐</span>
+          <span data-i18n="reviews">Reviews</span>
+        </button>
+      </nav>
+
+      <!-- Secondary actions still available for existing wiring -->
+      <div class="home-secondary-row">
+        <button type="button" class="btn btn-soft btn-sm" id="btn-view-menu" data-i18n="view_menu">View Menu</button>
       </div>
+
       <section id="current-order-home" class="order-strip" hidden>
         <div class="order-strip-left">
           <span class="order-strip-label" data-i18n="your_order">Your current order</span>
@@ -87,6 +171,18 @@
         </div>
         <button type="button" class="btn btn-sm" id="btn-view-order-home" data-i18n="view">View</button>
       </section>
+
+      <button type="button" class="home-staff-access" id="btn-staff">
+        <span class="home-staff-lock" aria-hidden="true">🔒</span>
+        <span data-i18n="staff_access">Staff access</span>
+      </button>
+
+      <p class="home-credit muted small">
+        <span data-i18n="powered_by">Digital ordering & business automation by</span>
+        <a href="#" class="home-credit-link">Onkar FX</a>.
+        <span data-i18n="need_similar">Need a similar solution?</span>
+        <a href="#" class="home-credit-link" data-i18n="business_enquiries">Business enquiries</a>.
+      </p>
     </main>
   </div>
 
@@ -328,6 +424,6 @@
   <script src="./js/perf-prefetch.js?v=13"></script>
   <script src="./js/app.js?v=12"></script>
   <script src="./js/p0-lifecycle.js?v=10"></script>
-  <script src="./js/customer-ui.js?v=12"></script>
+  <script src="./js/customer-ui.js?v=13"></script>
 </body>
 </html>
