@@ -345,15 +345,14 @@
   function enhanceHome() {
     var scan = document.getElementById('btn-scan-qr');
     if (scan) {
-      var label = '';
-      var existingB = scan.querySelector('.scan-qr-copy b');
-      if (existingB && existingB.textContent.trim()) label = existingB.textContent.trim();
-      else label = (scan.textContent || '').replace(/\s+/g, ' ').trim() || 'Scan table QR';
-      if (window.MM && MM.t) {
-        try { label = MM.t('scan_qr_cta') || label; } catch (e) {}
-      }
-      var sub = 'Open your table menu and start ordering';
-      if (window.MM && MM.t) {
+      /* Always take label/hint from active language dictionary — never keep prior English text. */
+      var label = 'Scan table QR';
+      var sub = 'Point your camera at the QR code on your table';
+      if (window.MM && typeof MM.t === 'function') {
+        try {
+          var cta = MM.t('scan_qr_cta');
+          if (cta && cta !== 'scan_qr_cta') label = cta;
+        } catch (e) {}
         try {
           var hint = MM.t('scan_qr_hint');
           if (hint && hint !== 'scan_qr_hint') sub = hint;
@@ -386,13 +385,46 @@
     }
   }
 
+  function refreshNavLang() {
+    /* data-i18n spans inside nav buttons are updated by MM.applyI18n; this is a safety net. */
+    var pairs = [
+      ['cnav-home', 'nav_home'],
+      ['cnav-menu', 'nav_menu_tab'],
+      ['cnav-order', 'nav_order'],
+      ['cnav-cart', 'nav_cart']
+    ];
+    if (!window.MM || typeof MM.t !== 'function') return;
+    for (var i = 0; i < pairs.length; i++) {
+      var el = document.getElementById(pairs[i][0]);
+      if (!el) continue;
+      var span = el.querySelector('[data-i18n]');
+      if (span) span.textContent = MM.t(pairs[i][1]);
+    }
+  }
+
+  function afterLangChange() {
+    enhanceHome();
+    refreshMenuLang();
+    refreshCartLang();
+    refreshNavLang();
+  }
+
+  /* Bubble phase so app.js setLang() + applyI18n() run first, then we rebuild CTA. */
   document.addEventListener('click', function (ev) {
     if (!ev.target.closest('#btn-lang, [data-action="lang"]')) return;
-    setTimeout(enhanceHome, 0);
-    setTimeout(enhanceHome, 50);
-    setTimeout(refreshMenuLang, 30);
-    setTimeout(refreshCartLang, 30);
-  }, true);
+    setTimeout(afterLangChange, 0);
+    setTimeout(afterLangChange, 80);
+  }, false);
+
+  /* Also refresh whenever applyI18n runs (covers any path that changes language). */
+  if (window.MM && typeof MM.applyI18n === 'function') {
+    var _applyI18n = MM.applyI18n;
+    MM.applyI18n = function (root) {
+      _applyI18n.call(MM, root);
+      try { enhanceHome(); } catch (e) {}
+      try { refreshNavLang(); } catch (e) {}
+    };
+  }
 
   function softToast(key) {
     var msg = (window.MM && MM.t) ? MM.t(key) : key;
