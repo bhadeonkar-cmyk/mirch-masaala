@@ -77,6 +77,102 @@
     }
   }
 
+  /* ---- Batch 2: menu presentation helpers (display only) ----
+   * The Veg / Non-Veg filter hides already-rendered cards with a CSS class; it never
+   * touches renderMenu(), the menu data or the cart. */
+  var vegMode = 'all';
+
+  function syncCardById(id) {
+    if (!id) return;
+    var card = document.querySelector('.food-card[data-id="' + id + '"]');
+    if (card) syncQty(card, id);
+  }
+
+  function cartCountLabel(n) {
+    return n === 1 ? MM.t('item_1') : MM.t('items_n', { n: n });
+  }
+
+  function updateMenuCount(shown) {
+    var el = document.getElementById('menu-count');
+    if (!el) return;
+    var txt = shown == null ? '' : (shown === 1 ? MM.t('dish_1') : MM.t('dishes_n', { n: shown }));
+    if (el.textContent !== txt) el.textContent = txt;
+  }
+
+  function applyVegFilter() {
+    var list = document.getElementById('menu-list');
+    if (!list) return;
+    var cards = list.querySelectorAll('.food-card');
+    var shown = 0;
+    for (var i = 0; i < cards.length; i++) {
+      var isVeg = !!cards[i].querySelector('.veg');
+      var hide = (vegMode === 'veg' && !isVeg) || (vegMode === 'nonveg' && isVeg);
+      if (hide !== cards[i].classList.contains('mm-hide')) cards[i].classList.toggle('mm-hide', hide);
+      if (!hide) shown++;
+    }
+    var empty = document.getElementById('mm-filter-empty');
+    if (cards.length && !shown) {
+      if (!empty && V) {
+        list.insertAdjacentHTML('beforeend', '<div id="mm-filter-empty">' +
+          V.emptyPlateMarkup(MM.t('no_items'), MM.t('no_items_hint')) + '</div>');
+      }
+    } else if (empty) {
+      empty.remove();
+    }
+    updateMenuCount(cards.length ? shown : null);
+  }
+
+  /* JS-rendered menu text is not covered by MM.applyI18n(); refresh it in place after a language toggle. */
+  function refreshMenuLang() {
+    var st = MM.state || {};
+    var adds = document.querySelectorAll('#menu-list .btn-add[data-add]');
+    for (var i = 0; i < adds.length; i++) adds[i].textContent = MM.t('add');
+    var allCat = document.querySelector('#categories .cat[data-cat=""]');
+    if (allCat) {
+      var last = allCat.lastChild;
+      if (last && last.nodeType === 3) last.nodeValue = MM.t('all');
+      else if (!allCat.querySelector('.cat-art')) allCat.textContent = MM.t('all');
+    }
+    var cc = document.getElementById('cart-count');
+    var n = (st.cart || []).reduce(function (a, c) { return a + (c.qty || 1); }, 0);
+    if (cc && n > 0) cc.textContent = cartCountLabel(n);
+    if (st.table) {
+      var lbl = document.getElementById('menu-table-label');
+      if (lbl) lbl.textContent = MM.t('table_n', { n: st.table });
+      var ms = document.getElementById('menu-status');
+      if (ms && ms.textContent) ms.textContent = MM.t('table_ready');
+    }
+    var empty = document.getElementById('mm-filter-empty');
+    if (empty && V) empty.innerHTML = V.emptyPlateMarkup(MM.t('no_items'), MM.t('no_items_hint'));
+    applyVegFilter();
+  }
+
+  /* Reason: on the homepage "View Menu" path perf-prefetch.js pre-fills MM.state.menu, so
+   * app.js showMenu() only calls renderMenu() and the category chips are never rendered.
+   * If the chips are missing, clear the prefetched menu array just before app.js handles the
+   * click; showMenu() then runs the existing loadMenuUI() (served from the supabase.js cache),
+   * which renders categories + dishes. No menu/cart logic is duplicated here. */
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest('#btn-view-menu')) return;
+    var st = MM.state;
+    if (!st || !st.menu || !st.menu.length) return;
+    if (document.querySelector('#categories .cat')) return;
+    st.menu = [];
+  }, true);
+
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest('#veg-filter [data-vf]');
+    if (!b) return;
+    vegMode = b.getAttribute('data-vf') || 'all';
+    var all = document.querySelectorAll('#veg-filter .vf');
+    for (var i = 0; i < all.length; i++) {
+      var on = all[i] === b;
+      all[i].classList.toggle('on', on);
+      all[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    applyVegFilter();
+  }, true);
+
   var _menuEnhanceScheduled = false;
   var _menuIO = null;
 
@@ -101,10 +197,12 @@
     var cards = list.querySelectorAll('.food-card');
     if (!cards.length) {
       if (V && !list.querySelector('.empty-state') && !list.querySelector('.loading')) {
-        list.innerHTML = V.emptyPlateMarkup('No items', 'Try another search or category.');
+        list.innerHTML = V.emptyPlateMarkup(MM.t('no_items'), MM.t('no_items_hint'));
       }
+      updateMenuCount(null);
       return;
     }
+    applyVegFilter();
     var io = ensureMenuIO();
     if (io) {
       for (var i = 0; i < cards.length; i++) {
@@ -265,6 +363,7 @@
     if (!ev.target.closest('#btn-lang, [data-action="lang"]')) return;
     setTimeout(enhanceHome, 0);
     setTimeout(enhanceHome, 50);
+    setTimeout(refreshMenuLang, 30);
   }, true);
 
   function softToast(key) {
@@ -307,6 +406,10 @@
       }
       setTimeout(bumpCartBar, 40);
       setTimeout(enhanceMenuList, 60);
+      /* Reason: syncQty() previously only ran for not-yet-enhanced cards, so the quantity
+       * control never appeared after ADD. Sync the tapped card once the cart has updated. */
+      var addedId = card ? card.getAttribute('data-id') : null;
+      setTimeout(function () { syncCardById(addedId); }, 60);
       return;
     }
     if (!plus && !minus) return;
@@ -331,6 +434,7 @@
     }
     setTimeout(function () {
       enhanceMenuList();
+      syncCardById(id);
       bumpCartBar();
       var bar = document.getElementById('cart-bar');
       if (bar && MM.state && MM.state.cart) {
@@ -341,7 +445,7 @@
           bar.hidden = false;
           var cc = document.getElementById('cart-count');
           var ct = document.getElementById('cart-total');
-          if (cc) cc.textContent = String(n);
+          if (cc) cc.textContent = cartCountLabel(n); /* same wording as app.js updateCartBar */
           if (ct) ct.textContent = String(Math.round(total));
         }
       }
