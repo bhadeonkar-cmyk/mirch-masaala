@@ -2,6 +2,9 @@
 (function () {
   'use strict';
   var stream = null, video = null, frame = 0, scanning = false, overlay = null;
+  /* Bumped on every open and close so an async camera start that finishes after the scanner was
+   * closed can tell it is stale and release its own camera stream instead of leaking it. */
+  var runId = 0;
   var styleId = 'mm-qr-scanner-style';
 
   function addStyles() {
@@ -24,6 +27,7 @@
   }
 
   function closeScanner() {
+    runId++;
     scanning = false;
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
@@ -50,12 +54,13 @@
     if (!table && /^\d{1,2}$/.test(raw)) table = raw;
     if (!/^\d{1,2}$/.test(table)) {
       status('This QR code is not a valid Mirch Masaala table QR. Please scan the QR sticker on your table.');
-      return;
+      return false;
     }
     closeScanner();
     var target = new URL(location.href);
     target.searchParams.set('table', String(Number(table)).padStart(2, '0'));
     location.assign(target.toString());
+    return true;
   }
 
   async function scanLoop(detector) {
@@ -65,9 +70,12 @@
     }
     try {
       var codes = await detector.detect(video);
+      /* The guest may have closed the scanner while this frame was being analysed. */
+      if (!scanning) return;
       if (codes && codes.length && codes[0].rawValue) {
-        useScannedValue(codes[0].rawValue);
-        return;
+        /* Stop only when the code was accepted. A wrong QR keeps the scanner running so the
+         * guest can simply point the camera at the right sticker. */
+        if (useScannedValue(codes[0].rawValue)) return;
       }
     } catch (e) {
       status('Camera scan paused. Please keep the QR code inside the frame.');
@@ -76,6 +84,7 @@
   }
 
   function showFallback(message) {
+    if (!overlay) return; /* scanner was closed while the camera was starting */
     status(message + ' You can also open your phone camera, scan the table sticker, and open its link.');
     var wrap = overlay.querySelector('.mm-qr-video-wrap');
     if (wrap) wrap.hidden = true;
@@ -85,6 +94,7 @@
 
   async function openScanner() {
     if (overlay) return;
+    var myRun = ++runId;
     addStyles();
     overlay = document.createElement('div');
     overlay.className = 'mm-qr-overlay';
@@ -113,22 +123,31 @@
     }
     try {
       var supported = await window.BarcodeDetector.getSupportedFormats();
+      if (myRun !== runId) return;
       if (supported.indexOf('qr_code') < 0) {
         showFallback('QR scanning is not supported by this browser.');
         return;
       }
       var detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-      stream = await navigator.mediaDevices.getUserMedia({
+      var media = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
       });
+      if (myRun !== runId) {
+        /* Closed while the browser was still opening the camera: release it right away. */
+        media.getTracks().forEach(function (track) { track.stop(); });
+        return;
+      }
+      stream = media;
       video = overlay.querySelector('video');
       video.srcObject = stream;
       await video.play();
+      if (myRun !== runId) return; /* closeScanner() already stopped the tracks */
       scanning = true;
       status('Point your camera at the QR sticker on your table.');
       frame = requestAnimationFrame(function () { scanLoop(detector); });
     } catch (e) {
+      if (myRun !== runId) return; /* a close interrupted the start; nothing to report */
       showFallback(e && e.name === 'NotAllowedError'
         ? 'Camera permission was denied.'
         : 'Could not start the camera.');
