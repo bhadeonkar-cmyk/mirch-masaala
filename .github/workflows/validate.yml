@@ -2,7 +2,7 @@ name: Validate Mirch Masaala app
 
 on:
   push:
-    branches: [main]
+    branches: [main, recovery/restore-from-full-backup-2026-11-06]
   pull_request:
   workflow_dispatch:
 
