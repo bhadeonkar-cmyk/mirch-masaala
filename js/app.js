@@ -99,7 +99,8 @@
 
   /* ---------- table from QR ---------- */
   function readTableFromUrl() {
-    var m = /[?&]table=(\d{1,2})/i.exec(location.search || '');
+    /* Exactly 1-2 digits: "?table=123" must not silently become table 12. */
+    var m = /[?&]table=(\d{1,2})(?=&|#|$)/i.exec(location.search || '');
     if (!m) return null;
     return api.pad2(m[1]);
   }
@@ -507,6 +508,7 @@
   }
 
   async function logout() {
+    stopKitchenPoll();
     try { await api.signOut(); } catch (e) {}
     S.role = null;
     S.session = null;
@@ -691,13 +693,38 @@
     loadWaiterAlerts();
   }
 
+  /* js/p0-lifecycle.js calls this after Back / Finish visit / Free table so the waiter returns to the
+   * table list. Without it that file falls back to location.reload(), which drops the staff screen. */
+  window.__mmShowWaiter = function () { return showWaiter(); };
+
   /* ---------- kitchen ---------- */
   /* Kitchen can only move NEW -> PREPARING -> READY (database guard). Serving is the waiter's job. */
-  async function showKitchen() {
-    showScreen('screen-kitchen');
+  var kitchenTimer = null, kitchenBusy = false;
+  function stopKitchenPoll() {
+    if (kitchenTimer) clearInterval(kitchenTimer);
+    kitchenTimer = null;
+  }
+  /* New orders must reach the kitchen without anyone pressing reload: refresh every 10 s while the
+   * kitchen screen is showing and the tab is visible. A failed refresh keeps the last good board. */
+  function startKitchenPoll() {
+    stopKitchenPoll();
+    kitchenTimer = setInterval(function () {
+      var scr = $('screen-kitchen');
+      if (!scr || !scr.classList.contains('on')) { stopKitchenPoll(); return; }
+      if (document.hidden || kitchenBusy) return;
+      showKitchen(true);
+    }, 10000);
+  }
+
+  async function showKitchen(silent) {
     var board = $('kitchen-board');
     if (!board) return;
-    board.innerHTML = '<div class="loading">' + MM.t('loading') + '</div>';
+    if (!silent) {
+      showScreen('screen-kitchen');
+      board.innerHTML = '<div class="loading">' + MM.t('loading') + '</div>';
+      startKitchenPoll();
+    }
+    kitchenBusy = true;
     try {
       var orders = await api.staffOrders(true);
       var ids = orders.map(function (o) { return o.id; });
@@ -747,7 +774,9 @@
       };
     } catch (e) {
       console.error('[MM kitchen]', e);
-      board.innerHTML = '<div class="empty">' + MM.t('offline') + '</div>';
+      if (!silent) board.innerHTML = '<div class="empty">' + MM.t('offline') + '</div>';
+    } finally {
+      kitchenBusy = false;
     }
   }
 
@@ -763,9 +792,40 @@
     qsa('#owner-nav button').forEach(function (b) {
       b.classList.toggle('on', b.getAttribute('data-panel') === panel);
     });
+    box.onclick = null; /* the Payments tab installs its own handler */
     box.innerHTML = '<div class="loading">' + MM.t('loading') + '</div>';
     try {
-      if (panel === 'orders') {
+      if (panel === 'payments') {
+        /* Only the Owner/Counter (admin) login may record payments (mm_staff_record_visit_payment). */
+        var pvisits = await api.tableVisits();
+        var openVisits = (pvisits || []).filter(function (v) {
+          return String(v.status || v.visit_status || '').toUpperCase() === 'OPEN';
+        });
+        var ph = '<h2 class="section-title">' + MM.t('nav_payments') + '</h2>';
+        if (!openVisits.length) ph += '<div class="empty">' + MM.t('no_open_visits') + '</div>';
+        else {
+          ph += '<div class="table-grid">';
+          openVisits.forEach(function (v) {
+            var pn = api.pad2(v.table_number || v.tableNumber);
+            ph += '<button type="button" class="table-card busy" data-pay-table="' + escapeHtml(pn) + '">' +
+              '<strong>' + escapeHtml(pn) + '</strong>' +
+              '<span class="muted small">' + MM.t('st_open') +
+              (v.assigned_waiter_code ? ' · ' + escapeHtml(v.assigned_waiter_code) : '') + '</span></button>';
+          });
+          ph += '</div>';
+        }
+        box.innerHTML = ph;
+        box.onclick = function (ev) {
+          var b = ev.target.closest('[data-pay-table]');
+          if (!b || typeof window.__mmShowOpenVisit !== 'function') return;
+          var num = b.getAttribute('data-pay-table');
+          var found = null;
+          openVisits.forEach(function (v) {
+            if (api.pad2(v.table_number || v.tableNumber) === num) found = v;
+          });
+          window.__mmShowOpenVisit(num, found, { panel: box, onBack: function () { renderOwnerPanel('payments'); } });
+        };
+      } else if (panel === 'orders') {
         var orders = await api.staffOrders(false);
         var html = '<h2 class="section-title">' + MM.t('nav_orders') + '</h2>';
         if (!orders.length) html += '<div class="empty">' + MM.t('orders_empty') + '</div>';
@@ -811,10 +871,114 @@
             toast(MM.t('saved'));
           } catch (e) { toast(MM.t('something_wrong')); }
         };
+      } else if (panel === 'menu') {
+        /* Owner: change a dish price or switch it on/off. menu_items UPDATE is allowed for the admin
+         * and kitchen roles (RLS); the customer menu cache is dropped so guests see the change. */
+        api._menuCache = null;
+        var md = await api.loadMenu();
+        var mItems = md.items || [];
+        var mh = '<h2 class="section-title">' + MM.t('nav_menu') + '</h2>';
+        if (!mItems.length) mh += '<div class="empty">' + MM.t('no_menu_items') + '</div>';
+        (md.categories || []).concat([{ id: null, name: '' }]).forEach(function (cat) {
+          var rows = mItems.filter(function (it) { return (it.category_id || null) === cat.id; });
+          if (!rows.length) return;
+          if (cat.name) mh += '<h3 class="section-title">' + escapeHtml(cat.name) + '</h3>';
+          rows.forEach(function (it) {
+            var isOn = it.is_available !== false;
+            mh += '<div class="order-card compact" data-item="' + escapeHtml(it.id) + '">' +
+              '<strong>' + escapeHtml(it.name) + '</strong>' +
+              '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">' +
+              '<span class="muted small">₹</span>' +
+              '<input type="number" inputmode="numeric" min="0" max="100000" step="1" data-price ' +
+                'aria-label="' + escapeHtml(MM.t('price')) + '" value="' + escapeHtml(it.price) + '" style="width:96px;margin:0">' +
+              '<button type="button" class="btn btn-sm" data-save-price>' + escapeHtml(MM.t('save')) + '</button>' +
+              '<button type="button" class="btn btn-sm btn-soft" data-toggle data-on="' + (isOn ? '1' : '0') + '">' +
+                escapeHtml(MM.t(isOn ? 'available' : 'unavailable')) + '</button>' +
+              '</div></div>';
+          });
+        });
+        box.innerHTML = mh;
+        box.onclick = async function (ev) {
+          var row = ev.target.closest('[data-item]');
+          if (!row) return;
+          var id = row.getAttribute('data-item');
+          var saveBtn = ev.target.closest('[data-save-price]');
+          var toggleBtn = ev.target.closest('[data-toggle]');
+          if (saveBtn) {
+            var raw = row.querySelector('[data-price]').value;
+            var price = Number(raw);
+            if (raw === '' || !isFinite(price) || price < 0 || price > 100000) { toast(MM.t('something_wrong')); return; }
+            saveBtn.disabled = true;
+            try {
+              await api.updatePrice(id, price);
+              api._menuCache = null;
+              toast(MM.t('saved'));
+            } catch (e) {
+              console.error('[MM price]', e);
+              toast(MM.t('something_wrong'));
+            } finally { saveBtn.disabled = false; }
+          } else if (toggleBtn) {
+            var next = toggleBtn.getAttribute('data-on') !== '1';
+            toggleBtn.disabled = true;
+            try {
+              await api.setAvailable(id, next);
+              api._menuCache = null;
+              toggleBtn.setAttribute('data-on', next ? '1' : '0');
+              toggleBtn.textContent = MM.t(next ? 'available' : 'unavailable');
+            } catch (e) {
+              console.error('[MM availability]', e);
+              toast(MM.t('something_wrong'));
+            } finally { toggleBtn.disabled = false; }
+          }
+        };
+      } else if (panel === 'bookings') {
+        /* Owner: party requests sent from the customer form (mm_admin_list_party_bookings). */
+        var bks = await api.listBookings();
+        var BK_STATUSES = ['NEW', 'CONTACTED', 'CONFIRMED', 'UNAVAILABLE'];
+        var bh = '<h2 class="section-title">' + MM.t('nav_bookings') + '</h2>';
+        if (!bks.length) bh += '<div class="empty">' + MM.t('no_bookings') + '</div>';
+        bks.forEach(function (b) {
+          var cur = String(b.status || 'NEW').toUpperCase();
+          var tel = String(b.customer_phone || '').replace(/[^\d+]/g, '');
+          bh += '<div class="order-card" data-booking="' + escapeHtml(b.id) + '">' +
+            '<div class="order-head"><strong>' + escapeHtml(b.booking_ref || '') + '</strong>' +
+            '<span class="badge">' + escapeHtml(MM.t('bk_' + cur.toLowerCase())) + '</span></div>' +
+            '<div>' + escapeHtml(b.customer_name) + ' · <a href="tel:' + escapeHtml(tel) + '">' + escapeHtml(b.customer_phone) + '</a></div>' +
+            '<div class="muted small">' + escapeHtml(b.event_type) + ' · ' + escapeHtml(b.event_date) + ' ' + escapeHtml(b.event_time || '') +
+              ' · ' + escapeHtml(MM.t('guests_n', { n: b.guest_count })) + '</div>' +
+            (b.customer_notes ? '<div class="muted small">' + escapeHtml(b.customer_notes) + '</div>' : '') +
+            '<div class="form" style="margin-top:10px">' +
+              '<select data-bk-status aria-label="Status">' +
+              BK_STATUSES.map(function (s) {
+                return '<option value="' + s + '"' + (s === cur ? ' selected' : '') + '>' + escapeHtml(MM.t('bk_' + s.toLowerCase())) + '</option>';
+              }).join('') + '</select>' +
+              '<textarea data-bk-notes rows="2" maxlength="1000" style="margin-top:8px">' + escapeHtml(b.owner_notes || '') + '</textarea>' +
+            '</div>' +
+            '<button type="button" class="btn btn-sm btn-primary" data-bk-save>' + escapeHtml(MM.t('save')) + '</button></div>';
+        });
+        box.innerHTML = bh;
+        box.onclick = async function (ev) {
+          var sb = ev.target.closest('[data-bk-save]');
+          if (!sb) return;
+          var card = sb.closest('[data-booking]');
+          var id = card.getAttribute('data-booking');
+          var status = card.querySelector('[data-bk-status]').value;
+          sb.disabled = true;
+          try {
+            await api.updateBooking(id, status, card.querySelector('[data-bk-notes]').value.trim());
+            var badge = card.querySelector('.badge');
+            if (badge) badge.textContent = MM.t('bk_' + status.toLowerCase());
+            toast(MM.t('saved'));
+          } catch (e) {
+            console.error('[MM booking]', e);
+            toast(MM.t('something_wrong'));
+          } finally { sb.disabled = false; }
+        };
       } else {
         box.innerHTML = '<div class="empty">' + MM.t(panel) + '</div>';
       }
     } catch (e) {
+      console.error('[MM owner]', e);
       box.innerHTML = '<div class="empty">' + MM.t('offline') + '</div>';
     }
   }

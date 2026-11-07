@@ -8,8 +8,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var escapeHtml = MM.escapeHtml || function (s) {
     return String(s == null ? '' : s)
-      .replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
-      .replace(/"/g, '"').replace(/'/g, '&#39;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   };
   function toast(msg) {
     var el = $('toast');
@@ -25,16 +25,33 @@
       function (e) { console.error('[MM p0]', e); return { ok: false, error: e }; }
     );
   }
+  /* A database refusal (e.g. "still has food tickets in progress") is more useful to staff than a
+   * generic retry message. Network failures carry no database code, so they keep the generic text. */
+  function reason(e, fallback) {
+    var m = e && e.code && e.message ? String(e.message) : '';
+    return m && m.length <= 160 ? m : fallback;
+  }
   function billAmount(bill) {
     if (!bill) return 0;
     var n = Number(bill.amount != null ? bill.amount : (bill.balance != null ? bill.balance : (bill.due != null ? bill.due : bill.total)));
     return isFinite(n) ? n : 0;
   }
 
-  async function showOpenVisit(tableNum, visit) {
-    var panel = $('waiter-visit');
-    var tablesView = $('waiter-tables-view');
+  /* opts (optional): { panel: element to render into, onBack: function }. Without opts this is the
+   * waiter's table-visit panel exactly as before; the Owner → Payments tab passes its own panel. */
+  async function showOpenVisit(tableNum, visit, opts) {
+    opts = opts || {};
+    var panel = opts.panel || $('waiter-visit');
+    var tablesView = opts.panel ? null : $('waiter-tables-view');
     if (!panel) return;
+    function leave() {
+      if (typeof opts.onBack === 'function') { opts.onBack(); return; }
+      panel.hidden = true;
+      panel.innerHTML = '';
+      if (tablesView) tablesView.hidden = false;
+      if (typeof window.__mmShowWaiter === 'function') window.__mmShowWaiter();
+      else location.reload();
+    }
     if (tablesView) tablesView.hidden = true;
     panel.hidden = false;
     panel.innerHTML = '<div class="loading">' + (MM.t ? MM.t('loading') : 'Loading…') + '</div>';
@@ -55,12 +72,19 @@
     }
     html += '<div class="cart-total-row"><span>' + escapeHtml(t('amount_due')) + '</span>' +
       '<strong>₹' + Math.round(amount) + '</strong></div>';
-    html += '<div class="home-secondary" style="margin-top:12px">';
-    html += '<button type="button" class="btn btn-primary" data-pay-method="cash" ' +
-      (amount <= 0 ? 'disabled' : '') + '>' + escapeHtml(t('confirm_cash')) + '</button>';
-    html += '<button type="button" class="btn btn-soft" data-pay-method="upi" ' +
-      (amount <= 0 ? 'disabled' : '') + '>' + escapeHtml(t('confirm_upi')) + '</button>';
-    html += '</div>';
+    /* mm_staff_record_visit_payment accepts the Owner/Counter (admin) login only, so a waiter is
+     * not offered buttons that the database would always reject. The owner records payments from
+     * Owner → Payments. */
+    if ((MM.state && MM.state.role) === 'admin') {
+      html += '<div class="home-secondary" style="margin-top:12px">';
+      html += '<button type="button" class="btn btn-primary" data-pay-method="cash" ' +
+        (amount <= 0 ? 'disabled' : '') + '>' + escapeHtml(t('confirm_cash')) + '</button>';
+      html += '<button type="button" class="btn btn-soft" data-pay-method="upi" ' +
+        (amount <= 0 ? 'disabled' : '') + '>' + escapeHtml(t('confirm_upi')) + '</button>';
+      html += '</div>';
+    } else if (amount > 0) {
+      html += '<p class="muted small" style="margin-top:12px">' + escapeHtml(t('waiter_counter_note')) + '</p>';
+    }
     html += '<div class="home-secondary" style="margin-top:12px">';
     html += '<button type="button" class="btn btn-primary" data-finish="1">' + escapeHtml(t('finish_visit')) + '</button>';
     html += '<button type="button" class="btn btn-soft" data-release="1">' + escapeHtml(t('release_table')) + '</button>';
@@ -73,11 +97,7 @@
     panel.onclick = async function (ev) {
       var target = ev.target;
       if (target.closest('[data-visit-back]')) {
-        panel.hidden = true;
-        panel.innerHTML = '';
-        if (tablesView) tablesView.hidden = false;
-        if (typeof window.__mmShowWaiter === 'function') window.__mmShowWaiter();
-        else location.reload();
+        leave();
         return;
       }
       var payBtn = target.closest('[data-pay-method]');
@@ -91,11 +111,11 @@
           toast(t('payment_recorded'));
           var msg = $('visit-action-msg');
           if (msg) msg.textContent = t('payment_recorded') + ' ₹' + Math.round(amount);
-          showOpenVisit(tableNum, visit);
+          showOpenVisit(tableNum, visit, opts);
         } catch (e) {
           console.error('[MM p0 recordPayment]', e);
           payBtn.disabled = false;
-          toast(t('pay_error'));
+          toast(reason(e, t('something_wrong')));
         }
         return;
       }
@@ -106,15 +126,11 @@
         try {
           await api.finishVisit(tableNum);
           toast(t('released') || t('visit_started'));
-          panel.hidden = true;
-          panel.innerHTML = '';
-          if (tablesView) tablesView.hidden = false;
-          if (typeof window.__mmShowWaiter === 'function') window.__mmShowWaiter();
-          else location.reload();
+          leave();
         } catch (e) {
           console.error('[MM p0 finish]', e);
           fin.disabled = false;
-          toast(t('visit_failed'));
+          toast(reason(e, t('visit_failed')));
         }
         return;
       }
@@ -125,15 +141,11 @@
         try {
           await api.releaseAbandoned(tableNum, 'Guest left before checkout');
           toast(t('released'));
-          panel.hidden = true;
-          panel.innerHTML = '';
-          if (tablesView) tablesView.hidden = false;
-          if (typeof window.__mmShowWaiter === 'function') window.__mmShowWaiter();
-          else location.reload();
+          leave();
         } catch (e) {
           console.error('[MM p0 release]', e);
           rel.disabled = false;
-          toast(t('visit_failed'));
+          toast(reason(e, t('visit_failed')));
         }
       }
     };
