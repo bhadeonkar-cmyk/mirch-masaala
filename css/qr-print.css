@@ -1,0 +1,60 @@
+/* Table QR stickers: on-screen preview + clean A4 print sheet (4 stickers per page). */
+
+#qr-print-root { display: none; }
+
+.qr-sticker {
+  background: #fff; color: #111; text-align: center;
+  border: 2px solid #111; border-radius: 14px; padding: 16px 14px 12px;
+  max-width: 300px; margin: 0 auto;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.qr-brand { font: 700 1.25rem Georgia, "Times New Roman", serif; letter-spacing: .04em; }
+.qr-brand-sub { font-size: .78rem; color: #444; margin-bottom: 8px; }
+.qr-code svg { display: block; width: 100%; height: auto; }
+.qr-table { font-size: 1.9rem; font-weight: 800; line-height: 1.1; margin-top: 6px; }
+.qr-cta { font-size: .95rem; font-weight: 600; margin-top: 2px; }
+.qr-url { font-size: .62rem; color: #555; margin-top: 6px; word-break: break-all; }
+
+/* Owner Tables panel */
+.tbl-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.tbl-toolbar .grow { flex: 1 1 180px; min-width: 0; }
+.table-card.off { opacity: .55; border-style: dashed; }
+.table-card .chip {
+  display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; margin-top: 2px;
+}
+.chip.free { background: rgba(61,186,110,.16); color: #5fd48c; }
+.chip.busy { background: rgba(226,91,76,.18); color: #ff8b7d; }
+.chip.off  { background: rgba(255,255,255,.08); color: #b9a99a; }
+.tbl-warn { border: 1px solid rgba(226,170,76,.5); background: rgba(226,170,76,.1); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-size: .85rem; }
+.tbl-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+.tbl-row input[type=number] { width: 84px; margin: 0; }
+.tbl-qr { margin: 12px 0; }
+.tbl-qr .qr-sticker { max-width: 240px; }
+
+@media print {
+  @page { size: A4; margin: 10mm; }
+  html, body { background: #fff !important; }
+  body.mm-printing > *:not(#qr-print-root) { display: none !important; }
+  body.mm-printing #qr-print-root { display: block !important; }
+  .qr-sheet { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm; }
+  .qr-sheet .qr-sticker {
+    max-width: none; width: 100%; height: 126mm; margin: 0; box-sizing: border-box;
+    break-inside: avoid; page-break-inside: avoid;
+    display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+    border: 0.6mm solid #000; border-radius: 4mm; padding: 6mm 5mm 4mm;
+  }
+  .qr-sheet .qr-code { width: 62mm; }
+  .qr-sheet .qr-brand { font-size: 17pt; }
+  .qr-sheet .qr-brand-sub { font-size: 10pt; margin-bottom: 0; }
+  .qr-sheet .qr-table { font-size: 30pt; margin-top: 0; }
+  .qr-sheet .qr-cta { font-size: 13pt; }
+  .qr-sheet .qr-url { font-size: 7.5pt; margin-top: 0; }
+}
+
+/* Detail-view polish: chip inside a heading keeps chip sizing; number input matches the dark theme */
+.section-title .chip { font: 700 .68rem/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; vertical-align: middle; margin: 0 0 0 8px; }
+.tbl-row input[type=number] {
+  background: rgba(255,255,255,.06); color: inherit; border: 1px solid rgba(245,230,210,.22);
+  border-radius: 10px; padding: 8px 10px; font: inherit;
+}

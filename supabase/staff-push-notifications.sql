@@ -144,10 +144,9 @@ ALTER TABLE public.mm_staff_push_subscriptions
   ADD COLUMN IF NOT EXISTS staff_code text NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS preferred_language text NOT NULL DEFAULT 'en';
 
-UPDATE public.mm_staff_push_subscriptions
-SET preferred_language = 'en'
-WHERE preferred_language IS NULL OR preferred_language NOT IN ('en', 'mr');
-
+-- Older installations may already have this column but with a nullable definition,
+-- no default, or a non-text type. Drop language-related CHECK constraints first so
+-- the migration can normalize the column definition without losing subscriptions.
 DO $$
 DECLARE
   v_constraint record;
@@ -161,12 +160,24 @@ BEGIN
   LOOP
     EXECUTE format('ALTER TABLE public.mm_staff_push_subscriptions DROP CONSTRAINT %I', v_constraint.conname);
   END LOOP;
-
-  ALTER TABLE public.mm_staff_push_subscriptions
-    ADD CONSTRAINT mm_staff_push_subscriptions_language_check
-    CHECK (preferred_language IN ('en', 'mr'));
 END
 $$;
+
+ALTER TABLE public.mm_staff_push_subscriptions
+  ALTER COLUMN preferred_language DROP DEFAULT,
+  ALTER COLUMN preferred_language TYPE text USING preferred_language::text;
+
+UPDATE public.mm_staff_push_subscriptions
+SET preferred_language = 'en'
+WHERE preferred_language IS NULL OR preferred_language NOT IN ('en', 'mr');
+
+ALTER TABLE public.mm_staff_push_subscriptions
+  ALTER COLUMN preferred_language SET DEFAULT 'en',
+  ALTER COLUMN preferred_language SET NOT NULL;
+
+ALTER TABLE public.mm_staff_push_subscriptions
+  ADD CONSTRAINT mm_staff_push_subscriptions_language_check
+  CHECK (preferred_language IN ('en', 'mr'));
 
 CREATE INDEX IF NOT EXISTS ix_mm_staff_push_role
   ON public.mm_staff_push_subscriptions (target_role, updated_at DESC);
@@ -192,5 +203,72 @@ CREATE POLICY mm_staff_push_manage_own_subscription
     staff_user_id = auth.uid()
     AND target_role = public.get_my_staff_role()
   );
+
+-- A browser push endpoint belongs to one browser profile. If a second staff login (or a
+-- changed role) enables alerts on the same phone, a direct upsert is blocked by the
+-- policy above because the existing row belongs to the previous login. This function
+-- lets the CURRENT, authenticated staff member take over only the endpoint their own
+-- browser just created. It never trusts a client-supplied user or role: both come
+-- from the verified session, and RLS on the table stays unchanged.
+CREATE OR REPLACE FUNCTION public.mm_register_staff_push_subscription(
+  p_endpoint text,
+  p_subscription jsonb,
+  p_staff_code text DEFAULT '',
+  p_preferred_language text DEFAULT 'en',
+  p_user_agent text DEFAULT ''
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public, pg_temp'
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_role text;
+  v_code text;
+  v_lang text := CASE WHEN lower(coalesce(p_preferred_language, '')) = 'mr' THEN 'mr' ELSE 'en' END;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Staff session required' USING ERRCODE = '28000';
+  END IF;
+  v_role := public.get_my_staff_role();
+  IF v_role IS NULL OR v_role NOT IN ('admin', 'waiter', 'kitchen') THEN
+    RAISE EXCEPTION 'Staff role required' USING ERRCODE = '42501';
+  END IF;
+  IF p_endpoint IS NULL OR p_endpoint !~ '^https://' OR length(p_endpoint) > 2048 THEN
+    RAISE EXCEPTION 'Invalid push endpoint' USING ERRCODE = '22023';
+  END IF;
+  IF p_subscription IS NULL OR jsonb_typeof(p_subscription) <> 'object' THEN
+    RAISE EXCEPTION 'Invalid push subscription' USING ERRCODE = '22023';
+  END IF;
+  v_code := CASE WHEN v_role = 'waiter'
+                 THEN upper(left(trim(coalesce(p_staff_code, '')), 64))
+                 ELSE '' END;
+
+  INSERT INTO public.mm_staff_push_subscriptions (
+    staff_user_id, target_role, staff_code, endpoint, subscription,
+    preferred_language, user_agent, updated_at
+  )
+  VALUES (
+    v_uid, v_role, v_code, p_endpoint, p_subscription,
+    v_lang, left(coalesce(p_user_agent, ''), 400), now()
+  )
+  ON CONFLICT (endpoint) DO UPDATE
+  SET staff_user_id = EXCLUDED.staff_user_id,
+      target_role = EXCLUDED.target_role,
+      staff_code = EXCLUDED.staff_code,
+      subscription = EXCLUDED.subscription,
+      preferred_language = EXCLUDED.preferred_language,
+      user_agent = EXCLUDED.user_agent,
+      updated_at = now();
+
+  RETURN jsonb_build_object('ok', true, 'role', v_role, 'language', v_lang);
+END
+$$;
+
+REVOKE ALL ON FUNCTION public.mm_register_staff_push_subscription(text, jsonb, text, text, text)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.mm_register_staff_push_subscription(text, jsonb, text, text, text)
+  TO authenticated;
 
 COMMIT;

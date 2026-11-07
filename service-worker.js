@@ -9,6 +9,44 @@ self.addEventListener('activate', function(event) {
   event.waitUntil(self.clients.claim());
 });
 
+/*
+ * These connection/setup confirmations are background readiness events, not
+ * user-facing operational alerts. Keep the existing Supabase code and data
+ * flow untouched, but suppress only these informational toasts at the network
+ * boundary. Real staff push notifications remain unchanged below.
+ */
+self.addEventListener('fetch', function(event) {
+  var requestUrl;
+  try { requestUrl = new URL(event.request.url); } catch (e) { return; }
+  if (requestUrl.origin !== self.location.origin || requestUrl.pathname.split('/').pop() !== 'supabase-live.js') return;
+
+  event.respondWith(fetch(event.request).then(async function(response) {
+    try {
+      var source = await response.text();
+      var patched = source
+        .replace(
+          "if (ok) notifySuccess('Shared menu connected.');",
+          "if (ok) { /* Shared menu connection is intentionally silent. */ }"
+        )
+        .replace(
+          "notifySuccess('Push alerts enabled. This phone can alert the waiter when a guest calls, even if the app is in the background.');",
+          "/* Push setup succeeded silently; operational push alerts remain enabled. */"
+        )
+        .replace(
+          "toast('No active waiter names yet. The owner must add names in Owner → Settings → Waiter names.');",
+          "/* Missing waiter directory is shown by the existing inline 'not selected' state. */"
+        );
+      return new Response(patched, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers
+      });
+    } catch (e) {
+      return response;
+    }
+  }));
+});
+
 self.addEventListener('push', function(event) {
   event.waitUntil((async function() {
     var data = {};

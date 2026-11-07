@@ -1,0 +1,346 @@
+/* Mirch Masaala — thin client over EXISTING Supabase backend.
+ * Contracts mirror production SQL. No new RPCs, no schema changes.
+ */
+(function () {
+  var RID = MM.RESTAURANT_ID;
+  var client = null;
+  var initError = null;
+
+  try {
+    if (!window.supabase || !window.supabase.createClient) {
+      throw new Error('supabase-js did not load');
+    }
+    client = window.supabase.createClient(MM.SUPABASE_URL, MM.SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+    });
+  } catch (e) {
+    initError = e;
+    console.error('[MM supabase init]', e);
+  }
+
+  function need() {
+    if (!client) {
+      var err = new Error('OFFLINE');
+      err.userCode = 'offline';
+      throw err;
+    }
+    return client;
+  }
+
+  function pad2(n) { return String(n == null ? '' : n).trim().padStart(2, '0'); }
+  function first(data) { return Array.isArray(data) ? (data[0] || null) : data; }
+  function upper(v) { return String(v || '').toUpperCase(); }
+
+  async function rpc(name, args) {
+    var r = await need().rpc(name, args || {});
+    if (r.error) {
+      console.error('[MM rpc ' + name + ']', r.error);
+      throw r.error;
+    }
+    return r.data;
+  }
+
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function uuid() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+    });
+  }
+
+  function customerSessionId(visitId) {
+    var key = MM.KEYS.sessionPrefix + visitId;
+    var v = MM.store.get(key, '');
+    if (!UUID_RE.test(v)) { v = uuid(); MM.store.set(key, v); }
+    return v;
+  }
+
+  function ticketId(table) {
+    var d = new Date();
+    var day = d.toISOString().slice(0, 10).replace(/-/g, '');
+    var clock = d.toTimeString().slice(0, 8).replace(/:/g, '');
+    var rnd = Math.random().toString(36).slice(2, 7).toUpperCase().padEnd(5, 'X');
+    return 'T' + pad2(table) + '-' + day + '-' + clock + '-' + rnd;
+  }
+
+  function authEmail(value) {
+    var c = String(value || '').trim().toLowerCase();
+    if (c.indexOf('@') >= 0) return c;
+    if (!/^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$/.test(c)) {
+      var e = new Error('BAD_USERNAME'); e.userCode = 'bad_username'; throw e;
+    }
+    return c + '@staff.mirchmasaala.invalid';
+  }
+
+  var api = {
+    ready: function () { return !!client; },
+    initError: function () { return initError; },
+    pad2: pad2,
+    uuid: uuid,
+    newTicket: ticketId,
+    customerSessionId: customerSessionId,
+
+    tableStatus: async function (table) {
+      return first(await rpc('mm_public_table_visit_status', { p_table_number: pad2(table) }));
+    },
+
+    _menuCache: null,
+    _menuCacheAt: 0,
+    _configCache: null,
+    _configCacheAt: 0,
+
+    loadMenu: async function () {
+      var now = Date.now();
+      if (api._menuCache && (now - api._menuCacheAt) < 60000) return api._menuCache;
+      var c = need();
+      var pair = await Promise.all([
+        c.from('categories').select('id,name,sort_order,is_active').eq('restaurant_id', RID).order('sort_order', { ascending: true }),
+        c.from('menu_items').select('id,category_id,name,description,price,image_url,is_available,sort_order,is_veg,is_bestseller,spicy_level').eq('restaurant_id', RID).order('sort_order', { ascending: true })
+      ]);
+      if (pair[0].error) throw pair[0].error;
+      if (pair[1].error) throw pair[1].error;
+      var result = { categories: pair[0].data || [], items: pair[1].data || [] };
+      api._menuCache = result;
+      api._menuCacheAt = now;
+      return result;
+    },
+
+    loadConfig: async function () {
+      var now = Date.now();
+      if (api._configCache && (now - api._configCacheAt) < 120000) return api._configCache;
+      var r = await need().from('mm_restaurant_config')
+        .select('restaurant_name,tagline,admin_phone,upi_id,upi_name,phonepe_upi,whatsapp_number,whatsapp_name,google_reviews_url,pay_note,accept_card,accept_cash')
+        .eq('restaurant_id', RID).maybeSingle();
+      if (r.error) throw r.error;
+      api._configCache = r.data || null;
+      api._configCacheAt = now;
+      return api._configCache;
+    },
+
+    placeOrder: async function (opts) {
+      var items = (opts.items || []).map(function (i) {
+        return { menu_item_id: i.id, quantity: Math.max(1, Math.min(99, Number(i.qty) || 1)) };
+      });
+      if (!items.length) throw new Error('EMPTY_CART');
+      var args = {
+        p_restaurant_id: RID, p_table_number: pad2(opts.table), p_ticket_id: opts.ticket || ticketId(opts.table),
+        p_notes: String(opts.notes || '').slice(0, 1000), p_items: items, p_table_visit_id: opts.visitId,
+        p_customer_session_id: opts.sessionId || null, p_guest_order_code: null
+      };
+      var created = first(await rpc('mm_place_order', args));
+      if (!created || !created.id || !created.publicToken) throw new Error('ORDER_NOT_CONFIRMED');
+      return created;
+    },
+
+    getPublicOrder: async function (ticket, token) {
+      return first(await rpc('mm_get_public_order', { p_ticket_id: ticket, p_public_token: token }));
+    },
+
+    guestBill: async function (table, visitId, sessionId) {
+      return first(await rpc('mm_guest_get_visit_bill', {
+        p_table_number: pad2(table), p_visit_id: visitId, p_customer_session_id: sessionId
+      }));
+    },
+
+    requestPayment: async function (method, table, visitId, sessionId) {
+      if (method === 'cash') {
+        return first(await rpc('mm_guest_cash_counter_release', {
+          p_table_number: pad2(table), p_visit_id: visitId, p_customer_session_id: sessionId
+        }));
+      }
+      return first(await rpc('mm_guest_request_visit_payment_check', {
+        p_restaurant_id: RID, p_table_number: pad2(table), p_visit_id: visitId,
+        p_customer_session_id: sessionId, p_method: 'upi'
+      }));
+    },
+
+    submitParty: async function (p) {
+      return first(await rpc('mm_submit_party_booking', {
+        p_name: String(p.name || '').trim(), p_phone: String(p.phone || '').trim(),
+        p_event_type: String(p.eventType || ''), p_event_date: String(p.date || ''),
+        p_event_time: String(p.time || ''), p_guest_count: Number(p.guests),
+        p_notes: String(p.message || '').trim()
+      }));
+    },
+
+    signIn: async function (username, password) {
+      var r = await need().auth.signInWithPassword({ email: authEmail(username), password: password });
+      if (r.error) throw r.error;
+      return r.data;
+    },
+    signOut: async function () {
+      try { await need().auth.signOut({ scope: 'local' }); } catch (e) { console.warn('[MM signOut]', e); }
+    },
+    getSession: async function () {
+      var r = await need().auth.getSession();
+      return r && r.data ? r.data.session : null;
+    },
+    myRole: async function () {
+      var role = first(await rpc('get_my_staff_role'));
+      role = String(role || '').toLowerCase();
+      return ['admin', 'waiter', 'kitchen'].indexOf(role) >= 0 ? role : null;
+    },
+
+    tableVisits: async function () {
+      var d = await rpc('mm_staff_get_table_visits');
+      return Array.isArray(d) ? d : [];
+    },
+    /* includeInactive only has an effect for the admin (the SQL ignores it for waiters). */
+    listWaiters: async function (includeInactive) {
+      var d = await rpc('mm_list_waiters', { p_include_inactive: !!includeInactive });
+      return Array.isArray(d) ? d : [];
+    },
+    startVisit: async function (table, waiterCode) {
+      return first(await rpc('mm_staff_set_table_visit_status', {
+        p_table_number: pad2(table), p_action: 'START',
+        p_waiter_code: waiterCode ? String(waiterCode).trim().toUpperCase() : null
+      }));
+    },
+    finishVisit: async function (table) {
+      return first(await rpc('mm_staff_set_table_visit_status', {
+        p_table_number: pad2(table), p_action: 'FINISH', p_waiter_code: null
+      }));
+    },
+    releaseAbandoned: async function (table, reason) {
+      return first(await rpc('mm_staff_release_abandoned_visit', {
+        p_table_number: pad2(table), p_reason: String(reason || 'Guest left before checkout').slice(0, 200)
+      }));
+    },
+
+    staffTables: async function () {
+      var r = await need().from('restaurant_tables').select('id,table_number').eq('restaurant_id', RID).eq('is_active', true);
+      if (r.error) throw r.error;
+      return r.data || [];
+    },
+    /* Owner table list: every table incl. inactive ones (RLS lets staff read them). select('*') so a
+     * database that has not applied the seating_capacity migration yet still lists tables. */
+    ownerTables: async function () {
+      var r = await need().from('restaurant_tables').select('*').eq('restaurant_id', RID);
+      if (r.error) throw r.error;
+      return (r.data || []).slice().sort(function (x, y) {
+        return Number(x.table_number) - Number(y.table_number);
+      });
+    },
+    /* mm_admin_set_table_capacity(p_table_number text, p_capacity integer) — admin only, 1..30. */
+    setCapacity: async function (table, capacity) {
+      return first(await rpc('mm_admin_set_table_capacity', { p_table_number: pad2(table), p_capacity: Number(capacity) }));
+    },
+    staffOrders: async function (activeOnly) {
+      var cols = 'id,ticket_id,table_id,status,approval_status,notes,total,created_at,order_number,archived_at';
+      var q = need().from('orders').select(cols).eq('restaurant_id', RID);
+      if (activeOnly) q = q.in('status', ['NEW', 'PREPARING', 'READY']).is('archived_at', null);
+      q = q.order('created_at', { ascending: false }).limit(activeOnly ? 200 : 60);
+      var r = await q;
+      if (r.error) throw r.error;
+      return r.data || [];
+    },
+    orderItems: async function (orderIds) {
+      if (!orderIds.length) return [];
+      var r = await need().from('order_items').select('order_id,item_name,quantity,price').in('order_id', orderIds);
+      if (r.error) throw r.error;
+      return r.data || [];
+    },
+    setOrderStatus: async function (ticket, status) {
+      var next = upper(status);
+      var r = await need().from('orders').update({ status: next }).eq('restaurant_id', RID).eq('ticket_id', ticket).select('ticket_id,status').maybeSingle();
+      if (r.error) throw r.error;
+      if (!r.data || upper(r.data.status) !== next) throw new Error('NOT_UPDATED');
+      return r.data;
+    },
+
+    notifications: async function (limit, staffCode) {
+      var code = String(staffCode || '').trim().toUpperCase();
+      var d = await rpc('mm_staff_notifications', { p_limit: limit || 40, p_staff_code: code || null });
+      return Array.isArray(d) ? d : [];
+    },
+    visitBill: async function (visitId) {
+      return first(await rpc('mm_staff_get_visit_bill', { p_visit_id: visitId }));
+    },
+    recordPayment: async function (visitId, amount, method, note) {
+      return first(await rpc('mm_staff_record_visit_payment', {
+        p_visit_id: visitId, p_amount: Number(amount), p_method: String(method || 'cash'),
+        p_note: String(note || '').slice(0, 500)
+      }));
+    },
+
+    updatePrice: async function (id, price) {
+      var p = Math.round(Number(price));
+      var r = await need().from('menu_items').update({ price: p }).eq('restaurant_id', RID).eq('id', id).select('id,price').maybeSingle();
+      if (r.error) throw r.error;
+      if (!r.data || Number(r.data.price) !== p) throw new Error('NOT_UPDATED');
+      return r.data;
+    },
+    setAvailable: async function (id, on) {
+      var r = await need().from('menu_items').update({ is_available: !!on }).eq('restaurant_id', RID).eq('id', id).select('id,is_available').maybeSingle();
+      if (r.error) throw r.error;
+      if (!r.data || r.data.is_available !== !!on) throw new Error('NOT_UPDATED');
+      return r.data;
+    },
+    listBookings: async function () {
+      var d = await rpc('mm_admin_list_party_bookings', { p_limit: 100 });
+      return Array.isArray(d) ? d : [];
+    },
+    updateBooking: async function (id, status, notes) {
+      return first(await rpc('mm_admin_update_party_booking', {
+        p_booking_id: id, p_status: upper(status), p_owner_notes: notes || ''
+      }));
+    },
+    saveConfig: async function (patch) {
+      var payload = Object.assign({ restaurant_id: RID }, patch);
+      var r = await need().from('mm_restaurant_config').upsert(payload, { onConflict: 'restaurant_id' });
+      if (r.error) throw r.error;
+      api._configCache = null;
+      return true;
+    },
+
+    /* ---- Owner (admin) operations. Every one is an EXISTING RPC/table; the database enforces the
+     * admin role (get_my_staff_role() = 'admin' / RLS), the UI only hides what the role cannot use. ---- */
+    accountsSummary: async function (day) {
+      return first(await rpc('mm_admin_accounts_summary', { p_day: day || null }));
+    },
+    cancelOrder: async function (ticket, reason) {
+      return first(await rpc('mm_admin_cancel_order', { p_ticket_id: String(ticket), p_reason: String(reason || '').trim() }));
+    },
+    reviewOrder: async function (ticket, decision, reason) {
+      return first(await rpc('mm_admin_review_customer_order', {
+        p_ticket_id: String(ticket), p_decision: upper(decision), p_reason: reason ? String(reason).trim() : null
+      }));
+    },
+    saveWaiter: async function (name, code) {
+      return first(await rpc('mm_admin_save_waiter', { p_display_name: String(name || ''), p_waiter_code: code || null }));
+    },
+    setWaiterActive: async function (code, active) {
+      return first(await rpc('mm_admin_set_waiter_active', { p_waiter_code: String(code), p_active: !!active }));
+    },
+    ownerReviews: async function () {
+      var r = await need().from('mm_restaurant_reviews').select('id,display_name,rating,comment,table_number,status,created_at')
+        .eq('restaurant_id', RID).order('created_at', { ascending: false }).limit(100);
+      if (r.error) throw r.error;
+      return r.data || [];
+    },
+    setReviewStatus: async function (id, status) {
+      return first(await rpc('mm_admin_set_restaurant_review_status', { p_review_id: id, p_status: String(status) }));
+    },
+    deleteReview: async function (id) {
+      return first(await rpc('mm_admin_delete_restaurant_review', { p_review_id: id }));
+    },
+    resolveNotification: async function (id) {
+      return rpc('mm_resolve_staff_notification', { p_notification_id: Number(id), p_staff_code: null });
+    },
+    maintenanceStatus: async function () {
+      return first(await rpc('mm_admin_maintenance_status'));
+    },
+    exportBackup: async function () {
+      return first(await rpc('mm_admin_export_backup'));
+    },
+    recordBackup: async function () {
+      return first(await rpc('mm_admin_record_backup_export'));
+    },
+    resetBusinessData: async function (confirmation, backupMade) {
+      return first(await rpc('mm_admin_reset_business_data', { p_confirmation: String(confirmation), p_backup_made: !!backupMade }));
+    }
+  };
+
+  MM.api = api;
+})();

@@ -1,1099 +1,469 @@
-/*
- * MIRCH MASAALA — Premium UI / Motion Layer
- * A presentation-only layer over the existing app. Business logic is intentionally untouched.
- * Palette: midnight cocoa, soft brass, ember copper, warm ivory.
- */
+/* Premium motion accents — customer home (reference-aligned) */
+.food-card { will-change: transform; }
+.btn-primary { letter-spacing: 0.02em; }
 
-/* 01 · Design tokens and ambient canvas */
-:root {
-  --mm-ink: #100b09;
-  --mm-ink-soft: #17100e;
-  --mm-panel: rgba(31, 22, 18, .88);
-  --mm-panel-solid: #211713;
-  --mm-panel-raised: #2a1d17;
-  --mm-brass: #c4a36a;
-  --mm-brass-soft: #ddc69a;
-  --mm-copper: #b86d43;
-  --mm-red: #9f4538;
-  --mm-ivory: #f3ecdf;
-  --mm-copy-dim: #aa9a89;
-  --mm-edge: rgba(214, 178, 112, .20);
-  --mm-edge-soft: rgba(255, 239, 211, .075);
-  --mm-shadow: 0 18px 48px rgba(0, 0, 0, .28);
-  --mm-ease: cubic-bezier(.2, .75, .25, 1);
-  --mm-snap: cubic-bezier(.16, 1, .3, 1);
-  --mm-focus: 0 0 0 3px rgba(221, 198, 154, .24);
+#screen-welcome.screen.on .home-brand-lockup {
+  animation: fadeUp 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-
-html {
-  color-scheme: dark;
-  scroll-behavior: smooth;
-  scrollbar-color: rgba(196, 163, 106, .42) rgba(16, 11, 9, .6);
+#screen-welcome.screen.on .home-tagline {
+  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both;
 }
-
-body {
-  background:
-    radial-gradient(ellipse at 8% -10%, rgba(174, 83, 48, .12), transparent 38rem),
-    radial-gradient(ellipse at 100% 8%, rgba(196, 163, 106, .075), transparent 34rem),
-    radial-gradient(ellipse at 55% 110%, rgba(102, 42, 31, .12), transparent 40rem),
-    linear-gradient(155deg, #100b09 0%, #15100d 50%, #100b09 100%);
-  background-attachment: fixed;
-  isolation: isolate;
+#screen-welcome.screen.on .home-start {
+  animation: fadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) 100ms both;
 }
-
-body::before {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  inset: 0;
-  pointer-events: none;
-  opacity: .48;
-  background-image: radial-gradient(rgba(246, 224, 184, .13) .55px, transparent .7px);
-  background-size: 25px 25px;
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,.5), transparent 72%);
+#screen-welcome.screen.on .home-quick {
+  animation: fadeUp 560ms cubic-bezier(0.22, 1, 0.36, 1) 140ms both;
 }
-
-button, input, select, textarea {
-  -webkit-tap-highlight-color: transparent;
-}
-
-button {
-  touch-action: manipulation;
-}
-
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-[role="button"]:focus-visible {
-  outline: none;
-  box-shadow: var(--mm-focus) !important;
-  border-color: rgba(221, 198, 154, .76) !important;
-}
-
-/* 02 · Screen transitions — quick, composed, and not theatrical */
-@keyframes mmScreenIn {
-  from { opacity: 0; transform: translateY(7px); filter: saturate(.92); }
-  to { opacity: 1; transform: translateY(0); filter: saturate(1); }
-}
-@keyframes mmRiseSoft {
+@keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes mmHaloBreathe {
-  0%, 100% { opacity: .48; transform: scale(.97); }
-  50% { opacity: .72; transform: scale(1.025); }
+.cart-bar:not([hidden]) {
+  animation: cartSlide 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-@keyframes mmBeamSweep {
-  0%, 100% { transform: translateY(-2px); opacity: .52; }
-  50% { transform: translateY(24px); opacity: .82; }
-}
-@keyframes mmArrowNudge {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(2px); }
-}
-@keyframes mmStatusPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(62, 207, 142, 0); }
-  50% { box-shadow: 0 0 0 3px rgba(62, 207, 142, .055); }
+@keyframes cartSlide {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
-@keyframes mmScreenFade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* Brand visual float */
+.home-brand-visual {
+  animation: chefFloat 4.8s ease-in-out infinite;
+}
+@keyframes chefFloat {
+  0%, 100% { transform: translate3d(0,0,0) rotate(-1deg); }
+  50% { transform: translate3d(0,-3px,0) rotate(1deg); }
 }
 
-/* A transform on the whole screen can relocate fixed descendants such as the customer bottom action bar. */
-.screen.on {
-  animation: mmScreenFade .28s ease-out both;
-}
-
-#home.screen.on {
+/* Scanner CTA — enhanced by customer-ui.js */
+#btn-scan-qr.scan-cta,
+.scan-cta {
   position: relative;
-  isolation: isolate;
-}
-
-#home .wrap {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 560px);
-}
-
-#home .home-atmosphere {
-  height: 460px;
-  opacity: .82;
-  background:
-    radial-gradient(ellipse at 48% 4%, rgba(196,163,106,.115), transparent 42%),
-    radial-gradient(ellipse at 10% 35%, rgba(184,109,67,.09), transparent 36%),
-    radial-gradient(ellipse at 92% 30%, rgba(159,69,56,.055), transparent 39%);
-}
-
-#home .home-steam {
-  opacity: 0;
-  filter: blur(16px);
-}
-
-#home .home-ember {
-  width: 2px;
-  height: 2px;
-  box-shadow: 0 0 8px 1px rgba(221,198,154,.16);
-}
-
-/* 03 · Brand stage and home hierarchy */
-#home .home-utility-bar {
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-#home .home-language-control {
-  gap: 8px;
-}
-
-#home #status-pill {
-  box-shadow: inset 0 1px rgba(255,255,255,.035);
-  animation: mmStatusPulse 4.8s ease-in-out infinite;
-}
-
-#home .logo-row {
-  position: relative;
-  gap: 15px;
-  margin: 5px auto 7px;
-  padding: 12px 8px 7px;
-}
-
-#home .logo-row::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  left: 50%;
-  top: 50%;
-  width: min(92%, 350px);
-  height: 130px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  background: radial-gradient(ellipse, rgba(196,163,106,.10), rgba(184,109,67,.035) 44%, transparent 72%);
-  filter: blur(10px);
-  animation: mmHaloBreathe 8s ease-in-out infinite;
-}
-
-#home .brand-name {
-  font-size: clamp(1.8rem, 7vw, 2.2rem);
-  line-height: .98;
-  letter-spacing: .045em;
-  color: var(--mm-brass-soft);
-  text-shadow: 0 2px 18px rgba(196,163,106,.10);
-}
-
-#home .brand-sub {
-  color: #b69d7b;
-  letter-spacing: .23em;
-  font-size: 10px;
-  margin-top: 7px;
-}
-
-#home #home-tagline {
-  max-width: 350px;
-  margin: 7px auto 9px !important;
-  color: #b7a999;
-  letter-spacing: .01em;
-}
-
-#home .tip-banner {
-  background: linear-gradient(112deg, rgba(196,163,106,.075), rgba(255,255,255,.018) 62%, rgba(159,69,56,.04));
-  border-color: rgba(196,163,106,.17);
-  border-radius: 14px 19px 19px 19px;
-  box-shadow: inset 0 1px rgba(255,255,255,.028);
-}
-
-#home .tip-banner .ic {
-  filter: saturate(.76);
-}
-
-#home .qr-guide-mini {
-  margin-top: 12px;
-  background: linear-gradient(112deg, rgba(196,163,106,.055), rgba(30,21,18,.52));
-  border-color: rgba(196,163,106,.17);
-}
-
-#home .qr-mini-mascot {
-  background: rgba(196,163,106,.07);
-  border-color: rgba(196,163,106,.18);
-  box-shadow: inset 0 1px rgba(255,255,255,.035);
-}
-
-#home .qr-mini-arrow {
-  color: #c8b28a;
-  opacity: .68;
-}
-
-/* Guide the scan without spending another card-height on the home screen. */
-#home .qr-guide-mini {
-  min-height: 28px;
-  margin: 2px 0 3px;
-  padding: 1px 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  gap: 6px;
-}
-#home .qr-mini-mascot {
-  flex: 0 0 26px;
-  width: 26px;
-  height: 26px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  font-size: 21px;
-}
-#home .qr-mini-copy { gap: 1px; }
-#home .qr-mini-copy b { font-size: 10px; }
-#home .qr-mini-copy > span { font-size: 9px; line-height: 1.25; }
-#home .qr-mini-arrow {
-  animation: mmGuideArrowDown 1.5s ease-in-out infinite;
-  text-shadow: 0 0 7px rgba(196,163,106,.25);
-}
-@keyframes mmGuideArrowDown {
-  0%,100% { transform: translateY(-1px); opacity: .6; }
-  50% { transform: translateY(2px); opacity: 1; }
-}
-
-/* QR scanner: tactile, readable, and intentionally low-glare */
-#scan-table-btn,
-#scan-table-btn.btn-main,
-#scan-table-btn.scan-cta {
-  position: relative;
-  isolation: isolate;
   overflow: hidden;
-  display: flex !important;
+  min-height: clamp(72px, 18vw, 96px);
+  border-radius: 18px;
+  display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 13px;
-  min-height: 72px !important;
-  margin-top: 8px !important;
-  padding: 11px 14px !important;
-  border: 1px solid rgba(196,163,106,.36) !important;
-  border-radius: 17px !important;
-  background:
-    linear-gradient(110deg, rgba(196,163,106,.075), transparent 42%),
-    linear-gradient(145deg, #29221c 0%, #211a16 58%, #1c1713 100%) !important;
-  color: var(--mm-ivory) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,.21), inset 0 1px rgba(255,255,255,.035) !important;
+  gap: 14px;
+  padding: 14px 16px;
+  text-transform: none;
+  letter-spacing: 0.01em;
   text-align: left;
-  letter-spacing: 0;
-  transition: transform .2s var(--mm-ease), border-color .2s ease, background .2s ease, box-shadow .2s ease;
+  transform: translateZ(0);
+  box-shadow: 0 14px 32px rgba(0,0,0,.22), 0 0 0 1px rgba(246,217,172,.08) inset;
+  transition: transform 180ms ease, box-shadow 180ms ease;
 }
-
-#scan-table-btn::before,
-#scan-table-btn::after {
-  content: none !important;
-  animation: none !important;
-}
-
-#scan-table-btn:active {
-  transform: translateY(1px) scale(.992);
-}
-
-#scan-table-btn:hover {
-  border-color: rgba(196,163,106,.52) !important;
-  background:
-    linear-gradient(110deg, rgba(196,163,106,.105), transparent 46%),
-    linear-gradient(145deg, #2b231d 0%, #231b17 58%, #1e1814 100%) !important;
-  box-shadow: 0 10px 26px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.045) !important;
-}
-
-#scan-table-btn .scan-qr-visual {
-  flex: 0 0 46px;
-  width: 46px;
-  height: 46px;
-  border: 1px solid rgba(196,163,106,.24);
-  border-radius: 12px;
-  background: linear-gradient(145deg, rgba(255,255,255,.035), rgba(0,0,0,.18));
-  box-shadow: inset 0 1px rgba(255,255,255,.025);
-}
-
-#scan-table-btn .scan-qr-corner {
-  border-color: #bca170;
-  opacity: .92;
-}
-
-#scan-table-btn .scan-qr-dot {
-  background: #bca170;
-  opacity: .78;
-}
-
-#scan-table-btn .scan-qr-beam {
-  background: #d0b783;
-  box-shadow: 0 0 5px rgba(196,163,106,.16);
-  animation: mmBeamSweep 3.2s ease-in-out infinite;
-}
-
-#scan-table-btn .scan-qr-copy {
-  gap: 4px;
-}
-
-#scan-table-btn .scan-qr-copy b {
-  color: #f1e8d8;
-  font-size: 14px;
-  letter-spacing: .005em;
-}
-
-#scan-table-btn .scan-qr-copy small {
-  color: #b7a999;
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-#scan-table-btn .scan-cta-arrow {
-  display: grid;
-  place-items: center;
-  flex: 0 0 29px;
-  width: 29px;
-  height: 29px;
-  border: 1px solid rgba(196,163,106,.21);
-  border-radius: 10px;
-  color: #c7b087;
-  background: rgba(0,0,0,.12);
-  font-size: 17px;
-  animation: none;
-  transition: transform .2s var(--mm-ease), background .2s ease;
-}
-
-#scan-table-btn:hover .scan-cta-arrow {
-  transform: translateX(2px);
-  background: rgba(196,163,106,.075);
-}
-
-#home .qr-no-sticker {
-  color: #998b7d;
-  font-size: 10px;
-  letter-spacing: .01em;
-}
-
-/* 04 · Shortcuts and supporting actions */
-#home .home-shortcuts {
-  max-width: 360px;
-  gap: clamp(8px, 3vw, 18px);
-  margin-top: 13px;
-}
-
-#home .home-shortcut {
-  min-width: 56px;
-  flex: 1 1 62px;
-  transition: transform .2s var(--mm-ease);
-}
-
-#home .home-icon-btn {
-  width: 47px;
-  height: 47px;
-  border: 1px solid rgba(196,163,106,.19);
-  border-radius: 15px;
-  background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
-  box-shadow: inset 0 1px rgba(255,255,255,.035), 0 5px 15px rgba(0,0,0,.13);
-  transition: transform .2s var(--mm-ease), border-color .2s ease, background .2s ease, box-shadow .2s ease;
-}
-
-#home .home-icon-btn span {
-  filter: saturate(.78);
-}
-
-#home .home-shortcut-label {
-  color: #b3a394;
-  font-size: 10px;
-  line-height: 1.2;
-  letter-spacing: .005em;
-}
-
-#home .party-booking-btn {
-  border-color: rgba(196,163,106,.24);
-  background: linear-gradient(145deg, rgba(159,69,56,.14), rgba(196,163,106,.045));
-  box-shadow: inset 0 1px rgba(255,255,255,.035), 0 5px 15px rgba(0,0,0,.12);
-  animation: none;
-}
-
-#home .install-staff-btn,
-#home .big-link,
-#home .customer-explore-shortcut {
-  border-color: var(--mm-edge);
-  background: linear-gradient(120deg, rgba(196,163,106,.055), rgba(255,255,255,.015) 70%);
-  box-shadow: inset 0 1px rgba(255,255,255,.025);
-}
-
-/* 05 · Shared surfaces, controls, and content cards */
-.topbar {
-  background: rgba(18, 12, 10, .88);
-  border-bottom-color: rgba(196,163,106,.16);
-  box-shadow: 0 8px 22px rgba(0,0,0,.09);
-  backdrop-filter: blur(18px) saturate(130%);
-  -webkit-backdrop-filter: blur(18px) saturate(130%);
-}
-
-.back {
-  border-color: rgba(196,163,106,.20);
-  border-radius: 11px;
-  background: linear-gradient(145deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
-  color: #d8c49e;
-  transition: transform .18s var(--mm-ease), border-color .18s ease, background .18s ease;
-}
-
-.btn {
-  position: relative;
-  overflow: hidden;
-  border-radius: 13px;
-  transition: transform .18s var(--mm-ease), border-color .18s ease, background .18s ease, box-shadow .18s ease, filter .18s ease;
-}
-
-.btn-main {
-  background: linear-gradient(135deg, #b18a45, #d0b677) !important;
-  color: #1b130c !important;
-  box-shadow: 0 5px 15px rgba(177,138,69,.14) !important;
-}
-
-.btn-soft {
-  background: linear-gradient(145deg, #241b17, #1d1613) !important;
-  border: 1px solid rgba(196,163,106,.17) !important;
-  color: #e4d7c2 !important;
-}
-
-.btn-ok {
-  box-shadow: 0 4px 14px rgba(62,207,142,.10);
-}
-
-.btn-warn {
-  box-shadow: 0 4px 14px rgba(240,160,75,.10);
-}
-
-.pill {
-  box-shadow: inset 0 1px rgba(255,255,255,.025);
-}
-
-.card {
-  position: relative;
-  border-color: rgba(196,163,106,.15);
-  background: linear-gradient(145deg, rgba(39,28,23,.96), rgba(29,21,17,.98));
-  box-shadow: 0 5px 15px rgba(0,0,0,.10), inset 0 1px rgba(255,255,255,.018);
-  transition: transform .2s var(--mm-ease), border-color .2s ease, box-shadow .2s ease, background .2s ease;
-}
-
-.card .pic {
-  overflow: hidden;
-  border: 1px solid rgba(196,163,106,.10);
-  background: linear-gradient(145deg, rgba(196,163,106,.08), rgba(0,0,0,.18));
-}
-
-.card .name {
-  letter-spacing: .005em;
-}
-
-.card .desc {
-  color: #b5a596;
-  line-height: 1.45;
-}
-
-.card .price {
-  color: #ddc69a;
-}
-
-.add {
-  border: 1px solid rgba(196,163,106,.22);
-  transition: transform .16s var(--mm-ease), background .16s ease, border-color .16s ease;
-}
-
-.qty {
-  border-color: rgba(196,163,106,.18);
-  border-radius: 11px;
-  overflow: hidden;
-}
-
-.qty button {
-  transition: background .15s ease, transform .15s var(--mm-ease);
-}
-
-.big-link,
-.customer-explore-shortcut {
-  transition: transform .18s var(--mm-ease), border-color .18s ease, background .18s ease, box-shadow .18s ease;
-}
-
-.menu-search-prime {
-  border-bottom: 1px solid rgba(196,163,106,.10);
-}
-
-.menu-search-symbol {
-  color: #c9af7d;
-  opacity: .82;
-}
-
-.search,
-.scan-manual-row input,
-.login-box input,
-input, select, textarea {
-  accent-color: #c4a36a;
-}
-
-.search,
-.scan-manual-row input,
-.login-box input {
-  border-color: rgba(196,163,106,.20);
-  background: rgba(10,7,6,.32);
-  border-radius: 12px;
-  box-shadow: inset 0 1px 4px rgba(0,0,0,.12);
-  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
-}
-
-.cat {
-  border-color: rgba(196,163,106,.16);
-  background: rgba(255,255,255,.012);
-  transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s var(--mm-ease);
-}
-
-.cat.on {
-  background: rgba(196,163,106,.13);
-  border-color: rgba(196,163,106,.38);
-  color: #e5d3ad;
-  box-shadow: inset 0 1px rgba(255,255,255,.035);
-}
-
-/* 06 · Customer checkout and confirmation */
-.customer-table-lock {
-  border-color: rgba(196,163,106,.20);
-  background: rgba(196,163,106,.055);
-  box-shadow: inset 0 1px rgba(255,255,255,.025);
-}
-
-.customer-bottom {
-  background: rgba(18,12,10,.91);
-  border-top-color: rgba(196,163,106,.16);
-  box-shadow: 0 -10px 28px rgba(0,0,0,.14);
-  backdrop-filter: blur(18px) saturate(125%);
-  -webkit-backdrop-filter: blur(18px) saturate(125%);
-}
-
-.bottom {
-  background: linear-gradient(transparent, rgba(16,11,9,.95) 32%);
-}
-
-.drawer {
-  background:
-    radial-gradient(ellipse at 90% 0%, rgba(196,163,106,.065), transparent 28rem),
-    #120c0a;
-}
-
-.drawer .body {
-  overscroll-behavior: contain;
-}
-
-.modal {
-  background: rgba(7,5,4,.76);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.modal .box {
-  border: 1px solid rgba(196,163,106,.22);
-  border-radius: 20px;
-  background: linear-gradient(145deg, #261b16, #19120f);
-  box-shadow: var(--mm-shadow), inset 0 1px rgba(255,255,255,.035);
-}
-
-.modal.on .box {
-  animation: mmRiseSoft .24s var(--mm-snap) both;
-}
-
-.drawer.on {
-  animation: mmScreenIn .25s var(--mm-snap) both;
-}
-
-#toast,
-.toast {
-  border: 1px solid rgba(196,163,106,.22);
-  border-radius: 13px;
-  background: rgba(35,25,20,.96);
-  box-shadow: 0 12px 32px rgba(0,0,0,.32);
-  backdrop-filter: blur(14px);
-}
-
-/* 07 · Table selection: distinct states without flashing */
-.tbtn {
-  border-color: rgba(196,163,106,.20);
-  background: linear-gradient(145deg, rgba(43,31,25,.92), rgba(27,20,16,.98));
-  box-shadow: inset 0 1px rgba(255,255,255,.025), 0 4px 10px rgba(0,0,0,.09);
-  transition: transform .18s var(--mm-ease), border-color .18s ease, background .18s ease, box-shadow .18s ease;
-}
-
-.tbtn:active {
+#btn-scan-qr.scan-cta:active,
+.scan-cta:active {
   transform: scale(.975);
 }
-
-.tbtn.on {
-  border-color: rgba(221,198,154,.70);
-  background: linear-gradient(145deg, rgba(196,163,106,.19), rgba(159,69,56,.055));
-  box-shadow: inset 0 0 0 1px rgba(221,198,154,.10), 0 7px 20px rgba(0,0,0,.14);
-}
-
-/* 08 · Staff, kitchen display, owner console */
-.login-box {
-  padding: 24px;
-  border: 1px solid rgba(196,163,106,.19);
-  border-radius: 20px;
-  background: linear-gradient(145deg, rgba(38,27,21,.95), rgba(25,18,14,.98));
-  box-shadow: var(--mm-shadow), inset 0 1px rgba(255,255,255,.025);
-}
-
-.tabs {
-  border-bottom-color: rgba(196,163,106,.16);
-  background: rgba(18,12,10,.88);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-
-.tabs button {
-  border-radius: 10px 10px 0 0;
-  transition: color .16s ease, background .16s ease, border-color .16s ease;
-}
-
-.tabs button.on {
-  background: rgba(196,163,106,.09);
-  box-shadow: inset 0 -2px #c4a36a;
-}
-
-.stats {
-  gap: 9px;
-}
-
-.stat {
-  border-color: rgba(196,163,106,.16);
-  background: linear-gradient(145deg, rgba(39,28,22,.94), rgba(26,19,15,.98));
-  box-shadow: inset 0 1px rgba(255,255,255,.025);
-}
-
-.stat b {
-  color: #e0c796;
-  letter-spacing: -.025em;
-}
-
-.kds {
-  gap: 10px;
-}
-
-.kcol {
-  border: 1px solid rgba(196,163,106,.11);
-  background: linear-gradient(180deg, rgba(30,22,18,.96), rgba(19,14,12,.96));
-}
-
-.kcol h3 {
-  letter-spacing: .08em;
-  border-radius: 9px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.11);
-}
-
-.kcard {
-  border: 1px solid rgba(196,163,106,.14);
-  background: linear-gradient(145deg, #2a1f18, #211813);
-  box-shadow: 0 5px 14px rgba(0,0,0,.12);
-}
-
-.visit-card {
-  border-color: rgba(196,163,106,.22);
-  background: linear-gradient(135deg, rgba(196,163,106,.09), rgba(34,24,19,.96) 58%, rgba(159,69,56,.045));
-  box-shadow: 0 12px 28px rgba(0,0,0,.16), inset 0 1px rgba(255,255,255,.025);
-}
-
-.role-alert-host > * {
-  border-color: rgba(196,163,106,.23);
-  box-shadow: 0 8px 20px rgba(0,0,0,.12);
-}
-
-.admin-more {
-  border: 1px solid rgba(196,163,106,.18);
-  border-radius: 10px;
-  background: #211713;
-  color: #dfcda9;
-}
-
-.settings-row,
-.waiter-visit-row,
-.visit-detail,
-.place {
-  border-color: rgba(196,163,106,.15);
-}
-
-/* 09 · Entrance rhythm for static home and main navigation controls */
-#home.screen.on .home-utility-bar { animation: mmRiseSoft .34s .02s var(--mm-snap) both; }
-#home.screen.on .logo-row { animation: mmRiseSoft .42s .04s var(--mm-snap) both; }
-#home.screen.on #home-tagline { animation: mmRiseSoft .42s .08s var(--mm-snap) both; }
-#home.screen.on #home-tip { animation: mmRiseSoft .42s .11s var(--mm-snap) both; }
-#home.screen.on .qr-guide-mini { animation: mmRiseSoft .42s .14s var(--mm-snap) both; }
-#home.screen.on #scan-table-btn { animation: mmRiseSoft .46s .16s var(--mm-snap) both; }
-#home.screen.on .home-shortcuts { animation: mmRiseSoft .46s .19s var(--mm-snap) both; }
-
-#customer.screen.on .topbar,
-#waiter.screen.on .topbar,
-#kitchen.screen.on .topbar,
-#admin.screen.on .topbar {
-  animation: mmRiseSoft .26s var(--mm-snap) both;
-}
-
-/* 10 · Hover is progressive enhancement; touch users keep calm, tactile feedback */
-@media (hover: hover) and (pointer: fine) {
-  .btn:hover {
-    transform: translateY(-1px);
-  }
-  .btn-main:hover {
-    filter: brightness(1.035);
-    box-shadow: 0 8px 19px rgba(177,138,69,.17) !important;
-  }
-  .btn-soft:hover,
-  .back:hover {
-    border-color: rgba(196,163,106,.34);
-    background: rgba(196,163,106,.07);
-  }
-  .card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(196,163,106,.26);
-    box-shadow: 0 11px 24px rgba(0,0,0,.16), inset 0 1px rgba(255,255,255,.025);
-  }
-  .home-shortcut:hover {
-    transform: translateY(-2px);
-  }
-  .home-icon-btn:hover {
-    transform: translateY(-2px);
-    border-color: rgba(196,163,106,.38);
-    background: linear-gradient(145deg, rgba(196,163,106,.085), rgba(255,255,255,.02));
-  }
-  .tbtn:hover {
-    transform: translateY(-2px);
-    border-color: rgba(196,163,106,.38);
-  }
-  .cat:hover {
-    border-color: rgba(196,163,106,.34);
-    color: #e5d3ad;
-  }
-  .add:hover {
-    border-color: rgba(196,163,106,.45);
-    transform: translateY(-1px);
-  }
-}
-
-/* 11 · Responsive details */
-@media (min-width: 700px) {
-  #home .wrap {
-    padding-top: 24px;
-  }
-  #home .logo-row {
-    margin-top: 10px;
-  }
-  #home .home-shortcuts {
-    max-width: 420px;
-  }
-  .modal .box {
-    max-width: min(560px, calc(100vw - 40px));
-  }
-}
-
-@media (max-width: 390px) {
-  #home .logo-row {
-    gap: 8px;
-  }
-  #home .brand-name {
-    font-size: 1.68rem;
-  }
-  #scan-table-btn {
-    gap: 10px;
-    padding: 10px 11px !important;
-  }
-  #scan-table-btn .scan-qr-copy b {
-    font-size: 13px;
-  }
-  #scan-table-btn .scan-qr-copy small {
-    font-size: 10px;
-  }
-  #home .home-shortcuts {
-    gap: 7px;
-  }
-  #home .home-shortcut-label {
-    font-size: 9px;
-  }
-  .kds {
-    gap: 6px;
-  }
-  .kcol {
-    padding: 7px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after {
-    animation-duration: .01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: .01ms !important;
-  }
-  .screen.on,
-  #home.screen.on .home-utility-bar,
-  #home.screen.on .logo-row,
-  #home.screen.on #home-tagline,
-  #home.screen.on #home-tip,
-  #home.screen.on .qr-guide-mini,
-  #home.screen.on #scan-table-btn,
-  #home.screen.on .home-shortcuts {
-    animation: none !important;
-    transform: none !important;
-    filter: none !important;
-  }
-}
-
-
-/* 12 · Precision graphics and tactile micro-interactions — Midnight Ember v2.
-   All motion is decorative, low-amplitude, and disabled by the reduced-motion rule below. */
-@keyframes mmAmbientDrift {
-  0%, 100% { transform: translate3d(-1.2%, 0, 0) scale(1); opacity: .22; }
-  50% { transform: translate3d(1.2%, -3px, 0) scale(1.025); opacity: .34; }
-}
-@keyframes mmEmblemBreath {
-  0%, 100% { opacity: .62; transform: scale(.985) rotate(-1deg); }
-  50% { opacity: .9; transform: scale(1.015) rotate(1deg); }
-}
-@keyframes mmFoodImageSettle {
-  from { transform: scale(1.045); }
-  to { transform: scale(1); }
-}
-
-/* The warm light is a single blurred layer, not a stream of heavy particles. */
-#home .home-atmosphere::after {
-  content: "";
-  position: absolute;
-  inset: -12% -8%;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse at 24% 28%, rgba(184,109,67,.085), transparent 35%),
-    radial-gradient(ellipse at 74% 18%, rgba(196,163,106,.075), transparent 37%);
-  opacity: .8;
-  animation: mmAmbientDrift 24s ease-in-out infinite;
-}
-
-/* Refined brand medallion around the existing chef/food artwork; no external assets. */
-#home .cook-stage {
-  isolation: isolate;
-}
-#home .cook-stage::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  inset: 7px 7px 4px;
-  pointer-events: none;
-  border: 1px solid rgba(196,163,106,.18);
-  border-radius: 42% 58% 49% 51% / 45% 42% 58% 55%;
-  background:
-    radial-gradient(ellipse at 50% 52%, rgba(196,163,106,.10), rgba(184,109,67,.035) 48%, transparent 72%),
-    linear-gradient(145deg, rgba(255,255,255,.025), rgba(0,0,0,.06));
-  box-shadow: inset 0 1px rgba(255,255,255,.035), 0 8px 26px rgba(0,0,0,.10);
-  animation: mmEmblemBreath 8.8s ease-in-out infinite;
-}
-#home .cook-stage::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  left: 29%;
-  right: 29%;
-  bottom: 7px;
-  height: 6px;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(ellipse, rgba(196,163,106,.22), rgba(184,109,67,.07) 55%, transparent 78%);
-  filter: blur(3px);
-}
-#home .cook-stage > * {
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Search gets a quiet inset instrument-panel treatment, not another oversized card. */
-#customer .menu-search-prime {
+.scan-qr-visual {
   position: relative;
-  border: 1px solid rgba(196,163,106,.15);
+  flex: 0 0 clamp(48px, 14vw, 64px);
+  width: clamp(48px, 14vw, 64px);
+  height: clamp(48px, 14vw, 64px);
   border-radius: 14px;
-  background: linear-gradient(112deg, rgba(196,163,106,.055), rgba(29,21,17,.66) 58%, rgba(184,109,67,.025));
-  box-shadow: inset 0 1px rgba(255,255,255,.025);
+  border: 1px solid rgba(246,217,172,.28);
+  background: rgba(0,0,0,.14);
+  box-shadow: inset 0 0 18px rgba(246,217,172,.05);
 }
-#customer .menu-search-symbol {
+.scan-qr-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: rgba(246,217,172,.95);
+}
+.scan-qr-tl { left: 8px; top: 8px; border-left: 2px solid; border-top: 2px solid; }
+.scan-qr-tr { right: 8px; top: 8px; border-right: 2px solid; border-top: 2px solid; }
+.scan-qr-bl { left: 8px; bottom: 8px; border-left: 2px solid; border-bottom: 2px solid; }
+.scan-qr-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  left: 50%;
+  top: 50%;
+  margin: -5px;
+  border-radius: 2px;
+  background: rgba(246,217,172,.82);
+  box-shadow: 0 0 10px rgba(246,217,172,.28);
+}
+.scan-qr-beam {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 11px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(246,217,172,.72);
+  box-shadow: 0 0 8px rgba(246,217,172,.32);
+  animation: scanBeam 2.4s ease-in-out infinite;
+}
+@keyframes scanBeam {
+  0%, 100% { transform: translateY(0); opacity: .35; }
+  50% { transform: translateY(38px); opacity: .85; }
+}
+.scan-qr-copy {
+  min-width: 0;
   display: grid;
-  place-items: center;
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(196,163,106,.18);
-  border-radius: 10px;
-  background: rgba(0,0,0,.12);
-  color: #d0b783;
+  gap: 2px;
+  text-align: left;
+  flex: 1;
 }
-#customer .search:focus-visible {
-  border-color: rgba(221,198,154,.62);
-  background: rgba(15,10,8,.68);
-  box-shadow: 0 0 0 3px rgba(196,163,106,.10), inset 0 1px 4px rgba(0,0,0,.18);
+.scan-qr-copy b {
+  font-size: clamp(15px, 4vw, 18px);
+  letter-spacing: .01em;
+  font-weight: 700;
 }
-#customer #menu .card .price {
-  font-variant-numeric: tabular-nums;
+.scan-qr-copy small {
+  opacity: .78;
+  line-height: 1.3;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
 }
-#customer #menu .card .pic img {
-  display: block;
-  max-width: 100%;
-  object-fit: cover;
-  transform: translateZ(0);
-  backface-visibility: hidden;
+.scan-cta-arrow {
+  font-size: 20px;
+  opacity: .7;
+  margin-left: auto;
+  transition: transform 180ms ease;
+}
+.scan-cta:hover .scan-cta-arrow { transform: translateX(3px); }
+
+/* Screen enter */
+.screen.on {
+  animation: screenEnter 280ms cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes screenEnter {
+  from { opacity: .72; transform: scale(.965) translateY(5px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* Fast, tactile interactions. These never alter document flow or delay checkout. */
-.btn:active:not(:disabled):not(#scan-table-btn),
-.add:active:not(:disabled),
-.qty button:active:not(:disabled),
-#home .home-icon-btn:active,
-#home .home-shortcut:active {
-  transform: translateY(1px) scale(.985);
+/* Food cards entrance */
+#screen-menu.screen.on .food-card {
+  animation: cardDepthIn 300ms cubic-bezier(.22,1,.36,1) both;
 }
-#customer #menu .card:focus-within {
-  border-color: rgba(196,163,106,.34);
-  box-shadow: 0 0 0 2px rgba(196,163,106,.075), 0 8px 20px rgba(0,0,0,.14);
-}
-#home .qr-guide-mini,
-#home .tip-banner,
-#customer .menu-search-prime {
-  transition: border-color .22s ease, background .22s ease, box-shadow .22s ease;
-}
-#home .home-language-control button {
-  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s var(--mm-ease);
-}
-#home .home-language-control button:active {
-  transform: scale(.97);
+#screen-menu.screen.on .food-card:nth-child(2n) { animation-delay: 24ms; }
+#screen-menu.screen.on .food-card:nth-child(3n) { animation-delay: 48ms; }
+@keyframes cardDepthIn {
+  from { opacity: .82; transform: scale(.985) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  #customer #menu .card .pic img {
-    transition: transform .42s var(--mm-ease), filter .42s ease;
-  }
-  #customer #menu .card:hover .pic img {
-    transform: translateZ(0) scale(1.025);
-    filter: saturate(1.035);
-  }
-  #customer .menu-search-prime:hover {
-    border-color: rgba(196,163,106,.25);
-    box-shadow: inset 0 1px rgba(255,255,255,.03), 0 5px 16px rgba(0,0,0,.08);
-  }
-  #home .home-language-control button:hover {
-    border-color: rgba(196,163,106,.42);
-    background: rgba(196,163,106,.075);
-  }
-}
-
-@media (max-width: 390px) {
-  #home .cook-stage::before {
-    inset: 10px 10px 7px;
-  }
+@media (max-width: 380px) {
+  .scan-cta-arrow { display: none; }
+  #btn-scan-qr.scan-cta { gap: 10px; padding: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #home .home-atmosphere::after,
-  #home .cook-stage::before {
+  .home-brand-visual,
+  .scan-qr-beam,
+  .screen.on,
+  #screen-menu.screen.on .food-card,
+  #screen-welcome.screen.on .home-brand-lockup,
+  #screen-welcome.screen.on .home-tagline,
+  #screen-welcome.screen.on .home-start,
+  #screen-welcome.screen.on .home-quick {
     animation: none !important;
   }
-  #customer #menu .card .pic img {
-    animation: none !important;
+  .scan-cta {
     transition: none !important;
   }
 }
 
-
-/* 13 · Illustrated menu art — named dishes, hand-drawn SVG plates, and restrained steam motion. */
-@keyframes mmDishSteamLift {
-  0%, 100% { opacity: .2; transform: translateY(2px) scaleX(.92); }
-  48% { opacity: .72; transform: translateY(-2px) scaleX(1.04); }
+/* ==========================================================================
+   MENU v2 — Batch 2 (customer Menu screen + food cards)
+   Everything is scoped to #screen-menu so the homepage and other screens are
+   untouched. Palette: chocolate-brown surfaces, champagne-gold accents, cream text.
+   ========================================================================== */
+#screen-menu {
+  --mm-bg: #120e0b;
+  --mm-surface: #1f1712;
+  --mm-surface-2: #281e17;
+  --mm-line: rgba(233, 214, 180, 0.12);
+  --mm-line-strong: rgba(233, 214, 180, 0.26);
+  --mm-gold: #dcc08a;
+  --mm-gold-soft: rgba(220, 192, 138, 0.13);
+  --mm-cream: #f6ecdc;
+  --mm-muted: #a99a8a;
+  --mm-veg: #3fae6a;
+  --mm-nonveg: #d8503f;
+  background: var(--mm-bg);
 }
-@keyframes mmDishArtArrive {
-  from { opacity: .65; transform: scale(.965); }
+
+/* The screen-enter animation uses fill-mode "both", which leaves transform:scale(1) on the
+ * screen. A transformed ancestor becomes the containing block for position:fixed children, so
+ * the cart bar was pinned to the bottom of the whole dish list instead of the viewport.
+ * "backwards" plays the same entrance but leaves no transform behind. */
+#screen-menu.screen.on { animation-fill-mode: backwards; }
+
+/* ---- header ---- */
+#screen-menu .top {
+  background: rgba(18, 14, 11, 0.92);
+  border-bottom: 1px solid var(--mm-line);
+}
+#screen-menu .top .brand strong { color: var(--mm-cream); }
+#screen-menu .top .lang-btn,
+#screen-menu .top .back {
+  color: var(--mm-cream);
+  border-color: var(--mm-line-strong);
+  background: transparent;
+}
+
+/* ---- scroll container: let sticky categories work against the page ---- */
+#screen-menu .main {
+  overflow: visible;
+  padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ---- heading ---- */
+#screen-menu .menu-head {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+  margin: 2px 0 14px;
+}
+#screen-menu .menu-head-text { min-width: 0; }
+#screen-menu .menu-eyebrow {
+  display: block; margin-bottom: 4px;
+  font-size: 0.64rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--mm-gold); line-height: 1.35;
+}
+#screen-menu .menu-title {
+  margin: 0; font-family: var(--serif); font-weight: 600;
+  font-size: 1.75rem; line-height: 1.1; color: var(--mm-cream);
+}
+#screen-menu .menu-count {
+  flex: 0 0 auto; padding-bottom: 4px;
+  font-size: 0.78rem; color: var(--mm-muted); white-space: nowrap;
+}
+
+/* ---- order strip: the [hidden] attribute was being overridden by display:flex ---- */
+#screen-menu .order-strip[hidden] { display: none !important; }
+#screen-menu .order-strip {
+  background: var(--mm-surface); border: 1px solid var(--mm-line); border-radius: 12px;
+  padding: 10px 12px; margin-bottom: 12px;
+}
+#screen-menu .order-strip-label { color: var(--mm-muted); }
+#screen-menu .order-strip strong { color: var(--mm-cream); }
+#screen-menu .order-strip .btn {
+  background: transparent; color: var(--mm-gold); border: 1px solid var(--mm-gold);
+  border-radius: 10px; padding: 7px 14px;
+}
+
+/* ---- search ---- */
+#screen-menu .search-row { position: relative; margin-bottom: 10px; }
+#screen-menu .search-ico {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--mm-gold); opacity: 0.9; pointer-events: none;
+}
+#screen-menu .search-row input {
+  height: 44px; padding: 0 16px 0 42px; border-radius: 12px;
+  background: var(--mm-surface-2); border: 1px solid var(--mm-line);
+  color: var(--mm-cream); font-size: 16px; /* 16px stops iOS zoom-on-focus */
+  transition: border-color var(--dur) var(--ease);
+}
+#screen-menu .search-row input::placeholder { color: var(--mm-muted); }
+#screen-menu .search-row input:focus { border-color: var(--mm-gold); outline: none; }
+
+/* ---- All / Veg / Non-Veg ---- */
+#screen-menu .veg-filter {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px;
+  background: var(--mm-surface); border: 1px solid var(--mm-line); border-radius: 12px;
+  margin-bottom: 12px;
+}
+#screen-menu .vf {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: 0; height: 34px; padding: 0 6px; border: 0; border-radius: 9px;
+  background: transparent; color: var(--mm-muted);
+  font-family: var(--font); font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+#screen-menu .vf.on {
+  background: var(--mm-gold-soft); color: var(--mm-gold);
+  box-shadow: inset 0 0 0 1px rgba(220, 192, 138, 0.34);
+}
+#screen-menu .vf-mark {
+  position: relative; flex: 0 0 auto; display: inline-block;
+  width: 11px; height: 11px; border: 1.5px solid currentColor; border-radius: 2px;
+}
+#screen-menu .vf-mark::after {
+  content: ''; position: absolute; inset: 2px; border-radius: 50%; background: currentColor;
+}
+#screen-menu .vf-veg { color: var(--mm-veg); }
+#screen-menu .vf-nonveg { color: var(--mm-nonveg); }
+
+/* ---- categories (horizontal scroll, sticky under the header) ---- */
+#screen-menu .cats {
+  position: sticky; top: calc(max(12px, var(--safe-t)) + 47px); z-index: 15;
+  gap: 8px; margin: 0 -18px 10px; padding: 8px 18px;
+  background: rgba(18, 14, 11, 0.94);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  scroll-padding: 0 18px;
+}
+#screen-menu .cat,
+#screen-menu .cat.cat-with-art {
+  display: inline-flex !important; align-items: center;
+  height: 34px; padding: 0 14px !important; border-radius: 999px;
+  border: 1px solid var(--mm-line-strong); background: transparent; color: var(--mm-muted);
+  font-size: 0.82rem; font-weight: 500;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+#screen-menu .cat .cat-art { display: none; }
+#screen-menu .cat.on {
+  background: var(--mm-gold); border-color: var(--mm-gold); color: #1c130c; font-weight: 600;
+}
+
+/* ---- list + food card ---- */
+#screen-menu .menu-list { display: grid; grid-template-columns: 1fr; gap: 10px; }
+#screen-menu .menu-list > .empty,
+#screen-menu .menu-list > .loading,
+#screen-menu .menu-list > #mm-filter-empty,
+#screen-menu .menu-list > .empty-state { grid-column: 1 / -1; }
+#screen-menu .menu-list > .empty,
+#screen-menu .menu-list > .loading { text-align: center; color: var(--mm-muted); padding: 32px 12px; }
+
+#screen-menu .food-card {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto 1fr;
+  grid-template-areas:
+    "media name  name"
+    "media desc  desc"
+    "media price action";
+  column-gap: 12px; row-gap: 0; align-items: start;
+  padding: 10px;
+  background: var(--mm-surface); border: 1px solid var(--mm-line); border-radius: 16px;
+  box-shadow: none;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+#screen-menu .food-card:active { transform: none; box-shadow: none; background: var(--mm-surface-2); }
+#screen-menu .food-card.mm-hide { display: none !important; }
+/* skeleton while the image layer is being attached (keeps layout from jumping) */
+#screen-menu .food-card::before {
+  content: ''; grid-area: media; width: 80px; height: 80px; border-radius: 14px;
+  background: var(--mm-surface-2);
+}
+#screen-menu .food-card.has-img::before { display: none; }
+
+#screen-menu .food-card .food-media {
+  grid-area: media; position: relative;
+  width: 80px; height: 80px; aspect-ratio: 1 / 1; border-radius: 14px; overflow: hidden;
+  background: var(--mm-surface-2);
+}
+#screen-menu .food-card .food-media::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(246, 236, 220, 0.08);
+}
+#screen-menu .food-card:active .food-media img { transform: none; }
+
+#screen-menu .food-info { display: contents; }
+#screen-menu .food-name {
+  grid-area: name; display: flex; align-items: flex-start; gap: 7px; min-width: 0;
+  font-size: 0.95rem; font-weight: 600; line-height: 1.3; color: var(--mm-cream);
+  overflow-wrap: anywhere;
+}
+#screen-menu .food-desc {
+  grid-area: desc; margin-top: 3px; color: var(--mm-muted);
+  font-size: 0.76rem; line-height: 1.35;
+  -webkit-line-clamp: 2;
+}
+#screen-menu .food-price {
+  grid-area: price; align-self: end; margin: 0;
+  font-family: var(--serif); font-size: 1.1rem; font-weight: 700; line-height: 1;
+  color: var(--mm-gold); font-variant-numeric: lining-nums;
+}
+
+/* Veg / Non-veg mark: FSSAI-style square with dot. font-size:0 hides the literal "●" glyph. */
+#screen-menu .veg,
+#screen-menu .nonveg {
+  display: inline-block; position: relative; flex: 0 0 auto; margin: 3px 0 0;
+  width: 13px; height: 13px; border: 1.5px solid currentColor; border-radius: 3px;
+  font-size: 0; line-height: 0;
+}
+#screen-menu .veg::after,
+#screen-menu .nonveg::after {
+  content: ''; position: absolute; inset: 2.5px; border-radius: 50%; background: currentColor;
+}
+#screen-menu .veg { color: var(--mm-veg); }
+#screen-menu .nonveg { color: var(--mm-nonveg); }
+
+/* ADD + quantity control share one grid cell; only one is visible at a time */
+#screen-menu .btn-add,
+#screen-menu .qty-ctrl { grid-area: action; align-self: end; justify-self: end; height: 36px; border-radius: 10px; }
+#screen-menu .btn-add {
+  min-width: 68px; padding: 0 16px;
+  background: transparent; color: var(--mm-gold); border: 1px solid var(--mm-gold);
+  font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  box-shadow: none;
+}
+#screen-menu .btn-add:hover { background: var(--mm-gold-soft); }
+#screen-menu .btn-add:active { background: rgba(220, 192, 138, 0.22); transform: scale(0.97); }
+#screen-menu .btn-add[hidden] { display: none !important; }
+
+#screen-menu .qty-ctrl {
+  display: inline-flex; align-items: center; overflow: hidden;
+  background: var(--mm-gold-soft); border: 1px solid var(--mm-gold);
+  animation: mmQtyIn 180ms var(--ease) both;
+}
+#screen-menu .qty-ctrl button {
+  width: 34px; height: 100%; border: 0; background: transparent; color: var(--mm-gold);
+  font-size: 1.15rem; font-weight: 600; line-height: 1; cursor: pointer;
+}
+#screen-menu .qty-ctrl button:active { background: rgba(220, 192, 138, 0.2); }
+#screen-menu .qty-ctrl span {
+  min-width: 24px; text-align: center; color: var(--mm-cream);
+  font-size: 0.92rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+@keyframes mmQtyIn {
+  from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: scale(1); }
 }
-.dish-art {
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  min-height: 48px;
-  overflow: hidden;
-  border: 1px solid rgba(214,177,112,.18);
-  border-radius: 10px;
-  background:
-    radial-gradient(ellipse at 50% 72%, rgba(185,91,43,.18), transparent 56%),
-    linear-gradient(145deg, #322016 0%, #211611 54%, #17100d 100%);
-  box-shadow: inset 0 1px rgba(255,242,215,.045), inset 0 -5px 12px rgba(0,0,0,.12);
-  animation: mmDishArtArrive .32s ease-out both;
+
+/* ---- cart summary: floating, noticeable, not dominant ---- */
+#screen-menu .cart-bar {
+  left: 12px; right: 12px; max-width: 536px; margin: 0 auto;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 8px 8px 8px 16px;
+  background: rgba(34, 25, 19, 0.97); border: 1px solid rgba(220, 192, 138, 0.38); border-radius: 16px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
 }
-.dish-art::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 4px;
-  border: 1px solid rgba(244,211,158,.075);
-  border-radius: 8px;
-  pointer-events: none;
+#screen-menu .cart-info { font-size: 0.86rem; font-weight: 500; color: var(--mm-muted); }
+#screen-menu .cart-info #cart-count { color: var(--mm-cream); font-weight: 600; }
+#screen-menu .cart-info #cart-total {
+  font-family: var(--serif); font-size: 1.1rem; font-weight: 700; color: var(--mm-gold);
 }
-.dish-art::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  right: -10px;
-  bottom: -17px;
-  width: 48px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(209,151,73,.075);
-  filter: blur(9px);
-  pointer-events: none;
+#screen-menu .cart-bar .btn {
+  min-width: 0; height: 40px; padding: 0 18px; border-radius: 11px; box-shadow: none;
+  background: var(--mm-gold); color: #1c130c; font-size: 0.86rem; font-weight: 700; letter-spacing: 0.02em;
 }
-.dish-art svg {
-  position: relative;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: 48px;
-  overflow: visible;
+
+/* Toast lives outside the screens; while the menu is showing, keep it clear of the cart bar. */
+body:has(#screen-menu.on) .toast { bottom: calc(136px + env(safe-area-inset-bottom, 0px)); }
+
+#screen-menu button:focus-visible,
+#screen-menu input:focus-visible { outline: 2px solid var(--mm-gold); outline-offset: 2px; }
+
+/* ---- narrow phones ---- */
+@media (max-width: 359px) {
+  #screen-menu .main { padding-left: 14px; padding-right: 14px; }
+  #screen-menu .cats { margin: 0 -14px 10px; padding: 8px 14px; }
+  #screen-menu .menu-title { font-size: 1.55rem; }
+  #screen-menu .food-card { grid-template-columns: 72px minmax(0, 1fr) auto; column-gap: 10px; padding: 8px; }
+  #screen-menu .food-card::before,
+  #screen-menu .food-card .food-media { width: 72px; height: 72px; }
+  #screen-menu .btn-add { min-width: 60px; padding: 0 12px; }
+  #screen-menu .cart-bar { left: 8px; right: 8px; }
 }
-.dish-art-steam {
-  transform-box: fill-box;
-  transform-origin: center bottom;
+
+/* ---- desktop: roomier two-column list ---- */
+@media (min-width: 900px) {
+  #screen-menu .main { max-width: 880px; }
+  #screen-menu .menu-list { grid-template-columns: 1fr 1fr; gap: 12px; }
+  /* mouse users have no swipe and the scrollbar is hidden, so let chips wrap instead of scroll */
+  #screen-menu .cats { flex-wrap: wrap; overflow: visible; margin: 0 0 10px; padding: 8px 0; }
 }
-.dish-art-steam path {
-  transform-box: fill-box;
-  transform-origin: center bottom;
-  stroke-dasharray: 20 5;
-  animation: mmDishSteamLift 2.6s ease-in-out infinite;
-}
-.dish-art-steam .steam-b { animation-delay: -.85s; }
-.dish-art-steam .steam-c { animation-delay: -1.55s; }
-.dish-art--rice { background: radial-gradient(ellipse at 48% 72%, rgba(229,180,72,.14), transparent 58%), linear-gradient(145deg,#302016,#1b130f); }
-.dish-art--curry { background: radial-gradient(ellipse at 48% 72%, rgba(193,77,39,.18), transparent 58%), linear-gradient(145deg,#322019,#1b130f); }
-.dish-art--bread { background: radial-gradient(ellipse at 48% 72%, rgba(218,155,57,.16), transparent 58%), linear-gradient(145deg,#322317,#1b130f); }
-.dish-art--snack { background: radial-gradient(ellipse at 48% 72%, rgba(205,129,43,.15), transparent 58%), linear-gradient(145deg,#322216,#1b130f); }
-.dish-art--south { background: radial-gradient(ellipse at 48% 72%, rgba(223,173,83,.15), transparent 58%), linear-gradient(145deg,#302217,#1b130f); }
-.dish-art--thali { background: radial-gradient(ellipse at 48% 72%, rgba(205,125,57,.15), transparent 58%), linear-gradient(145deg,#302016,#1b130f); }
-.dish-art--dessert { background: radial-gradient(ellipse at 48% 72%, rgba(195,87,91,.14), transparent 58%), linear-gradient(145deg,#301b19,#1b120f); }
-.dish-art--drink { background: radial-gradient(ellipse at 48% 65%, rgba(164,97,54,.16), transparent 58%), linear-gradient(145deg,#2c2118,#19120f); }
-.dish-art--cool-drink { background: radial-gradient(ellipse at 48% 65%, rgba(128,170,137,.12), transparent 58%), linear-gradient(145deg,#20261e,#151812); }
-.dish-art-menu { border-radius: 10px; }
-.dish-art-special { width: 72px; height: 58px; max-width: 100%; min-height: 48px; margin: auto; border-radius: 12px; }
-.dish-art-modal { width: 88px; height: 70px; min-height: 60px; margin: auto; border-radius: 14px; }
-@media (hover: hover) and (pointer: fine) {
-  #customer #menu .card:hover .dish-art {
-    border-color: rgba(225,190,126,.32);
-    box-shadow: inset 0 1px rgba(255,242,215,.05), 0 4px 12px rgba(0,0,0,.12);
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
-  .dish-art, .dish-art-steam path {
-    animation: none !important;
-    transition: none !important;
-  }
+  #screen-menu .qty-ctrl { animation: none !important; }
+  #screen-menu * { transition-duration: 0.01ms !important; }
 }

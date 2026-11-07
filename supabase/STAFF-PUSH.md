@@ -1,44 +1,132 @@
-# Mirch Masaala — waiter push alerts
+# Mirch Masaala — staff background push alerts
 
-This enables a phone notification when a customer taps **Call waiter**, even if the staff app is in the background or the phone is locked. In-app alerts continue to work while the staff screen is open.
+Two separate things exist:
 
-## One-time setup
+- **In-app alerts**: the Alerts feed on an open staff screen. Needs `role-notifications.sql` (already READY on your project).
+- **Background / lock-screen push**: a notification on the phone while the app is closed. Needs the SQL below **plus** an Edge Function, three secrets, and each phone enabling alerts.
 
-### 1. Apply the SQL
+A working in-app alert does **not** prove background push works.
 
-Open the Supabase SQL Editor for this project and run these scripts in order, if they have not already been applied:
+## What the warning meant
 
-1. `supabase/role-notifications.sql`
-2. `supabase/staff-push-notifications.sql`
+"The one-time staff push SQL setup has not been applied yet" is a blanket message from older website code. It was shown for any failure mentioning the push table, even when the table existed. On this branch it is replaced by specific messages (missing table, outdated columns, permission/RLS, expired session, notification permission, service worker, push key, Edge Function/secrets).
 
-If you ran the earlier version of the second script already, **run the updated `staff-push-notifications.sql` again**. It is designed to be re-run; this update adds one-time dispatch tokens and replaces the guest notification RPC so a push must redeem its matching, fresh ID/token pair. The script also creates the private table for each staff device's subscription. RLS limits staff to their own subscription; only the Edge Function's service-role client can read subscriptions to send a push.
+The readiness check marks `preferred_language` "OPTIONAL — NOT CONFIGURED" when that column is missing, nullable, not `text`, or has no `'en'` default. It is optional because the column only controls the language of push text. It is **not** why a subscription save fails, but both fixes are in the same migration. The check now says which of these cases applies.
 
-### 2. Add Edge Function secrets
+## 1. Verify a backup first
 
-In Supabase Dashboard → Edge Functions → Secrets, add:
+Supabase Dashboard → your Mirch Masaala project → **Database → Backups**. Confirm a recent recoverable backup exists (or take a dump). The in-app "Download data backup" JSON is not a database backup. If you cannot verify one, stop.
 
-- `VAPID_PUBLIC_KEY` = `BH8rULqiO6c1_QtspafwRyxbpHz3V48VXf7If1UTv1u4s3WUyNw5IeUBDMcISfOCoLEM6spSfJ5Jf1TH0xNgjto`
-- `VAPID_PRIVATE_KEY` = keep this private; get the value from the app owner, then paste it into Supabase Secrets only. **Never commit this value to GitHub or place it in browser code.**
-- `VAPID_SUBJECT` = `https://bhadeonkar-cmyk.github.io/mirch-masaala/`
+## 2. Run exactly one SQL file
 
-Supabase normally provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to Edge Functions automatically. Do not expose the service-role key in the website.
+Copy the whole of `supabase/staff-push-notifications.sql` into **SQL Editor → New query** and click **Run**.
 
-### 3. Deploy the Edge Function
+- Prerequisites `role-notifications.sql`, `setup-live.sql` and the visit migrations are already READY per your check. Do **not** rerun them.
+- It never drops tables or deletes rows. It adds missing columns, normalises `preferred_language` (anything other than `en`/`mr` becomes `en`), re-creates the own-subscription RLS policy, and adds `mm_register_staff_push_subscription`, which lets a phone previously used by another staff login be re-enrolled safely.
+- Safe to re-run.
+- Success: **Success. No rows returned**. Any error: stop, copy the full text, and do not run reset/erase functions. The migration runs in one transaction, so a failure changes nothing.
 
-Open the existing `send-staff-push` function in the Supabase Dashboard, replace its code with the latest [`supabase/functions/send-staff-push/index.ts`](./functions/send-staff-push/index.ts), then deploy it. In the function's settings, turn **Verify JWT with legacy secret OFF**. This app sends a modern `sb_publishable_...` key, which the legacy verifier cannot validate. The function performs custom checks on the approved web origin and redeems a one-time ID/token pair minted by the guest-notification SQL RPC; keep the VAPID private key and service-role key in Supabase Secrets only.
+> **Already ran the push SQL before?** It is safe to run again. Only do so if the readiness row **Staff push device registration RPC** reports NOT CONFIGURED: that function was added later, and without it a phone that was previously used by a different staff login cannot be re-enrolled (the app then shows a permission message). Everything else keeps working without it. READY rows say "No action needed"; do not rerun anything for them.
 
-### 4. Enable it on each staff phone
+## 3. Re-run the readiness check
 
-- **iPhone/iPad:** Open this site in Safari, choose Share → Add to Home Screen, then open Mirch Masaala from that new icon. Web push on iPhone/iPad requires a Home Screen web app and iOS/iPadOS 16.4 or later.
-- **Android:** Open in a push-capable browser such as Chrome.
-- Sign in with the staff member's correct role and tap the bell / **Alert options** once. Allow notifications when asked.
+Run `supabase/app-readiness-check.sql`. Every row containing "push" or "guest waiter-call" must read **READY**:
 
-### 5. Test
+- Staff push subscription table
+- Push language preference column/default
+- Push dispatch columns on notifications
+- Staff push subscription row-level security and own-subscription policy
+- Guest waiter-call / bill-request RPC with push dispatch tokens
+- Staff push device registration RPC
 
-From a customer phone, choose a table and tap **Call waiter**. A subscribed waiter phone should show a notification such as **WAITER NEEDED · TABLE 04**. Tap it to open the waiter workspace. Notification delivery is subject to OS notification settings, network access and the push service.
+The check also reports the three **Party booking** rows. They are optional until you want online party requests; if they are not READY, apply only `supabase/party-bookings.sql`.
+
+## 4. Deploy the Edge Function
+
+Deploy `supabase/functions/send-staff-push/index.ts` as the function named `send-staff-push`.
+
+- Dashboard: **Edge Functions → send-staff-push → Code**, paste the file, **Deploy**.
+- Or CLI: `supabase functions deploy send-staff-push --project-ref <your-project-ref> --no-verify-jwt`
+- **Verify JWT with legacy secret: OFF for this function only.** The site uses a modern publishable key, and the function does its own checks: exact `Origin` match, a notification ID plus one-time token, a 2-minute freshness window, and unresolved/unsent rows only. Do not remove those checks.
+
+## 5. Secrets (Edge Functions → Secrets)
+
+Set these only after you have confirmed which key pair you hold the private key for (see **Which key pair is live?** below). The public key shown is the one this branch's website uses; if your private key belongs to a different public key, use that public key in both places instead.
+
+| Name | Value |
+| --- | --- |
+| `VAPID_PUBLIC_KEY` | `BCGV3-RIkNT5dJfV96yuWS61iZe5Zf85s8CJWBgq-Q_pGJWCLEkMD-91IB7yvsZ6Z0mGebJCohhVJmUHcuNW1E0` (same as in `supabase-live.js`) |
+| `VAPID_PRIVATE_KEY` | The private key of that same pair, from your locally saved VAPID file. Never commit, paste in chat, or screenshot it. |
+| `VAPID_SUBJECT` | `https://bhadeonkar-cmyk.github.io/mirch-masaala/` (or `mailto:you@example.com`) |
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected by Supabase. Never put the service-role key in the website or GitHub.
+
+### Which key pair is live? (known mismatch, resolve in a separate controlled step)
+
+- `main` (the currently deployed website) uses a public key beginning `BH8rULqi`.
+- `claude/ui-redesign` uses a different public key beginning `BCGV3-RI`. It was generated fresh because the original private key was not found in Supabase secrets.
+- Browsers and Supabase must use the **same pair**. Whatever public key the website ships must be the public half of the private key stored in `VAPID_PRIVATE_KEY`, and `VAPID_PUBLIC_KEY` must equal the website's key. A mismatch does not break in-app alerts; it makes the push service reject background pushes (usually HTTP 401/403 in the function logs).
+- The repository cannot prove which private key Supabase currently holds. Nobody should assume it.
+
+**Check a key pair on your own computer (nothing is sent anywhere, the private key is never printed):**
+
+```
+read -rs VAPID_PRIVATE_KEY && export VAPID_PRIVATE_KEY     # paste the private key; it stays hidden
+node scripts/verify-vapid-pair.cjs                         # checks it against the website key in supabase-live.js
+node scripts/verify-vapid-pair.cjs --public BH8rULqi...    # or against any public key you pass in full
+```
+
+It prints `MATCH` or `MISMATCH` only.
+
+**Safe rollout once you know your private key (deploy these together, in this order):**
+
+1. Locate your saved VAPID file and run the check above against the public key you intend the website to use.
+2. If it is `MATCH`: set `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` in Supabase to that pair, make sure the website's key is the same public key, deploy the website and the function, then have each staff phone tap Alert options once. Phones already subscribed with the same public key keep working; phones subscribed with a different one are replaced automatically on their next opt-in.
+3. If no private key matches any public key you use: generate a new pair (`npx web-push generate-vapid-keys`), store the private key only in Supabase Secrets, put the new public key in both `VAPID_PUBLIC_KEY` and `supabase-live.js`, deploy together, and have every staff phone enable alerts again. Existing subscriptions of the old key stop working; no database rows need deleting.
+4. Never deploy the website and the secrets separately for longer than necessary: between the two steps, new subscriptions would be created for a key the sender cannot use.
+
+This repository check (`node scripts/check-vapid-config.cjs`) only confirms the website, documentation and function code agree with each other and that no private key is committed.
+
+Public and private keys must be a pair. A mismatch gives push-service errors (usually 401/403) in the function logs.
+
+## 6. Enable alerts on each staff phone
+
+- **Android**: open the live site in Chrome, sign in as Owner/Admin, Waiter or Kitchen.
+- **iPhone/iPad**: Safari → Share → **Add to Home Screen**, open from the new icon (iOS/iPadOS 16.4+).
+- Tap the bell / **Alert options** and allow notifications. Waiters should have their name/staff code selected first. Set the language before enabling; changing it later updates the saved push language automatically.
+- Phone shared by two logins: sign in as the new person and enable again. The phone is re-enrolled for them, and only one login receives alerts per phone.
+
+## 7. Test (no real orders or payments)
+
+1. Keep one staff screen open and confirm the in-app Alerts feed works.
+2. On a customer phone, open a table QR, tap **Call waiter**. Lock the waiter's phone. Expect "WAITER NEEDED · TABLE nn" (or Marathi).
+3. Tap **Request bill**. Expect waiter and owner/admin notifications.
+4. Tapping twice within 30 seconds reuses the open alert, so no duplicate push.
+5. Check **Edge Functions → send-staff-push → Logs**.
+
+## 8. Troubleshooting
+
+The browser console (`[Mirch Masaala push setup]`) shows the stage, error code and name. It never logs tokens, keys or subscription data.
+
+| Message / symptom | Meaning and action |
+| --- | --- |
+| Staff push table not found (`PGRST205`, `42P01`) | Run step 2. If just run, wait a minute for the schema cache. |
+| Table/columns out of date (`PGRST204`, `42703`) | Run step 2, then step 3. |
+| Permission refused (`42501`) | Wrong or no staff role for this login, or an old database without the re-enrol RPC. Sign out/in; run step 2. |
+| Staff session missing or expired | Sign out, sign in, enable again. |
+| Notification permission denied | Enable notifications in phone/browser settings. |
+| Service worker could not start | `service-worker.js` must be reachable at the site URL. |
+| Browser rejected the push key | The website key is not a valid public key. Confirm key values (step 5). |
+| Console: Edge Function missing (404) | Deploy step 4. |
+| Console: sender configuration incomplete (503) | Missing a VAPID secret. |
+| Console: origin/token rejected (403) | Request not from `https://bhadeonkar-cmyk.github.io`, or token already used or older than 2 minutes. |
+| Function returns `sent: 0` | No subscription for that role, a waiter staff-code mismatch, or a used/expired token. |
+| `failed` > 0 | Function logs show push-service status. 404/410 subscriptions are removed automatically; that phone must enable alerts again. 401/403 usually means mismatched VAPID keys. |
+
+**Failed dispatch note:** the one-time token is redeemed before sending, so a push that fails for every device is not retried automatically. The in-app alert stays visible. This prevents duplicate pushes.
 
 ## Security notes
 
-- The VAPID private key belongs only in Supabase Function Secrets.
-- A push does not include guest names, food items, order totals or other private order details.
-- Each staff device subscribes under its authenticated staff role.
+- Pushes contain only a minimal alert: table number and event type. No guest names, dish lists or totals.
+- Subscriptions are bound to the signed-in staff user and role taken from the database, never from client input. Public devices cannot read or write subscriptions.
+- Never weaken RLS or remove the one-time token checks to make push work.
