@@ -186,8 +186,9 @@
       var d = await rpc('mm_staff_get_table_visits');
       return Array.isArray(d) ? d : [];
     },
-    listWaiters: async function () {
-      var d = await rpc('mm_list_waiters', { p_include_inactive: false });
+    /* includeInactive only has an effect for the admin (the SQL ignores it for waiters). */
+    listWaiters: async function (includeInactive) {
+      var d = await rpc('mm_list_waiters', { p_include_inactive: !!includeInactive });
       return Array.isArray(d) ? d : [];
     },
     startVisit: async function (table, waiterCode) {
@@ -289,7 +290,55 @@
       var payload = Object.assign({ restaurant_id: RID }, patch);
       var r = await need().from('mm_restaurant_config').upsert(payload, { onConflict: 'restaurant_id' });
       if (r.error) throw r.error;
+      api._configCache = null;
       return true;
+    },
+
+    /* ---- Owner (admin) operations. Every one is an EXISTING RPC/table; the database enforces the
+     * admin role (get_my_staff_role() = 'admin' / RLS), the UI only hides what the role cannot use. ---- */
+    accountsSummary: async function (day) {
+      return first(await rpc('mm_admin_accounts_summary', { p_day: day || null }));
+    },
+    cancelOrder: async function (ticket, reason) {
+      return first(await rpc('mm_admin_cancel_order', { p_ticket_id: String(ticket), p_reason: String(reason || '').trim() }));
+    },
+    reviewOrder: async function (ticket, decision, reason) {
+      return first(await rpc('mm_admin_review_customer_order', {
+        p_ticket_id: String(ticket), p_decision: upper(decision), p_reason: reason ? String(reason).trim() : null
+      }));
+    },
+    saveWaiter: async function (name, code) {
+      return first(await rpc('mm_admin_save_waiter', { p_display_name: String(name || ''), p_waiter_code: code || null }));
+    },
+    setWaiterActive: async function (code, active) {
+      return first(await rpc('mm_admin_set_waiter_active', { p_waiter_code: String(code), p_active: !!active }));
+    },
+    ownerReviews: async function () {
+      var r = await need().from('mm_restaurant_reviews').select('id,display_name,rating,comment,table_number,status,created_at')
+        .eq('restaurant_id', RID).order('created_at', { ascending: false }).limit(100);
+      if (r.error) throw r.error;
+      return r.data || [];
+    },
+    setReviewStatus: async function (id, status) {
+      return first(await rpc('mm_admin_set_restaurant_review_status', { p_review_id: id, p_status: String(status) }));
+    },
+    deleteReview: async function (id) {
+      return first(await rpc('mm_admin_delete_restaurant_review', { p_review_id: id }));
+    },
+    resolveNotification: async function (id) {
+      return rpc('mm_resolve_staff_notification', { p_notification_id: Number(id), p_staff_code: null });
+    },
+    maintenanceStatus: async function () {
+      return first(await rpc('mm_admin_maintenance_status'));
+    },
+    exportBackup: async function () {
+      return first(await rpc('mm_admin_export_backup'));
+    },
+    recordBackup: async function () {
+      return first(await rpc('mm_admin_record_backup_export'));
+    },
+    resetBusinessData: async function (confirmation, backupMade) {
+      return first(await rpc('mm_admin_reset_business_data', { p_confirmation: String(confirmation), p_backup_made: !!backupMade }));
     }
   };
 

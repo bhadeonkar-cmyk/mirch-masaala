@@ -15,9 +15,9 @@ function makeBackend() {
   const st = {
     calls: [],            // every request: {kind,name,args,role}
     tables: [], visits: [], orders: [], items: [], payments: [], notifs: [], bookings: [],
-    cats: [], menu: [], cfg: { restaurant_id: RID, upi_id: 'mm@upi', upi_name: 'Mirch Masaala', whatsapp_number: '9199', google_reviews_url: '' },
+    cats: [], menu: [], cfg: { restaurant_id: RID, restaurant_name: 'MIRCH MASAALA', tagline: 'INDIAN RESTAURANT', admin_phone: '+91 9657076450', upi_id: 'mm@upi', upi_name: 'Mirch Masaala', whatsapp_number: '919657076450', whatsapp_name: 'Mirch Masaala', google_reviews_url: '', phonepe_upi: '', pay_note: 'Review the amount in your payment app before paying.', accept_card: true, accept_cash: true },
     waiters: [{ waiter_code: 'W01', display_name: 'Asha', active: true, created_at: new Date().toISOString() }],
-    orderSeq: 100, failNext: {}
+    orderSeq: 100, failNext: {}, reviews: [], maint: { last_backup_at: null, last_reset_at: null }, backups: 0
   };
   for (let i = 1; i <= 8; i++) st.tables.push({ id: uuid(), restaurant_id: RID, table_number: String(i).padStart(2, '0'), is_active: true, seating_capacity: 4 });
   st.tables.push({ id: uuid(), restaurant_id: RID, table_number: '09', is_active: false, seating_capacity: 4 });
@@ -27,6 +27,8 @@ function makeBackend() {
   const mk = (cat, name, price, avail, o) => st.menu.push(Object.assign({ id: uuid(), restaurant_id: RID, category_id: cat.id, name, description: name + ' desc', price, image_url: null, is_available: avail, sort_order: st.menu.length, is_veg: true, is_bestseller: false, spicy_level: 1 }, o || {}));
   mk(c1, 'Paneer Tikka', 220, true); mk(c1, 'Veg Manchurian', 180, true);
   mk(c2, 'Butter Chicken', 320, true, { is_veg: false }); mk(c2, 'Hidden Dish', 99, false);
+  const rv = (n, r, c, status, t) => st.reviews.push({ id: uuid(), restaurant_id: RID, display_name: n, rating: r, comment: c, table_number: t, status, created_at: new Date().toISOString() });
+  rv('Meera', 5, 'Loved the paneer tikka', 'published', '03'); rv('Karan', 2, 'Slow service', 'pending', '05'); rv('Old guest', 4, 'Nice', 'hidden', '01');
   st.users = {
     'waiter@staff.mirchmasaala.invalid': { id: uuid(), role: 'waiter', pw: 'pw' },
     'kitchen@staff.mirchmasaala.invalid': { id: uuid(), role: 'kitchen', pw: 'pw' },
@@ -112,7 +114,7 @@ function makeBackend() {
       if (!['admin', 'waiter'].includes(role)) err('Owner/Admin or signed-in waiter access required');
       return st.tables.filter((t) => t.is_active).map((t) => { const v = openVisit(t.table_number); return { table_number: t.table_number, status: v ? 'OPEN' : 'AVAILABLE', started_at: v ? v.started_at : null, visit_id: v ? v.id : null, assigned_waiter_code: v ? v.waiter : '', guest_order_code: v ? v.code : '' }; });
     },
-    mm_list_waiters: (a, role) => { if (!['admin', 'waiter'].includes(role)) err('Owner or waiter sign-in required'); return st.waiters; },
+    mm_list_waiters: (a, role) => { if (!['admin', 'waiter'].includes(role)) err('Owner or waiter sign-in required'); return st.waiters.filter((w) => w.active || (role === 'admin' && a.p_include_inactive)); },
     mm_staff_set_table_visit_status: (a, role) => {
       if (!['admin', 'waiter'].includes(role)) err('Owner/Admin or signed-in waiter access required');
       const n = pad(a.p_table_number); const act = String(a.p_action).toUpperCase();
@@ -148,7 +150,7 @@ function makeBackend() {
       if (role !== 'admin') err('Only the Owner/Counter (Admin login) can confirm and record payments');
       const v = st.visits.find((x) => x.id === a.p_visit_id); if (!v) err('Table visit not found');
       if (!(a.p_amount > 0)) err('Enter a valid received amount');
-      st.payments.push({ visit_id: v.id, amount: a.p_amount, method: a.p_method });
+      st.payments.push({ visit_id: v.id, amount: a.p_amount, method: a.p_method, created_at: new Date().toISOString() });
       if (due(v) <= 0.01) st.orders.filter((o) => o.table_visit_id === v.id && o.status === 'SERVED').forEach((o) => { o.status = 'PAID'; });
       return { ok: true };
     },
@@ -159,6 +161,90 @@ function makeBackend() {
       const n = pad(a.p_table_number); const t = st.tables.find((x) => x.table_number === n && x.is_active);
       if (!t) err('Active table ' + n + ' was not found');
       t.seating_capacity = a.p_capacity; return { table_number: n, seating_capacity: a.p_capacity };
+    },
+    // ---- owner-operations-toolkit.sql / order-management-accounting.sql / restaurant-feedback.sql contracts ----
+    mm_resolve_staff_notification: (a, role) => {
+      if (!['admin', 'waiter', 'kitchen'].includes(role)) err('Staff sign-in required');
+      const n = st.notifs.find((x) => x.id === a.p_notification_id && x.target_role === role && !x.resolved_at);
+      if (!n) return false; n.resolved_at = new Date().toISOString(); return true;
+    },
+    mm_admin_accounts_summary: (a, role) => {
+      if (role !== 'admin') err('Owner/Admin access required');
+      const ist = (iso) => new Date(new Date(iso).getTime() + 5.5 * 3600e3).toISOString().slice(0, 10);
+      const day = a.p_day || ist(new Date().toISOString());
+      const today = st.orders.filter((o) => ist(o.created_at) === day);
+      const paidFor = (o) => st.payments.filter((p) => p.visit_id === o.table_visit_id).reduce((x, p) => x + p.amount, 0);
+      const live = today.filter((o) => !['CANCELLED', 'PAID'].includes(o.status));
+      const canc = today.filter((o) => o.status === 'CANCELLED');
+      return { day, order_count: today.filter((o) => o.status !== 'CANCELLED').length, paid_count: today.filter((o) => o.status === 'PAID').length,
+        paid_sales: st.payments.filter((p) => p.created_at && ist(p.created_at) === day).reduce((x, p) => x + p.amount, 0),
+        pending_count: live.length, pending_value: Math.max(0, live.reduce((x, o) => x + o.total, 0) - live.reduce((x, o) => x + Math.min(paidFor(o), o.total), 0)),
+        cancelled_count: canc.length, cancelled_value: canc.reduce((x, o) => x + o.total, 0), customer_cancel_count: 0, owner_cancel_count: canc.length,
+        complimentary_count: 0, complimentary_value: 0, test_count: 0, test_value: 0, recent_audit: st.audit || [] };
+    },
+    mm_admin_cancel_order: (a, role) => {
+      if (role !== 'admin') err('Owner/Admin access required');
+      if (!a.p_reason || a.p_reason.trim().length < 3 || a.p_reason.trim().length > 240) err('Enter a cancellation reason between 3 and 240 characters');
+      const o = st.orders.find((x) => x.ticket_id === a.p_ticket_id); if (!o) err('Order not found');
+      if (!['NEW', 'PREPARING', 'READY'].includes(o.status)) err('Only unserved orders can be cancelled here');
+      if (st.payments.some((p) => p.visit_id === o.table_visit_id)) err('This ticket has recorded payments. Resolve the payment or refund first.');
+      o.status = 'CANCELLED'; o.cancel_reason = 'OWNER_CANCELLED';
+      (st.audit = st.audit || []).push({ action: 'OWNER_CANCEL', ticket_id: o.ticket_id, reason: a.p_reason.trim(), created_at: new Date().toISOString() });
+      return { id: o.ticket_id, table: tnum(o.table_id), status: 'CANCELLED' };
+    },
+    mm_admin_review_customer_order: (a, role) => {
+      if (role !== 'admin') err('Only the Owner/Admin can approve or reject customer orders.');
+      const d = String(a.p_decision || '').toUpperCase(); if (!['APPROVE', 'REJECT'].includes(d)) err('Choose an order and select Approve or Reject.');
+      const o = st.orders.find((x) => x.ticket_id === a.p_ticket_id); if (!o) err('Order not found. Refresh the Orders tab.');
+      if (String(o.approval_status || 'APPROVED').toUpperCase() !== 'PENDING') err('This order has already been reviewed. Refresh the Orders tab.');
+      if (d === 'APPROVE') o.approval_status = 'APPROVED'; else { o.approval_status = 'REJECTED'; o.status = 'CANCELLED'; }
+      return { id: o.ticket_id, decision: d, approvalStatus: o.approval_status, status: o.status };
+    },
+    mm_admin_save_waiter: (a, role) => {
+      if (role !== 'admin') err('Only the Owner/Admin can manage waiter names');
+      const name = String(a.p_display_name || '').trim().replace(/\s+/g, ' '); if (name.length < 1 || name.length > 80) err('Enter a waiter name between 1 and 80 characters');
+      const dup = (code) => st.waiters.some((w) => w.display_name.toLowerCase() === name.toLowerCase() && w.waiter_code !== code);
+      if (a.p_waiter_code) {
+        const w = st.waiters.find((x) => x.waiter_code === String(a.p_waiter_code).toUpperCase()); if (!w) err('Waiter ID not found. Refresh the waiter list.');
+        if (dup(w.waiter_code)) err('That waiter name is already in the list. Rename the existing entry instead.');
+        w.display_name = name; return Object.assign({}, w);
+      }
+      if (dup(null)) err('That waiter name is already in the list. Rename the existing entry instead.');
+      let n = 1; while (st.waiters.some((w) => w.waiter_code === 'W' + String(n).padStart(2, '0'))) n++;
+      const w = { waiter_code: 'W' + String(n).padStart(2, '0'), display_name: name, active: true, created_at: new Date().toISOString() }; st.waiters.push(w); return Object.assign({}, w);
+    },
+    mm_admin_set_waiter_active: (a, role) => {
+      if (role !== 'admin') err('Only the Owner/Admin can manage waiter names');
+      const w = st.waiters.find((x) => x.waiter_code === String(a.p_waiter_code).toUpperCase()); if (!w) err('Waiter ID not found. Refresh the waiter list.');
+      if (!a.p_active && st.visits.some((v) => v.status === 'OPEN' && v.waiter === w.waiter_code)) err('This waiter has an open table visit. Finish those visits before deactivating this name.');
+      w.active = !!a.p_active; return Object.assign({}, w);
+    },
+    mm_admin_set_restaurant_review_status: (a, role) => {
+      if (role !== 'admin') err('Owner/Admin access required');
+      if (!['published', 'hidden'].includes(a.p_status)) err('Review status must be published or hidden');
+      const r = st.reviews.find((x) => x.id === a.p_review_id); if (!r) err('Review not found'); r.status = a.p_status; return { updated: true, status: a.p_status };
+    },
+    mm_admin_delete_restaurant_review: (a, role) => {
+      if (role !== 'admin') err('Owner/Admin access required');
+      const i = st.reviews.findIndex((x) => x.id === a.p_review_id); if (i < 0) err('Review not found'); st.reviews.splice(i, 1); return { deleted: true };
+    },
+    mm_admin_maintenance_status: (a, role) => { if (role !== 'admin') err('Owner/Admin access required'); return Object.assign({}, st.maint); },
+    mm_admin_export_backup: (a, role) => {
+      if (role !== 'admin') err('Only the Owner/Admin can export a backup');
+      st.backups++;
+      return { application: 'Mirch Masaala', backup_version: 1, restaurant_id: RID, exported_at: new Date().toISOString(), notes: 'JSON database export. It does not include Supabase passwords or application source code.',
+        data: { restaurants: [], restaurant_tables: st.tables, categories: st.cats, menu_items: st.menu, orders: st.orders, order_items: st.items, order_payments: st.payments, mm_restaurant_reviews: st.reviews, mm_party_bookings: st.bookings, mm_restaurant_config: [st.cfg], mm_waiter_directory: st.waiters }, tables_not_available: [] };
+    },
+    mm_admin_record_backup_export: (a, role) => { if (role !== 'admin') err('Owner/Admin access required'); st.maint.last_backup_at = new Date().toISOString(); return st.maint.last_backup_at; },
+    mm_admin_reset_business_data: (a, role) => {
+      if (role !== 'admin') err('Only the Owner/Admin can reset restaurant data');
+      if (a.p_confirmation !== 'RESET MIRCH MASAALA') err('Reset confirmation did not match. No data was changed.');
+      const counts = { orders: st.orders.length, order_payments: st.payments.length, restaurant_table_visits: st.visits.length, mm_party_bookings: st.bookings.length, mm_restaurant_reviews: st.reviews.length };
+      st.orders.length = 0; st.items.length = 0; st.payments.length = 0; st.visits.length = 0; st.bookings.length = 0; st.reviews.length = 0; st.notifs.length = 0;
+      st.menu.forEach((m) => { m.is_available = true; });
+      Object.assign(st.cfg, { restaurant_name: 'MIRCH MASAALA', tagline: 'INDIAN RESTAURANT', upi_id: '', accept_cash: true, accept_card: true });
+      st.maint.last_reset_at = new Date().toISOString(); if (a.p_backup_made) st.maint.last_backup_at = st.maint.last_reset_at;
+      return { ok: true, deleted_counts: counts, backup_made: !!a.p_backup_made, message: 'Service records cleared and app settings reset. Menu prices, table list, waiter names and staff logins were kept.' };
     },
     mm_admin_list_party_bookings: (a, role) => { if (role !== 'admin') err('Owner/Admin access required'); return st.bookings; },
     mm_admin_update_party_booking: (a, role) => { if (role !== 'admin') err('Owner/Admin access required'); if (!['NEW','CONTACTED','CONFIRMED','UNAVAILABLE'].includes(String(a.p_status).toUpperCase())) err('Choose a valid booking status.'); const b = st.bookings.find((x) => x.id === a.p_booking_id); if (!b) err('Party booking not found.'); b.status = String(a.p_status).toUpperCase(); b.owner_notes = a.p_owner_notes; return { id: b.id, status: b.status, owner_notes: b.owner_notes }; }
@@ -177,7 +263,7 @@ function makeBackend() {
     }
     return { f, order, limit };
   }
-  function table(name) { return ({ categories: st.cats, menu_items: st.menu, restaurant_tables: st.tables, orders: st.orders, order_items: st.items })[name]; }
+  function table(name) { return ({ mm_restaurant_reviews: st.reviews, categories: st.cats, menu_items: st.menu, restaurant_tables: st.tables, orders: st.orders, order_items: st.items })[name]; }
 
   async function handle(route) {
     const req = route.request(); const url = new URL(req.url());
@@ -211,7 +297,8 @@ function makeBackend() {
         if (name === 'mm_restaurant_config') {
           if (req.method() === 'GET') return json(200, [st.cfg]);
           if (role !== 'admin') return json(403, { code: '42501', message: 'new row violates row-level security policy' });
-          Object.assign(st.cfg, JSON.parse(req.postData() || '{}')); return json(201, null);
+          const body = JSON.parse(req.postData() || '{}'); if (String(body.upi_id || '').length > 150) return json(400, { code: '23514', message: 'check constraint violated' });
+          Object.assign(st.cfg, body); return json(201, null);
         }
         const rows = table(name); if (!rows) return json(404, { code: '42P01', message: 'relation ' + name + ' does not exist' });
         const { f, order, limit } = parseFilters(url);
@@ -220,6 +307,7 @@ function makeBackend() {
         if (req.method() === 'GET') {
           if (['orders', 'order_items'].includes(name) && !staff) res = [];
           if (name === 'menu_items' && !staff) res = res.filter((r) => r.is_available);
+          if (name === 'mm_restaurant_reviews' && role !== 'admin') res = res.filter((r) => r.status === 'published');
           if (name === 'restaurant_tables' && !staff) res = res.filter((r) => r.is_active);
           if (order) { const [col, dir] = order.split('.'); res = res.slice().sort((x, y) => (x[col] > y[col] ? 1 : x[col] < y[col] ? -1 : 0) * (dir === 'desc' ? -1 : 1)); }
           if (limit) res = res.slice(0, limit);
@@ -233,6 +321,7 @@ function makeBackend() {
               const ok = role === 'admin' ? true : role === 'kitchen' ? (o === 'NEW' && n === 'PREPARING') || (o === 'PREPARING' && n === 'READY') : role === 'waiter' ? (o === 'READY' && n === 'SERVED') : false;
               if (!ok) return json(400, { code: 'P0001', message: role === 'kitchen' ? 'Kitchen may only start or complete preparation' : 'Waiter may only mark a ready order as served' });
             }
+            if (name === 'menu_items' && role === 'kitchen' && 'price' in body && body.price !== r.price) return json(400, { code: 'P0001', message: 'Only the owner/admin can change prices' });
             if (name === 'menu_items' && !['admin', 'kitchen'].includes(role)) continue;
             Object.assign(r, body); out.push(r);
           }

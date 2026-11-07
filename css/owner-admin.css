@@ -1,0 +1,57 @@
+/* Owner dashboard panels (js/owner-admin.js). Uses the existing design tokens; no animation. */
+.oa-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.oa-head .section-title { margin: 0; }
+.oa-head input[type=date] { margin: 0; width: auto; }
+.oa-sub { margin: 18px 0 8px; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+
+.oa-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 4px; }
+.oa-stat {
+  display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 14px; border-radius: 14px;
+  background: var(--card); border: 1px solid rgba(245,230,210,.08); color: var(--text); font-family: var(--font); cursor: pointer;
+}
+.oa-stat.static { cursor: default; }
+.oa-stat span { font-size: .72rem; color: var(--muted); font-weight: 600; }
+.oa-stat strong { font-size: 1.25rem; line-height: 1.15; word-break: break-word; }
+.oa-stat.warn, .oa-note.warn { border-color: rgba(226,170,76,.55); background: rgba(226,170,76,.09); }
+
+.oa-note { display: block; width: 100%; text-align: left; margin-top: 12px; padding: 10px 14px; border-radius: 12px; font: inherit; font-size: .85rem;
+  background: var(--card); color: var(--text); border: 1px solid rgba(245,230,210,.1); }
+.oa-note.static { margin: 6px 0; cursor: default; }
+
+.oa-blocked { display: flex; flex-direction: column; gap: 4px; margin: 14px 0; padding: 10px 14px; border-radius: 12px;
+  border: 1px dashed rgba(245,230,210,.28); background: rgba(255,255,255,.03); }
+.oa-blocked strong { font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
+
+.oa-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 12px; }
+.oa-chipbtn { padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(245,230,210,.2); background: transparent; color: var(--muted);
+  font: 600 .8rem var(--font); cursor: pointer; }
+.oa-chipbtn.on { background: var(--accent-soft); color: var(--text); border-color: var(--accent); }
+
+.oa-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.oa-confirm { margin-top: 10px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(245,230,210,.12); }
+.oa-confirm input { width: 100%; box-sizing: border-box; }
+.oa-lines { list-style: none; margin: 8px 0 0; padding: 0; font-size: .88rem; }
+.oa-lines li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; border-bottom: 1px solid rgba(245,230,210,.06); }
+.oa-stars { color: var(--gold-bright); letter-spacing: 2px; margin: 2px 0; }
+.oa-addrow { display: flex; gap: 8px; margin-bottom: 10px; }
+.oa-addrow input { flex: 1 1 auto; min-width: 0; margin: 0; }
+.oa-scroll { overflow-x: auto; }
+.oa-matrix { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.oa-matrix th, .oa-matrix td { padding: 6px 8px; text-align: left; border-bottom: 1px solid rgba(245,230,210,.08); }
+.oa-matrix th { color: var(--muted); font-weight: 600; font-size: .72rem; }
+.oa-audit { padding: 3px 0; }
+.oa-check { display: flex; align-items: center; gap: 10px; }
+.oa-check input { width: auto; margin: 0; }
+.oa-err { color: var(--nonveg); font-size: .88rem; margin: 6px 0; }
+.oa-form h3.oa-sub:first-child { margin-top: 4px; }
+.ok { color: var(--ok); } .warn { color: #e8b86a; }
+
+details.oa-danger { border: 1px solid rgba(226,91,76,.45); border-radius: 12px; padding: 10px 14px; background: rgba(226,91,76,.06); }
+details.oa-danger summary { cursor: pointer; font-weight: 700; color: #ff8b7d; }
+.oa-danger-btn { background: #b8382b; color: #fff; border: 0; }
+.oa-danger-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+@media (min-width: 900px) {
+  #owner-panel { max-width: 860px; margin-left: auto; margin-right: auto; }
+  .oa-stats { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}

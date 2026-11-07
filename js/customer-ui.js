@@ -551,6 +551,9 @@
   function updateCustomerNav() {
     var on = document.querySelector('.screen.on');
     var key = on ? NAV_MAP[on.id] : null;
+    /* Guest navigation does not belong on the staff screens (login, waiter, kitchen, owner). */
+    var nav = document.getElementById('customer-nav');
+    if (nav) nav.hidden = !!(on && /^screen-(login|waiter|kitchen|owner)$/.test(on.id));
     document.querySelectorAll('#customer-nav [data-cnav]').forEach(function (b) {
       b.classList.toggle('on', b.getAttribute('data-cnav') === key);
     });

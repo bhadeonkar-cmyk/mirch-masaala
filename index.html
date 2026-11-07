@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./css/mm-identity.css?v=11">
   <link rel="stylesheet" href="./css/mm-identity-bridge.css?v=13">
   <link rel="stylesheet" href="./css/qr-print.css?v=2">
+  <link rel="stylesheet" href="./css/owner-admin.css?v=1">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
@@ -150,7 +151,7 @@
   <div id="screen-login" class="screen"><header class="top"><button type="button" class="back" id="btn-login-back" aria-label="Back">←</button><strong data-i18n="staff_login">Staff login</strong><span></span></header><main class="main"><div class="role-tabs" id="role-tabs"><button type="button" class="role-tab on" data-role="waiter" data-i18n="role_waiter">Waiter</button><button type="button" class="role-tab" data-role="kitchen" data-i18n="role_kitchen">Kitchen</button><button type="button" class="role-tab" data-role="admin" data-i18n="role_admin">Owner</button></div><form id="login-form" class="form" novalidate><label><span data-i18n="username">Username</span><input type="text" name="username" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label><label><span data-i18n="password">Password</span><input type="password" name="password" required autocomplete="current-password"></label><p class="error-line" id="login-error" hidden></p><button type="submit" class="btn btn-primary btn-block" id="btn-login" data-i18n="login">Login</button></form></main></div>
   <div id="screen-waiter" class="screen"><header class="top"><strong data-i18n="waiter">Waiter</strong><div class="top-actions"><button type="button" class="lang-btn" data-action="lang">मराठी</button><button type="button" class="btn btn-sm" id="btn-waiter-logout" data-i18n="logout">Logout</button></div></header><main class="main"><div id="waiter-tables-view"><div class="waiter-pick-row"><label><span data-i18n="waiter">Waiter</span><select id="waiter-pick"><option value="" data-i18n="choose_waiter">Choose your name</option></select></label><p class="muted small" id="waiter-pick-hint" hidden></p></div><div id="waiter-ready"></div><h2 class="section-title" data-i18n="tables">Tables</h2><div class="table-grid" id="waiter-tables"></div><button type="button" class="btn btn-soft btn-block" id="btn-waiter-refresh" data-i18n="refresh">Refresh</button><div id="waiter-alerts"></div></div><div id="waiter-visit" hidden></div></main></div>
   <div id="screen-kitchen" class="screen"><header class="top"><strong data-i18n="kitchen">Kitchen</strong><div class="top-actions"><button type="button" class="lang-btn" data-action="lang">मराठी</button><button type="button" class="btn btn-sm" id="btn-kitchen-logout" data-i18n="logout">Logout</button></div></header><main class="main"><div class="kds" id="kitchen-board"></div></main></div>
-  <div id="screen-owner" class="screen"><header class="top"><strong data-i18n="owner">Owner</strong><div class="top-actions"><button type="button" class="lang-btn" data-action="lang">मराठी</button><button type="button" class="btn btn-sm" id="btn-owner-logout" data-i18n="logout">Logout</button></div></header><nav class="owner-nav" id="owner-nav"><button type="button" class="on" data-panel="orders" data-i18n="nav_orders">Orders</button><button type="button" data-panel="tables" data-i18n="nav_tables">Tables</button><button type="button" data-panel="payments" data-i18n="nav_payments">Payments</button><button type="button" data-panel="menu" data-i18n="nav_menu">Menu</button><button type="button" data-panel="bookings" data-i18n="nav_bookings">Bookings</button><button type="button" data-panel="settings" data-i18n="nav_settings">Settings</button></nav><main class="main" id="owner-panel"></main></div>
+  <div id="screen-owner" class="screen"><header class="top"><strong data-i18n="owner">Owner</strong><div class="top-actions"><button type="button" class="lang-btn" data-action="lang">मराठी</button><button type="button" class="btn btn-sm" id="btn-owner-logout" data-i18n="logout">Logout</button></div></header><nav class="owner-nav" id="owner-nav" aria-label="Owner"><button type="button" class="on" data-panel="dashboard" data-i18n="oa_dashboard">Dashboard</button><button type="button" data-panel="orders" data-i18n="nav_orders">Orders</button><button type="button" data-panel="tables" data-i18n="nav_tables">Tables</button><button type="button" data-panel="payments" data-i18n="nav_payments">Payments</button><button type="button" data-panel="menu" data-i18n="nav_menu">Menu</button><button type="button" data-panel="bookings" data-i18n="nav_bookings">Bookings</button><button type="button" data-panel="team" data-i18n="oa_team">Team</button><button type="button" data-panel="reviews" data-i18n="nav_reviews">Reviews</button><button type="button" data-panel="places" data-i18n="nav_places">Places</button><button type="button" data-panel="reports" data-i18n="oa_reports">Reports</button><button type="button" data-panel="alerts" data-i18n="oa_alerts">Alerts</button><button type="button" data-panel="backup" data-i18n="oa_backup">Backup</button><button type="button" data-panel="settings" data-i18n="nav_settings">Settings</button></nav><main class="main" id="owner-panel"></main></div>
   <nav id="customer-nav" class="customer-nav" aria-label="Customer">
     <button type="button" data-cnav="home" id="cnav-home"><svg class="cnav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"/></svg><span data-i18n="nav_home">Home</span></button>
     <button type="button" data-cnav="menu" id="cnav-menu"><svg class="cnav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span data-i18n="nav_menu_tab">Menu</span></button>
@@ -161,14 +162,15 @@
   <script src="./menu-images.js?v=10"></script>
   <script src="./js/mm-visual.js?v=10"></script>
   <script src="./js/config.js?v=10"></script>
-  <script src="./js/i18n.js?v=20"></script>
-  <script src="./js/supabase.js?v=13"></script>
+  <script src="./js/i18n.js?v=21"></script>
+  <script src="./js/supabase.js?v=14"></script>
   <script src="./js/perf-prefetch.js?v=13"></script>
-  <script src="./js/app.js?v=15"></script>
+  <script src="./js/app.js?v=16"></script>
   <script src="./js/qr-scanner.js?v=4"></script>
   <script src="./js/p0-lifecycle.js?v=12"></script>
   <script src="./js/vendor/qrcode-generator.js?v=1"></script>
   <script src="./js/qr-codes.js?v=1"></script>
-  <script src="./js/customer-ui.js?v=17"></script>
+  <script src="./js/owner-admin.js?v=1"></script>
+  <script src="./js/customer-ui.js?v=18"></script>
 </body>
 </html>

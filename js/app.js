@@ -74,6 +74,23 @@
   }
 
   /* ---------- screens ---------- */
+
+  /* Saved restaurant name / tagline (mm_restaurant_config) shown on the customer home. Only applied when the
+   * owner changed them from the defaults, so a fresh install looks exactly as before. */
+  var DEFAULT_NAME = 'MIRCH MASAALA', DEFAULT_TAG = 'INDIAN RESTAURANT';
+  function applyBranding(cfg) {
+    cfg = cfg || S.config;
+    if (!cfg) return;
+    var name = String(cfg.restaurant_name || '').trim(), tag = String(cfg.tagline || '').trim();
+    var logo = qs('.home-logo'), sub = qs('.home-logo-sub');
+    if (logo && name && name.toUpperCase() !== DEFAULT_NAME) {
+      var words = name.split(/\s+/), cut = Math.ceil(words.length / 2);
+      logo.innerHTML = escapeHtml(words.slice(0, cut).join(' ')) + (words.length > 1 ? '<br>' + escapeHtml(words.slice(cut).join(' ')) : '');
+      document.title = name;
+    }
+    if (sub && tag && tag.toUpperCase() !== DEFAULT_TAG) { sub.removeAttribute('data-i18n'); sub.textContent = tag; }
+  }
+
   function showWelcome() {
     showScreen('screen-welcome');
     updateCurrentOrderStrip(true);
@@ -783,7 +800,7 @@
   /* ---------- owner (minimal panels) ---------- */
   async function showOwner() {
     showScreen('screen-owner');
-    renderOwnerPanel('orders');
+    renderOwnerPanel('dashboard');
   }
 
   /* ---------- Owner: tables, status, capacity, QR codes ----------
@@ -920,10 +937,14 @@
     qsa('#owner-nav button').forEach(function (b) {
       b.classList.toggle('on', b.getAttribute('data-panel') === panel);
     });
-    box.onclick = null; /* the Payments tab installs its own handler */
+    /* Panels install their own handlers on this shared element: clear all of them so none leaks into the next panel. */
+    box.onclick = box.onchange = box.oninput = box.onsubmit = null;
     box.innerHTML = '<div class="loading">' + MM.t('loading') + '</div>';
     try {
-      if (panel === 'payments') {
+      if (MM.ownerPanels && MM.ownerPanels[panel]) {
+        /* js/owner-admin.js: dashboard, orders, team, reviews, places, reports, alerts, backup, settings */
+        await MM.ownerPanels[panel](box, { esc: escapeHtml, toast: toast, go: renderOwnerPanel, applyBranding: applyBranding });
+      } else if (panel === 'payments') {
         /* Only the Owner/Counter (admin) login may record payments (mm_staff_record_visit_payment). */
         var pvisits = await api.tableVisits();
         var openVisits = (pvisits || []).filter(function (v) {
@@ -953,43 +974,8 @@
           });
           window.__mmShowOpenVisit(num, found, { panel: box, onBack: function () { renderOwnerPanel('payments'); } });
         };
-      } else if (panel === 'orders') {
-        var orders = await api.staffOrders(false);
-        var html = '<h2 class="section-title">' + MM.t('nav_orders') + '</h2>';
-        if (!orders.length) html += '<div class="empty">' + MM.t('orders_empty') + '</div>';
-        else {
-          orders.slice(0, 40).forEach(function (o) {
-            html += '<div class="order-card compact">' +
-              '<strong>' + escapeHtml(o.ticket_id || o.order_number) + '</strong> ' +
-              '<span class="badge">' + escapeHtml(o.status) + '</span>' +
-              '<div class="muted small">₹' + Math.round(o.total || 0) + '</div></div>';
-          });
-        }
-        box.innerHTML = html;
       } else if (panel === 'tables') {
         await renderOwnerTables(box);
-      } else if (panel === 'settings') {
-        var cfg = await api.loadConfig() || {};
-        box.innerHTML = '<h2 class="section-title">' + MM.t('nav_settings') + '</h2>' +
-          '<form id="settings-form" class="form">' +
-          '<label><span>' + MM.t('whatsapp_number') + '</span><input name="whatsapp_number" value="' + escapeHtml(cfg.whatsapp_number || '') + '"></label>' +
-          '<label><span>' + MM.t('upi_id') + '</span><input name="upi_id" value="' + escapeHtml(cfg.upi_id || '') + '"></label>' +
-          '<label><span>' + MM.t('upi_name') + '</span><input name="upi_name" value="' + escapeHtml(cfg.upi_name || '') + '"></label>' +
-          '<label><span>' + MM.t('google_review_url') + '</span><input name="google_reviews_url" value="' + escapeHtml(cfg.google_reviews_url || '') + '"></label>' +
-          '<button type="submit" class="btn btn-primary btn-block">' + MM.t('save') + '</button></form>';
-        $('settings-form').onsubmit = async function (ev) {
-          ev.preventDefault();
-          var fd = new FormData(ev.target);
-          try {
-            await api.saveConfig({
-              whatsapp_number: fd.get('whatsapp_number'),
-              upi_id: fd.get('upi_id'),
-              upi_name: fd.get('upi_name'),
-              google_reviews_url: fd.get('google_reviews_url')
-            });
-            toast(MM.t('saved'));
-          } catch (e) { toast(MM.t('something_wrong')); }
-        };
       } else if (panel === 'menu') {
         /* Owner: change a dish price or switch it on/off. menu_items UPDATE is allowed for the admin
          * and kitchen roles (RLS); the customer menu cache is dropped so guests see the change. */
@@ -1016,6 +1002,8 @@
               '</div></div>';
           });
         });
+        mh += '<div class="oa-blocked"><strong>' + escapeHtml(MM.t('oa_blocked')) + '</strong><span class="muted small">' +
+          escapeHtml(MM.t('oa_menu_blocked')) + '</span></div>';
         box.innerHTML = mh;
         box.onclick = async function (ev) {
           var row = ev.target.closest('[data-item]');
@@ -1218,6 +1206,8 @@
     loadCart();
     setLang(S.lang);
     wire();
+    /* Non-blocking: the saved restaurant name/tagline appear on any device without delaying the table gate. */
+    api.loadConfig().then(function (c) { S.config = c; applyBranding(c); }).catch(function () {});
 
     var table = readTableFromUrl();
     if (table) {
