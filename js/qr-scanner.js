@@ -1,4 +1,8 @@
-/* In-app QR scanner — customer table QR only. Uses the browser's native BarcodeDetector. */
+/* In-app QR scanner — customer table QR only.
+ * Prefers native BarcodeDetector when available; falls back to jsQR (pure JS)
+ * for iOS Safari / in-app browsers where BarcodeDetector is missing.
+ * Keeps existing table/URL validation and camera lifecycle safeguards.
+ */
 (function () {
   'use strict';
   var stream = null, video = null, frame = 0, scanning = false, overlay = null;
@@ -6,6 +10,9 @@
    * closed can tell it is stale and release its own camera stream instead of leaking it. */
   var runId = 0;
   var styleId = 'mm-qr-scanner-style';
+  var jsQrLoading = null;
+  var canvas = null;
+  var ctx = null;
 
   function addStyles() {
     if (document.getElementById(styleId)) return;
@@ -44,6 +51,7 @@
     if (el) el.textContent = message;
   }
 
+  /* Existing security rules: only accept same-origin ?table=NN or bare 1–2 digit table id. */
   function useScannedValue(value) {
     var raw = String(value || '').trim();
     var table = '';
@@ -63,33 +71,142 @@
     return true;
   }
 
-  async function scanLoop(detector) {
+  function ensureJsQR() {
+    if (window.jsQR) return Promise.resolve(window.jsQR);
+    if (jsQrLoading) return jsQrLoading;
+    jsQrLoading = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+      s.async = true;
+      s.onload = function () {
+        if (window.jsQR) resolve(window.jsQR);
+        else reject(new Error('jsQR failed to load'));
+      };
+      s.onerror = function () { reject(new Error('jsQR network error')); };
+      document.head.appendChild(s);
+    });
+    return jsQrLoading;
+  }
+
+  function getCanvas() {
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      ctx = canvas.getContext('2d', { willReadFrequently: true });
+    }
+    return canvas;
+  }
+
+  async function scanLoopBarcode(detector) {
     if (!scanning || !video || video.readyState < 2) {
-      if (scanning) frame = requestAnimationFrame(function () { scanLoop(detector); });
+      if (scanning) frame = requestAnimationFrame(function () { scanLoopBarcode(detector); });
       return;
     }
     try {
       var codes = await detector.detect(video);
-      /* The guest may have closed the scanner while this frame was being analysed. */
       if (!scanning) return;
       if (codes && codes.length && codes[0].rawValue) {
-        /* Stop only when the code was accepted. A wrong QR keeps the scanner running so the
-         * guest can simply point the camera at the right sticker. */
         if (useScannedValue(codes[0].rawValue)) return;
       }
     } catch (e) {
       status('Camera scan paused. Please keep the QR code inside the frame.');
     }
-    if (scanning) frame = requestAnimationFrame(function () { scanLoop(detector); });
+    if (scanning) frame = requestAnimationFrame(function () { scanLoopBarcode(detector); });
+  }
+
+  function scanLoopJsQR(jsQR) {
+    if (!scanning || !video || video.readyState < 2) {
+      if (scanning) frame = requestAnimationFrame(function () { scanLoopJsQR(jsQR); });
+      return;
+    }
+    try {
+      var w = video.videoWidth;
+      var h = video.videoHeight;
+      if (w && h) {
+        var c = getCanvas();
+        /* Downscale for performance on older phones while keeping enough detail for QR. */
+        var maxSide = 640;
+        var scale = Math.min(1, maxSide / Math.max(w, h));
+        var cw = Math.max(1, Math.floor(w * scale));
+        var ch = Math.max(1, Math.floor(h * scale));
+        if (c.width !== cw || c.height !== ch) {
+          c.width = cw;
+          c.height = ch;
+        }
+        ctx.drawImage(video, 0, 0, cw, ch);
+        var imageData = ctx.getImageData(0, 0, cw, ch);
+        var code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'dontInvert'
+        });
+        if (!scanning) return;
+        if (code && code.data) {
+          if (useScannedValue(code.data)) return;
+        }
+      }
+    } catch (e) {
+      status('Camera scan paused. Please keep the QR code inside the frame.');
+    }
+    if (scanning) frame = requestAnimationFrame(function () { scanLoopJsQR(jsQR); });
   }
 
   function showFallback(message) {
-    if (!overlay) return; /* scanner was closed while the camera was starting */
+    if (!overlay) return;
     status(message + ' You can also open your phone camera, scan the table sticker, and open its link.');
     var wrap = overlay.querySelector('.mm-qr-video-wrap');
     if (wrap) wrap.hidden = true;
     var manual = overlay.querySelector('[data-qr-manual]');
     if (manual) manual.hidden = false;
+  }
+
+  async function startWithBarcodeDetector(myRun) {
+    var supported = await window.BarcodeDetector.getSupportedFormats();
+    if (myRun !== runId) return false;
+    if (supported.indexOf('qr_code') < 0) return false;
+    var detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+    var media = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    if (myRun !== runId) {
+      media.getTracks().forEach(function (track) { track.stop(); });
+      return true;
+    }
+    stream = media;
+    video = overlay.querySelector('video');
+    video.srcObject = stream;
+    await video.play();
+    if (myRun !== runId) return true;
+    scanning = true;
+    status('Point your camera at the QR sticker on your table.');
+    frame = requestAnimationFrame(function () { scanLoopBarcode(detector); });
+    return true;
+  }
+
+  async function startWithJsQR(myRun) {
+    var jsQR = await ensureJsQR();
+    if (myRun !== runId) return;
+    var media = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    });
+    if (myRun !== runId) {
+      media.getTracks().forEach(function (track) { track.stop(); });
+      return;
+    }
+    stream = media;
+    video = overlay.querySelector('video');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.muted = true;
+    video.srcObject = stream;
+    await video.play();
+    if (myRun !== runId) return;
+    scanning = true;
+    status('Point your camera at the QR sticker on your table.');
+    frame = requestAnimationFrame(function () { scanLoopJsQR(jsQR); });
   }
 
   async function openScanner() {
@@ -103,7 +220,7 @@
     overlay.setAttribute('aria-label', 'Scan table QR code');
     overlay.innerHTML = '<section class="mm-qr-panel">' +
       '<div class="mm-qr-head"><h2>Scan your table QR</h2><button class="mm-qr-close" type="button" aria-label="Close scanner">×</button></div>' +
-      '<div class="mm-qr-video-wrap"><video class="mm-qr-video" playsinline muted></video><div class="mm-qr-frame"></div></div>' +
+      '<div class="mm-qr-video-wrap"><video class="mm-qr-video" playsinline muted webkit-playsinline></video><div class="mm-qr-frame"></div></div>' +
       '<div class="mm-qr-status" data-qr-status>Starting camera…</div>' +
       '<p class="mm-qr-manual" data-qr-manual hidden>Allow camera access and use the rear camera. If scanning is unavailable, use your phone camera to scan the table sticker.</p>' +
       '<div class="mm-qr-actions"><button class="btn btn-soft" type="button" data-qr-cancel>Close</button></div>' +
@@ -117,45 +234,31 @@
       showFallback('Camera access is not available in this browser.');
       return;
     }
-    if (!('BarcodeDetector' in window)) {
-      showFallback('In-app QR scanning is not supported by this browser.');
-      return;
-    }
+
     try {
-      var supported = await window.BarcodeDetector.getSupportedFormats();
+      var usedNative = false;
+      if ('BarcodeDetector' in window) {
+        try {
+          usedNative = await startWithBarcodeDetector(myRun);
+        } catch (nativeErr) {
+          usedNative = false;
+        }
+      }
       if (myRun !== runId) return;
-      if (supported.indexOf('qr_code') < 0) {
-        showFallback('QR scanning is not supported by this browser.');
-        return;
+      if (!usedNative) {
+        status('Loading scanner…');
+        await startWithJsQR(myRun);
       }
-      var detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-      var media = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
-      if (myRun !== runId) {
-        /* Closed while the browser was still opening the camera: release it right away. */
-        media.getTracks().forEach(function (track) { track.stop(); });
-        return;
-      }
-      stream = media;
-      video = overlay.querySelector('video');
-      video.srcObject = stream;
-      await video.play();
-      if (myRun !== runId) return; /* closeScanner() already stopped the tracks */
-      scanning = true;
-      status('Point your camera at the QR sticker on your table.');
-      frame = requestAnimationFrame(function () { scanLoop(detector); });
     } catch (e) {
-      if (myRun !== runId) return; /* a close interrupted the start; nothing to report */
-      /* The camera may already be open (e.g. video.play() was rejected). The fallback hides the
-       * video, so release the camera now instead of leaving it on until the dialog is closed. */
+      if (myRun !== runId) return;
       if (stream) stream.getTracks().forEach(function (track) { track.stop(); });
       stream = null;
       if (video) { try { video.pause(); } catch (err) {} video.srcObject = null; }
       showFallback(e && e.name === 'NotAllowedError'
         ? 'Camera permission was denied.'
-        : 'Could not start the camera.');
+        : (e && e.message && /jsQR/.test(e.message)
+          ? 'Could not load the QR decoder.'
+          : 'Could not start the camera.'));
     }
   }
 
