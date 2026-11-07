@@ -68,23 +68,15 @@ async function run(browser, viewport) {
   check(pageErrors.length === 0, label + ': page starts without script errors', pageErrors.join(' | ').slice(0, 300));
   check(await page.evaluate(() => typeof SETTINGS === 'object' && SETTINGS !== null), label + ': SETTINGS initialised during start-up');
 
-  // A. Places to visit — from Home and from the ordering screen, state preserved.
-  await press('#home-explore-link');
-  check(await on('explore'), label + ': Places to visit opens from Home');
-  check((await page.locator('#places .place').count()) === 6, label + ': six places are listed');
-  await press('#explore-back-button');
-  check(await on('home'), label + ': back from Places returns Home');
-  await page.evaluate(() => {
-    table = '05';
-    cart = [{ id: 15, name: 'Test dish', price: 100, qty: 2 }];
-    go('customer');
-    openExploreFromCustomer();
+  // A. Places to visit — intentionally hidden on recovery until the feature is restored.
+  // Do not invent backend/UI; the home control must not show a prominent "unavailable" state.
+  const placesVisible = await page.evaluate(() => {
+    const el = document.getElementById('btn-places') || document.getElementById('home-places-to-visit') || document.getElementById('home-explore-link');
+    if (!el) return false;
+    const st = getComputedStyle(el);
+    return !el.hidden && st.display !== 'none' && st.visibility !== 'hidden';
   });
-  check(await on('explore'), label + ': Places opens from the ordering screen');
-  await press('#explore-back-button');
-  check((await on('customer')) && (await page.evaluate(() => cart.length === 1 && cart[0].qty === 2 && table === '05')),
-    label + ': back from Places keeps table and cart');
-  await page.evaluate(() => { cart = []; go('home'); });
+  check(!placesVisible, label + ': Places to visit entry is hidden until ready');
 
   // B. Party Booking — validation, failure, duplicate taps, success.
   await press('#home-party-link');
@@ -134,9 +126,14 @@ async function run(browser, viewport) {
   // Language switch keeps these controls working.
   await page.evaluate(() => toggleHomeLanguage());
   await page.waitForTimeout(300);
-  check(/भेट/.test(await page.locator('#home-places-to-visit').textContent()), label + ': Marathi label is shown for Places to visit');
-  await press('#home-explore-link');
-  check(await on('explore'), label + ': Places to visit still opens in Marathi');
+  // Places control stays hidden after language switch (feature not restored yet).
+  const placesStillHidden = await page.evaluate(() => {
+    const el = document.getElementById('btn-places') || document.getElementById('home-places-to-visit') || document.getElementById('home-explore-link');
+    if (!el) return true;
+    const st = getComputedStyle(el);
+    return el.hidden || st.display === 'none' || st.visibility === 'hidden';
+  });
+  check(placesStillHidden, label + ': Places stays hidden after language switch');
   check(pageErrors.length === 0, label + ': no unexpected script errors during the whole flow', pageErrors.join(' | ').slice(0, 300));
   check(injectedFailureLogs.length === 1, label + ': the app logged the injected booking failure exactly once', 'logged ' + injectedFailureLogs.length);
   check(requested.every((r) => /^(script|document|stylesheet|font|image|fetch|xhr|other) https?:/.test(r)) &&
