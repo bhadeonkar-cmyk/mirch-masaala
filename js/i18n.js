@@ -195,6 +195,7 @@ MM.I18N = {
     start_with_qr: 'Start with your table QR',
     scan_flow_hint: 'Scan → choose dishes → track order',
     scan_qr_help: 'Scan the QR sticker on your table, or tap Scan table QR to use the in-app scanner. If the sticker is missing, ask your waiter to share the exact table link.',
+    scan_qr_hint_short: 'Use the QR sticker on your table.',
     qr_help: 'QR help',
     how_to_use: 'How to use',
     party_booking_short: 'Party booking',
@@ -398,21 +399,22 @@ MM.I18N = {
     signed_out: 'साइन आउट.',
     language_label: 'Language / भाषा',
     my_orders: 'माझ्या ऑर्डर्स',
-    check_items_status: 'पदार्थ व स्थिती तपासा',
-    indian_restaurant: 'इंडियन रेस्टॉरंट',
+    check_items_status: 'पदार्थ व स्थिती पहा',
+    indian_restaurant: 'भारतीय रेस्टॉरंट',
     dine_easy: 'डाइन-इन सोपे — टेबल QR स्कॅन करा.',
     start_with_qr: 'टेबल QR ने सुरू करा',
-    scan_flow_hint: 'स्कॅन → पदार्थ निवडा → ऑर्डर ट्रॅक करा',
+    scan_flow_hint: 'स्कॅन → पदार्थ निवडा → ऑर्डर ट्रॅक',
     scan_qr_help: 'टेबलवरील QR स्टिकर स्कॅन करा, किंवा इन-अ‍ॅप स्कॅनरसाठी टेबल QR स्कॅन करा टॅप करा. स्टिकर नसेल तर वेटरकडून टेबल लिंक घ्या.',
+    scan_qr_hint_short: 'टेबलवरील QR स्टिकर वापरा.',
     qr_help: 'QR मदत',
     how_to_use: 'कसे वापरावे',
     party_booking_short: 'पार्टी बुकिंग',
     places_to_visit: 'भेट द्यावी अशी ठिकाणे',
     reviews: 'रिव्ह्यूज',
     staff_access: 'स्टाफ प्रवेश',
-    powered_by: 'डिजिटल ऑर्डरिंग व ऑटोमेशन',
-    need_similar: 'अशीच सोय हवी आहे?',
-    business_enquiries: 'व्यवसाय चौकशी',
+    powered_by: 'डिजिटल ऑर्डरिंग व बिझनेस ऑटोमेशन',
+    need_similar: 'अशीच सोल्यूशन हवी आहे?',
+    business_enquiries: 'बिझनेस चौकशी',
     qr_help_msg: 'टेबलवरील QR स्टिकर शोधा. कॅमेरा उघडा किंवा Scan table QR टॅप करा. टेबल मेनू आपोआप उघडेल.',
     how_to_msg: '१) टेबल QR स्कॅन  २) पदार्थ निवडा व जोडा  ३) कार्ट उघडून ऑर्डर द्या  ४) Order मध्ये स्थिती पहा.',
     places_unavailable: 'भेट द्यावी अशी ठिकाणे या आवृत्तीत अजून उपलब्ध नाहीत.',
@@ -423,10 +425,9 @@ MM.I18N = {
 
 MM.t = function (key, vars) {
   var lang = (MM.state && MM.state.lang) || 'en';
-  var dict = MM.I18N[lang] || MM.I18N.en;
+  var dict = (MM.I18N && MM.I18N[lang]) || MM.I18N.en || {};
   var s = dict[key];
-  if (s === undefined) s = MM.I18N.en[key];
-  if (s === undefined) s = key;
+  if (s == null) s = (MM.I18N.en && MM.I18N.en[key]) || key;
   if (vars) {
     Object.keys(vars).forEach(function (k) {
       s = String(s).split('{' + k + '}').join(String(vars[k]));
@@ -437,17 +438,17 @@ MM.t = function (key, vars) {
 
 MM.applyI18n = function (root) {
   root = root || document;
-  root.querySelectorAll('[data-i18n]').forEach(function (el) {
+  var nodes = root.querySelectorAll('[data-i18n]');
+  for (var i = 0; i < nodes.length; i++) {
+    var el = nodes[i];
     var key = el.getAttribute('data-i18n');
-    if (key) el.textContent = MM.t(key);
-  });
-  root.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) {
-    var key = el.getAttribute('data-i18n-placeholder');
-    if (key) el.placeholder = MM.t(key);
-  });
-  var langBtn = document.getElementById('btn-lang');
-  if (langBtn) langBtn.textContent = MM.t('language');
-  document.querySelectorAll('.lang-btn').forEach(function (b) {
-    b.textContent = MM.t('language');
-  });
+    if (!key) continue;
+    var t = MM.t(key);
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      if (el.hasAttribute('placeholder')) el.placeholder = t;
+      else el.value = t;
+    } else {
+      el.textContent = t;
+    }
+  }
 };
