@@ -786,6 +786,134 @@
     renderOwnerPanel('orders');
   }
 
+  /* ---------- Owner: tables, status, capacity, QR codes ----------
+   * Reads:   restaurant_tables (all rows, staff RLS), mm_staff_get_table_visits, orders (staff RLS).
+   * Writes:  mm_admin_set_table_capacity (admin only). Closing a visit / recording payment reuse the
+   *          existing visit panel (window.__mmShowOpenVisit), so every server-side guard still applies.
+   * Not available (no INSERT/UPDATE grant, policy or RPC exists): create, rename, activate/deactivate. */
+  async function renderOwnerTables(box) {
+    var results = await Promise.all([api.ownerTables(), api.tableVisits(), api.staffOrders(false)]);
+    var tables = results[0], visits = results[1], orders = results[2];
+    var visitBy = {};
+    (visits || []).forEach(function (v) {
+      visitBy[api.pad2(v.table_number || v.tableNumber)] = v;
+    });
+    var liveBy = {};
+    (orders || []).forEach(function (o) {
+      var st = String(o.status || '').toUpperCase();
+      if (o.archived_at || ['NEW', 'PREPARING', 'READY'].indexOf(st) < 0) return;
+      liveBy[o.table_id] = (liveBy[o.table_id] || 0) + 1;
+    });
+    function info(row) {
+      var num = api.pad2(row.table_number);
+      var visit = visitBy[num];
+      var active = row.is_active !== false;
+      var busy = active && !!visit && String(visit.status || '').toUpperCase() === 'OPEN';
+      return { row: row, num: num, visit: visit, active: active, busy: busy,
+        state: !active ? 'off' : (busy ? 'busy' : 'free'), live: liveBy[row.id] || 0 };
+    }
+    var list = tables.map(info);
+    var activeNums = list.filter(function (x) { return x.active; }).map(function (x) { return x.num; });
+    var qr = MM.qr;
+
+    function chip(x) {
+      return '<span class="chip ' + x.state + '">' +
+        escapeHtml(MM.t(x.state === 'off' ? 'tbl_off' : (x.state === 'busy' ? 'tbl_busy' : 'tbl_free'))) + '</span>';
+    }
+
+    function showList() {
+      var h = '<h2 class="section-title">' + MM.t('nav_tables') + '</h2>';
+      if (qr && qr.isTestHost()) h += '<div class="tbl-warn">' + escapeHtml(MM.t('qr_test_host')) + '</div>';
+      h += '<div class="tbl-toolbar">' +
+        '<button type="button" class="btn btn-sm btn-primary" data-qr-all' + (activeNums.length ? '' : ' disabled') + '>' +
+          escapeHtml(MM.t('qr_print_all')) + ' (' + activeNums.length + ')</button>' +
+        '<span class="muted small grow" data-qr-base>' + (qr ? escapeHtml(MM.t('qr_opens', { url: qr.baseUrl() })) : '') + '</span></div>';
+      if (!list.length) h += '<div class="empty">' + MM.t('tbl_none') + '</div>';
+      h += '<div class="table-grid">';
+      list.forEach(function (x) {
+        var cap = x.row.seating_capacity != null ? '<span class="muted small">' + escapeHtml(MM.t('tbl_seats', { n: x.row.seating_capacity })) + '</span>' : '';
+        h += '<button type="button" class="table-card ' + x.state + '" data-owner-table="' + escapeHtml(x.num) + '">' +
+          '<strong>' + escapeHtml(x.num) + '</strong>' + chip(x) + cap +
+          (x.live ? '<span class="muted small">' + escapeHtml(MM.t('tbl_live', { n: x.live })) + '</span>' : '') + '</button>';
+      });
+      h += '</div><p class="muted small">' + escapeHtml(MM.t('tbl_manage_note')) + '</p>';
+      box.innerHTML = h;
+      box.onclick = function (ev) {
+        if (ev.target.closest('[data-qr-all]')) { if (qr) qr.print(activeNums); return; }
+        var card = ev.target.closest('[data-owner-table]');
+        if (card) showDetail(card.getAttribute('data-owner-table'));
+      };
+    }
+
+    function showDetail(num) {
+      var x = list.filter(function (y) { return y.num === num; })[0];
+      if (!x) return;
+      var h = '<button type="button" class="btn btn-soft btn-sm" data-tbl-back>← ' + escapeHtml(MM.t('back')) + '</button>' +
+        '<h2 class="section-title">' + escapeHtml(MM.t('qr_table')) + ' ' + escapeHtml(num) + ' ' + chip(x) + '</h2>';
+      if (x.busy && x.visit && x.visit.assigned_waiter_code) {
+        h += '<div class="muted small">' + escapeHtml(MM.t('tbl_waiter', { w: x.visit.assigned_waiter_code })) + '</div>';
+      }
+      if (x.row.seating_capacity != null && x.active) {
+        h += '<div class="tbl-row"><label class="muted small" for="tbl-cap">' + escapeHtml(MM.t('tbl_capacity')) + '</label>' +
+          '<input id="tbl-cap" type="number" inputmode="numeric" min="1" max="30" step="1" value="' + escapeHtml(x.row.seating_capacity) + '">' +
+          '<button type="button" class="btn btn-sm" data-cap-save>' + escapeHtml(MM.t('save')) + '</button></div>';
+      }
+      if (x.busy) {
+        var since = x.visit && x.visit.started_at ? Date.parse(x.visit.started_at) : 0;
+        var mine = (orders || []).filter(function (o) {
+          return o.table_id === x.row.id && !o.archived_at && (!since || Date.parse(o.created_at) >= since - 1000);
+        });
+        h += '<h3 class="section-title">' + escapeHtml(MM.t('tbl_orders')) + '</h3>';
+        if (!mine.length) h += '<div class="empty">' + escapeHtml(MM.t('tbl_no_orders')) + '</div>';
+        mine.forEach(function (o) {
+          h += '<div class="order-card compact"><strong>' + escapeHtml(o.ticket_id || o.order_number) + '</strong> ' +
+            '<span class="badge">' + escapeHtml(o.status) + '</span>' +
+            '<div class="muted small">₹' + Math.round(o.total || 0) + '</div></div>';
+        });
+        h += '<button type="button" class="btn btn-primary btn-block" data-tbl-bill>' + escapeHtml(MM.t('tbl_bill_close')) + '</button>';
+      }
+      h += '<h3 class="section-title">' + escapeHtml(MM.t('qr_title')) + '</h3>';
+      if (!qr) h += '<div class="empty">' + escapeHtml(MM.t('something_wrong')) + '</div>';
+      else if (!x.active) h += '<div class="muted small">' + escapeHtml(MM.t('qr_inactive')) + '</div>';
+      else {
+        h += '<div class="tbl-qr" data-qr-preview>' + qr.stickerHtml(num) + '</div>' +
+          '<div class="tbl-row"><button type="button" class="btn btn-sm" data-qr-download>' + escapeHtml(MM.t('qr_download')) + '</button>' +
+          '<button type="button" class="btn btn-sm btn-primary" data-qr-print>' + escapeHtml(MM.t('qr_print')) + '</button></div>';
+      }
+      box.innerHTML = h;
+      box.onclick = async function (ev) {
+        if (ev.target.closest('[data-tbl-back]')) { showList(); return; }
+        if (ev.target.closest('[data-qr-print]')) { qr.print([num]); return; }
+        if (ev.target.closest('[data-qr-download]')) {
+          try { await qr.download(num); } catch (e) { console.error('[MM qr download]', e); toast(MM.t('something_wrong')); }
+          return;
+        }
+        if (ev.target.closest('[data-tbl-bill]')) {
+          if (typeof window.__mmShowOpenVisit === 'function') {
+            window.__mmShowOpenVisit(num, x.visit, { panel: box, onBack: function () { renderOwnerPanel('tables'); } });
+          }
+          return;
+        }
+        var save = ev.target.closest('[data-cap-save]');
+        if (save) {
+          var raw = $('tbl-cap').value, n = Number(raw);
+          if (raw === '' || !isFinite(n) || n % 1 !== 0 || n < 1 || n > 30) { toast(MM.t('something_wrong')); return; }
+          save.disabled = true;
+          try {
+            await api.setCapacity(num, n);
+            x.row.seating_capacity = n;
+            toast(MM.t('saved'));
+          } catch (e) {
+            console.error('[MM capacity]', e);
+            toast(e && e.code && e.message ? String(e.message).slice(0, 160) : MM.t('something_wrong'));
+          } finally { save.disabled = false; }
+        }
+      };
+    }
+
+    showList();
+  }
+
   async function renderOwnerPanel(panel) {
     var box = $('owner-panel');
     if (!box) return;
@@ -839,16 +967,7 @@
         }
         box.innerHTML = html;
       } else if (panel === 'tables') {
-        var visits = await api.tableVisits();
-        var html = '<h2 class="section-title">' + MM.t('nav_tables') + '</h2><div class="table-grid">';
-        (visits || []).forEach(function (v) {
-          var num = api.pad2(v.table_number || v.tableNumber);
-          var st = String(v.status || '').toUpperCase();
-          html += '<div class="table-card ' + (st === 'OPEN' ? 'busy' : 'free') + '">' +
-            '<strong>' + escapeHtml(num) + '</strong><span class="muted small">' + escapeHtml(st) + '</span></div>';
-        });
-        html += '</div>';
-        box.innerHTML = html;
+        await renderOwnerTables(box);
       } else if (panel === 'settings') {
         var cfg = await api.loadConfig() || {};
         box.innerHTML = '<h2 class="section-title">' + MM.t('nav_settings') + '</h2>' +
@@ -1116,6 +1235,13 @@
         if (role) {
           S.role = role;
           S.session = session;
+          /* A refresh (or a phone discarding the tab) must not throw staff back to the home screen while
+           * they are still signed in. A guest QR link (?table=) always wins and shows the menu. */
+          if (!table) {
+            if (role === 'waiter') showWaiter();
+            else if (role === 'kitchen') showKitchen();
+            else showOwner();
+          }
         }
       }
     } catch (e) {}

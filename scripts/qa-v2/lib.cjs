@@ -10,6 +10,7 @@ const { makeBackend, serve, SB_HOST } = require('./fake-backend.cjs');
 const ROOT = path.resolve(__dirname, '..', '..');
 // The page loads supabase-js from a CDN; the tests serve the same pinned version from npm instead.
 const SUPA = process.env.MM_SUPABASE_UMD || require.resolve('@supabase/supabase-js/dist/umd/supabase.js');
+const JSQR = process.env.MM_JSQR || require.resolve('jsqr');   // npm i --no-save jsqr@1.4.0
 
 const results = [];
 function check(ok, name, detail) {
@@ -33,12 +34,13 @@ async function open(browser, srvPort, backend, opts) {
   ctxOpts.permissions = opts.noCamera ? [] : ['camera'];
   const context = await browser.newContext(ctxOpts);
   await context.route('https://cdn.jsdelivr.net/**', (r) => r.fulfill({ status: 200, contentType: 'text/javascript', body: fs.readFileSync(SUPA) }));
+  await context.route('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/**', (r) => (opts.blockJsQR ? r.abort('failed') : r.fulfill({ status: 200, contentType: 'text/javascript', body: fs.readFileSync(JSQR) })));
   await context.route('https://' + SB_HOST + '/**', (r) => backend.handle(r));
   await context.route(/^https?:\/\/(?!127\.0\.0\.1|cdn\.jsdelivr\.net|adbhxldsqwsyaqzdmxnf)/, (r) => r.abort('failed'));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-  page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource|\[MM (rpc|waiter|order|pay|party|login|startVisit|serve|p0|gate|kitchen)/.test(m.text())) errors.push('console.error: ' + m.text().slice(0, 200)); });
+  page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource|\[MM (rpc|waiter|order|pay|party|login|startVisit|serve|p0|gate|kitchen|capacity|price|availability|booking|owner|qr download)/.test(m.text())) errors.push('console.error: ' + m.text().slice(0, 200)); });
   if (opts.init) await page.addInitScript(opts.init);
   const url = (q) => 'http://127.0.0.1:' + srvPort + '/' + (q || '');
   return { context, page, errors, url };
@@ -57,4 +59,4 @@ const SCANNER_INIT = `
     const s = await real(c); s.getTracks().forEach(t => window.__tracks.push(t)); return s; };
 `;
 
-module.exports = { ROOT, check, summary, launch, open, makeBackend, serve, SCANNER_INIT, devices, results };
+module.exports = { JSQR, ROOT, check, summary, launch, open, makeBackend, serve, SCANNER_INIT, devices, results };

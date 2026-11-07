@@ -33,6 +33,13 @@
     document.head.appendChild(style);
   }
 
+  /* Stop the camera and detach it from the preview. Safe to call when nothing is open. */
+  function releaseStream() {
+    if (stream) stream.getTracks().forEach(function (track) { track.stop(); });
+    stream = null;
+    if (video) { try { video.pause(); } catch (err) {} video.srcObject = null; }
+  }
+
   function closeScanner() {
     runId++;
     scanning = false;
@@ -242,6 +249,9 @@
           usedNative = await startWithBarcodeDetector(myRun);
         } catch (nativeErr) {
           usedNative = false;
+          /* The native attempt may already have opened the camera (e.g. video.play() was rejected).
+           * Release it before the jsQR fallback opens its own stream, or the first one stays on. */
+          releaseStream();
         }
       }
       if (myRun !== runId) return;
@@ -251,9 +261,7 @@
       }
     } catch (e) {
       if (myRun !== runId) return;
-      if (stream) stream.getTracks().forEach(function (track) { track.stop(); });
-      stream = null;
-      if (video) { try { video.pause(); } catch (err) {} video.srcObject = null; }
+      releaseStream();
       showFallback(e && e.name === 'NotAllowedError'
         ? 'Camera permission was denied.'
         : (e && e.message && /jsQR/.test(e.message)

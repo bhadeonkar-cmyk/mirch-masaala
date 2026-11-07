@@ -136,7 +136,11 @@
       }
       var rel = target.closest('[data-release]');
       if (rel) {
-        if (!confirm(t('release_table') + ' T' + tableNum + '?')) return;
+        /* Releasing frees the table even with money still owed (the database records "guest left unpaid"
+         * and alerts the owner), so say so before the click is final. */
+        var relMsg = t('release_table') + ' T' + tableNum + '?' +
+          (amount > 0 ? '\n\n' + t('release_unpaid_warn', { amt: Math.round(amount) }) : '');
+        if (!confirm(relMsg)) return;
         rel.disabled = true;
         try {
           await api.releaseAbandoned(tableNum, 'Guest left before checkout');

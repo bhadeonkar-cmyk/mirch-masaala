@@ -212,6 +212,19 @@
       if (r.error) throw r.error;
       return r.data || [];
     },
+    /* Owner table list: every table incl. inactive ones (RLS lets staff read them). select('*') so a
+     * database that has not applied the seating_capacity migration yet still lists tables. */
+    ownerTables: async function () {
+      var r = await need().from('restaurant_tables').select('*').eq('restaurant_id', RID);
+      if (r.error) throw r.error;
+      return (r.data || []).slice().sort(function (x, y) {
+        return Number(x.table_number) - Number(y.table_number);
+      });
+    },
+    /* mm_admin_set_table_capacity(p_table_number text, p_capacity integer) — admin only, 1..30. */
+    setCapacity: async function (table, capacity) {
+      return first(await rpc('mm_admin_set_table_capacity', { p_table_number: pad2(table), p_capacity: Number(capacity) }));
+    },
     staffOrders: async function (activeOnly) {
       var cols = 'id,ticket_id,table_id,status,approval_status,notes,total,created_at,order_number,archived_at';
       var q = need().from('orders').select(cols).eq('restaurant_id', RID);

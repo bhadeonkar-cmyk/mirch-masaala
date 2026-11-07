@@ -19,7 +19,8 @@ function makeBackend() {
     waiters: [{ waiter_code: 'W01', display_name: 'Asha', active: true, created_at: new Date().toISOString() }],
     orderSeq: 100, failNext: {}
   };
-  for (let i = 1; i <= 8; i++) st.tables.push({ id: uuid(), restaurant_id: RID, table_number: String(i).padStart(2, '0'), is_active: true });
+  for (let i = 1; i <= 8; i++) st.tables.push({ id: uuid(), restaurant_id: RID, table_number: String(i).padStart(2, '0'), is_active: true, seating_capacity: 4 });
+  st.tables.push({ id: uuid(), restaurant_id: RID, table_number: '09', is_active: false, seating_capacity: 4 });
   const c1 = { id: uuid(), restaurant_id: RID, name: 'Starters', sort_order: 1, is_active: true };
   const c2 = { id: uuid(), restaurant_id: RID, name: 'Mains', sort_order: 2, is_active: true };
   st.cats.push(c1, c2);
@@ -128,7 +129,11 @@ function makeBackend() {
     },
     mm_staff_release_abandoned_visit: (a, role) => {
       if (!['admin', 'waiter'].includes(role)) err('access required');
-      const v = openVisit(pad(a.p_table_number)); if (!v) err('no visit'); v.status = 'CLOSED'; return { ok: true };
+      const v = openVisit(pad(a.p_table_number)); if (!v) err('This table has no active visit. Refresh the table list.');
+      if (st.orders.some((o) => o.table_visit_id === v.id && ['NEW', 'PREPARING', 'READY'].includes(o.status))) err('Cancel or finish all active food tickets before freeing this table.');
+      const owed = due(v); v.status = 'CLOSED';
+      if (owed > 0.01) st.notifs.push({ id: st.notifs.length + 1, target_role: 'admin', notification_type: 'GUEST_LEFT_UNPAID', table_number: v.table_number, message: 'GUEST LEFT UNPAID · Table ' + v.table_number + ' · Balance ₹' + owed.toFixed(2), resolved_at: null, target_staff_code: '' });
+      return { ok: true, table: v.table_number, visit_status: 'CLOSED', amount: Math.max(0, owed) };
     },
     mm_staff_notifications: (a, role) => {
       if (!['admin', 'waiter', 'kitchen'].includes(role)) err('Staff sign-in required');
@@ -146,6 +151,14 @@ function makeBackend() {
       st.payments.push({ visit_id: v.id, amount: a.p_amount, method: a.p_method });
       if (due(v) <= 0.01) st.orders.filter((o) => o.table_visit_id === v.id && o.status === 'SERVED').forEach((o) => { o.status = 'PAID'; });
       return { ok: true };
+    },
+    mm_admin_set_table_capacity: (a, role) => {
+      if (role !== 'admin') err('Owner/Admin access required');
+      if (!/^[0-9]{1,2}$/.test(String(a.p_table_number || '').trim())) err('Choose a valid table number');
+      if (!Number.isInteger(a.p_capacity) || a.p_capacity < 1 || a.p_capacity > 30) err('Table seating capacity must be between 1 and 30');
+      const n = pad(a.p_table_number); const t = st.tables.find((x) => x.table_number === n && x.is_active);
+      if (!t) err('Active table ' + n + ' was not found');
+      t.seating_capacity = a.p_capacity; return { table_number: n, seating_capacity: a.p_capacity };
     },
     mm_admin_list_party_bookings: (a, role) => { if (role !== 'admin') err('Owner/Admin access required'); return st.bookings; },
     mm_admin_update_party_booking: (a, role) => { if (role !== 'admin') err('Owner/Admin access required'); if (!['NEW','CONTACTED','CONFIRMED','UNAVAILABLE'].includes(String(a.p_status).toUpperCase())) err('Choose a valid booking status.'); const b = st.bookings.find((x) => x.id === a.p_booking_id); if (!b) err('Party booking not found.'); b.status = String(a.p_status).toUpperCase(); b.owner_notes = a.p_owner_notes; return { id: b.id, status: b.status, owner_notes: b.owner_notes }; }
@@ -207,6 +220,7 @@ function makeBackend() {
         if (req.method() === 'GET') {
           if (['orders', 'order_items'].includes(name) && !staff) res = [];
           if (name === 'menu_items' && !staff) res = res.filter((r) => r.is_available);
+          if (name === 'restaurant_tables' && !staff) res = res.filter((r) => r.is_active);
           if (order) { const [col, dir] = order.split('.'); res = res.slice().sort((x, y) => (x[col] > y[col] ? 1 : x[col] < y[col] ? -1 : 0) * (dir === 'desc' ? -1 : 1)); }
           if (limit) res = res.slice(0, limit);
           return json(200, res);

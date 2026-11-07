@@ -77,23 +77,33 @@ const { check } = L;
     check(s.errors.length === 0, L_ + ': no script errors in that race', s.errors.join(' | '));
     await s.context.close();
 
-    // --- unsupported browser: no BarcodeDetector at all (desktop Firefox/Safari/Windows Chrome style)
-    s = await L.open(browser, port, be, { device: env.device, init: 'delete window.BarcodeDetector; window.__gum = 0; const g = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices); navigator.mediaDevices.getUserMedia = (c) => { window.__gum++; return g(c); };' });
+    // --- no native BarcodeDetector (Firefox / iOS Safari / desktop Windows-Linux Chrome): jsQR fallback decodes in JS
+    s = await L.open(browser, port, be, { device: env.device, init: 'delete window.BarcodeDetector; window.__tracks = []; const g = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices); navigator.mediaDevices.getUserMedia = async (c) => { const m = await g(c); m.getTracks().forEach((x) => window.__tracks.push(x)); return m; };' });
     await s.page.goto(s.url(''), { waitUntil: 'load' });
     await s.page.locator('#btn-scan-qr').click();
-    await s.page.waitForSelector('.mm-qr-overlay');
-    await s.page.waitForTimeout(300);
-    check(/not supported/.test(await statusText(s.page)) && await s.page.locator('.mm-qr-video-wrap').isHidden() && await s.page.locator('[data-qr-manual]').isVisible(), L_ + ': no BarcodeDetector -> graceful fallback message, video hidden, manual hint shown', await statusText(s.page));
-    check((await s.page.evaluate(() => window.__gum)) === 0, L_ + ': camera is NOT opened when scanning is unsupported');
-    check(s.errors.length === 0, L_ + ': no script errors in fallback path', s.errors.join(' | '));
+    await s.page.waitForFunction(() => window.__tracks.length === 1 && window.__tracks[0].readyState === 'live', null, { timeout: 8000 }).catch(() => {});
+    check(await s.page.evaluate(() => window.__tracks.length === 1 && window.__tracks[0].readyState === 'live') && await s.page.locator('.mm-qr-video-wrap').isVisible(), L_ + ': no BarcodeDetector -> jsQR decoder loads and the camera preview stays open', await statusText(s.page));
+    check(!/Could not|not supported/.test(await statusText(s.page)), L_ + ': no error shown on the jsQR path', await statusText(s.page));
+    await s.page.locator('.mm-qr-close').click();
+    check(await tracksEnded(s.page), L_ + ': closing the jsQR scanner stops the camera');
+    check(s.errors.length === 0, L_ + ': no script errors on the jsQR path', s.errors.join(' | '));
     await s.context.close();
 
-    // --- QR format unsupported
+    // --- decoder cannot be downloaded (offline) -> graceful fallback, camera not left on
+    s = await L.open(browser, port, be, { device: env.device, blockJsQR: true, init: 'delete window.BarcodeDetector; window.__tracks = []; const g = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices); navigator.mediaDevices.getUserMedia = async (c) => { const m = await g(c); m.getTracks().forEach((x) => window.__tracks.push(x)); return m; };' });
+    await s.page.goto(s.url(''), { waitUntil: 'load' });
+    await s.page.locator('#btn-scan-qr').click();
+    await s.page.waitForFunction(() => /decoder|camera/i.test(document.querySelector('[data-qr-status]').textContent) && !/Loading|Starting/.test(document.querySelector('[data-qr-status]').textContent), null, { timeout: 8000 }).catch(() => {});
+    check(/QR decoder/.test(await statusText(s.page)) && await s.page.locator('[data-qr-manual]').isVisible() && await s.page.locator('.mm-qr-video-wrap').isHidden(), L_ + ': decoder download blocked -> clear message + "use your phone camera" hint, video hidden', await statusText(s.page));
+    check(await s.page.evaluate(() => window.__tracks.every((x) => x.readyState === 'ended')), L_ + ': camera released when the decoder fails to load');
+    await s.context.close();
+
+    // --- BarcodeDetector exists but cannot read QR -> falls back to jsQR instead of dead-ending
     s = await L.open(browser, port, be, { device: env.device, init: L.SCANNER_INIT + 'window.__formats = ["ean_13"];' });
     await s.page.goto(s.url(''), { waitUntil: 'load' });
     await s.page.locator('#btn-scan-qr').click();
-    await s.page.waitForTimeout(400);
-    check(/QR scanning is not supported/.test(await statusText(s.page)) && (await s.page.evaluate(() => window.__gum)) === 0, L_ + ': BarcodeDetector without qr_code -> fallback, camera not opened');
+    await s.page.waitForFunction(() => window.__tracks.length >= 1 && window.__tracks.some((x) => x.readyState === 'live'), null, { timeout: 8000 }).catch(() => {});
+    check(await s.page.evaluate(() => window.__tracks.some((x) => x.readyState === 'live')) && !/Could not|not supported/.test(await statusText(s.page)), L_ + ': BarcodeDetector without qr_code -> jsQR fallback keeps scanning', await statusText(s.page));
     await s.context.close();
 
     // --- permission denied
