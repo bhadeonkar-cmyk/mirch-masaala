@@ -77,9 +77,6 @@
     }
   }
 
-  /* ---- Batch 2: menu presentation helpers (display only) ----
-   * The Veg / Non-Veg filter hides already-rendered cards with a CSS class; it never
-   * touches renderMenu(), the menu data or the cart. */
   var vegMode = 'all';
 
   function syncCardById(id) {
@@ -122,7 +119,6 @@
     updateMenuCount(cards.length ? shown : null);
   }
 
-  /* JS-rendered menu text is not covered by MM.applyI18n(); refresh it in place after a language toggle. */
   function refreshMenuLang() {
     var st = MM.state || {};
     var adds = document.querySelectorAll('#menu-list .btn-add[data-add]');
@@ -147,11 +143,6 @@
     applyVegFilter();
   }
 
-  /* Reason: on the homepage "View Menu" path perf-prefetch.js pre-fills MM.state.menu, so
-   * app.js showMenu() only calls renderMenu() and the category chips are never rendered.
-   * If the chips are missing, clear the prefetched menu array just before app.js handles the
-   * click; showMenu() then runs the existing loadMenuUI() (served from the supabase.js cache),
-   * which renders categories + dishes. No menu/cart logic is duplicated here. */
   document.addEventListener('click', function (ev) {
     if (!ev.target.closest('#btn-view-menu')) return;
     var st = MM.state;
@@ -295,7 +286,6 @@
     if (!box) return;
     var rows = box.querySelectorAll('.cart-row');
     if (!rows.length) {
-      /* app.js writes a plain .empty node; upgrade to identity empty plate when available */
       var empty = box.querySelector('.empty');
       if (empty && V && !box.querySelector('.empty-state')) {
         var hint = (window.MM && MM.t) ? MM.t('back_to_menu') : 'Back to menu';
@@ -342,10 +332,60 @@
     bar.classList.add('bump');
   }
 
+  function getReviewsUrl() {
+    try {
+      return MM.state && MM.state.config && (MM.state.config.google_reviews_url || MM.state.config.google_review_url);
+    } catch (e) { return null; }
+  }
+
+  function syncReviewsButton() {
+    var btn = document.getElementById('btn-reviews');
+    if (!btn) return;
+    var url = getReviewsUrl();
+    var ok = url && /^https?:\/\//i.test(String(url));
+    btn.classList.toggle('is-disabled', !ok);
+    btn.setAttribute('aria-disabled', ok ? 'false' : 'true');
+    if (!ok) btn.title = (window.MM && MM.t) ? MM.t('reviews_unavailable') : 'Reviews not configured yet';
+    else btn.removeAttribute('title');
+  }
+
+  function hidePlacesUntilReady() {
+    var btn = document.getElementById('btn-places');
+    if (btn) {
+      btn.hidden = true;
+      btn.setAttribute('aria-hidden', 'true');
+      btn.style.display = 'none';
+    }
+  }
+
+  function softenHomeGuidance() {
+    var help = document.querySelector('.home-qr-help');
+    if (!help) return;
+    try {
+      if (localStorage.getItem('mm_home_tip_seen') === '1') {
+        help.textContent = (window.MM && MM.t) ? MM.t('scan_qr_hint_short') : 'Use the QR sticker on your table.';
+        help.classList.add('is-compact');
+      } else {
+        var dismiss = document.createElement('button');
+        dismiss.type = 'button';
+        dismiss.className = 'home-tip-dismiss';
+        dismiss.setAttribute('aria-label', 'Dismiss tip');
+        dismiss.textContent = 'Got it';
+        dismiss.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          try { localStorage.setItem('mm_home_tip_seen', '1'); } catch (e) {}
+          help.textContent = (window.MM && MM.t) ? MM.t('scan_qr_hint_short') : 'Use the QR sticker on your table.';
+          help.classList.add('is-compact');
+          dismiss.remove();
+        });
+        if (!help.querySelector('.home-tip-dismiss')) help.appendChild(dismiss);
+      }
+    } catch (e) {}
+  }
+
   function enhanceHome() {
     var scan = document.getElementById('btn-scan-qr');
     if (scan) {
-      /* Always take label/hint from active language dictionary — never keep prior English text. */
       var label = 'Scan table QR';
       var sub = 'Point your camera at the QR code on your table';
       if (window.MM && typeof MM.t === 'function') {
@@ -383,10 +423,12 @@
         '<span class="home-steam home-steam-d" style="--steam-x:87%;--steam-delay:4s"></span>';
       hero.insertBefore(steam, hero.firstChild);
     }
+    hidePlacesUntilReady();
+    syncReviewsButton();
+    softenHomeGuidance();
   }
 
   function refreshNavLang() {
-    /* data-i18n spans inside nav buttons are updated by MM.applyI18n; this is a safety net. */
     var pairs = [
       ['cnav-home', 'nav_home'],
       ['cnav-menu', 'nav_menu_tab'],
@@ -409,14 +451,12 @@
     refreshNavLang();
   }
 
-  /* Bubble phase so app.js setLang() + applyI18n() run first, then we rebuild CTA. */
   document.addEventListener('click', function (ev) {
     if (!ev.target.closest('#btn-lang, [data-action="lang"]')) return;
     setTimeout(afterLangChange, 0);
     setTimeout(afterLangChange, 80);
   }, false);
 
-  /* Also refresh whenever applyI18n runs (covers any path that changes language). */
   if (window.MM && typeof MM.applyI18n === 'function') {
     var _applyI18n = MM.applyI18n;
     MM.applyI18n = function (root) {
@@ -442,14 +482,17 @@
     var howto = ev.target.closest('#btn-how-to, [data-action="how-to"]');
     if (howto) { ev.preventDefault(); softToast('how_to_msg'); return; }
     var places = ev.target.closest('#btn-places, [data-action="places"]');
-    if (places) { ev.preventDefault(); softToast('places_unavailable'); return; }
+    if (places) {
+      ev.preventDefault();
+      return;
+    }
     var reviews = ev.target.closest('#btn-reviews, [data-action="reviews"]');
     if (reviews) {
       ev.preventDefault();
-      var url = null;
-      try { url = MM.state && MM.state.config && (MM.state.config.google_reviews_url || MM.state.config.google_review_url); } catch (e) {}
-      if (url && /^https?:\/\//i.test(String(url))) window.open(String(url), '_blank', 'noopener');
-      else softToast('reviews_unavailable');
+      var url = getReviewsUrl();
+      if (url && /^https?:\/\//i.test(String(url))) {
+        window.open(String(url), '_blank', 'noopener');
+      }
       return;
     }
   }, true);
@@ -466,8 +509,6 @@
       }
       setTimeout(bumpCartBar, 40);
       setTimeout(enhanceMenuList, 60);
-      /* Reason: syncQty() previously only ran for not-yet-enhanced cards, so the quantity
-       * control never appeared after ADD. Sync the tapped card once the cart has updated. */
       var addedId = card ? card.getAttribute('data-id') : null;
       setTimeout(function () { syncCardById(addedId); }, 60);
       return;
@@ -496,138 +537,27 @@
       enhanceMenuList();
       syncCardById(id);
       bumpCartBar();
-      var bar = document.getElementById('cart-bar');
-      if (bar && MM.state && MM.state.cart) {
-        var n = MM.state.cart.reduce(function (a, c) { return a + (c.qty || 1); }, 0);
-        var total = MM.state.cart.reduce(function (a, c) { return a + (Number(c.price) || 0) * (c.qty || 1); }, 0);
-        if (n < 1) bar.hidden = true;
-        else {
-          bar.hidden = false;
-          var cc = document.getElementById('cart-count');
-          var ct = document.getElementById('cart-total');
-          if (cc) cc.textContent = cartCountLabel(n); /* same wording as app.js updateCartBar */
-          if (ct) ct.textContent = String(Math.round(total));
-        }
-      }
-    }, 30);
+    }, 40);
   }, true);
 
-  var CUSTOMER_SCREENS = {
+  var NAV_MAP = {
     'screen-welcome': 'home',
     'screen-menu': 'menu',
-    'screen-cart': 'cart',
     'screen-order': 'order',
-    'screen-placed': 'order',
-    'screen-pay': 'order',
-    'screen-party': 'home'
+    'screen-cart': 'cart',
+    'screen-placed': 'order'
   };
-  var STAFF_PREFIX = ['screen-login', 'screen-waiter', 'screen-kitchen', 'screen-owner'];
-
-  function activeScreenId() {
-    var on = document.querySelector('.screen.on');
-    return on ? on.id : '';
-  }
-
-  function isStaffScreen(id) {
-    return STAFF_PREFIX.some(function (p) { return id === p; });
-  }
-
-  var _navBusy = false;
-  var _started = false;
-  var _observed = false;
 
   function updateCustomerNav() {
-    if (_navBusy) return;
-    var nav = document.getElementById('customer-nav');
-    if (!nav) return;
-    _navBusy = true;
-    try {
-      var id = activeScreenId();
-      var staff = isStaffScreen(id);
-      var hide = !!staff;
-      if (nav.hidden !== hide) nav.hidden = hide;
-      if (!staff) {
-        if (!document.body.classList.contains('has-cnav')) document.body.classList.add('has-cnav');
-      } else {
-        if (document.body.classList.contains('has-cnav')) document.body.classList.remove('has-cnav');
-      }
-      var key = CUSTOMER_SCREENS[id] || '';
-      nav.querySelectorAll('[data-cnav]').forEach(function (btn) {
-        var on = btn.getAttribute('data-cnav') === key;
-        if (on) { if (!btn.classList.contains('on')) btn.classList.add('on'); }
-        else { if (btn.classList.contains('on')) btn.classList.remove('on'); }
-      });
-    } finally { _navBusy = false; }
+    var on = document.querySelector('.screen.on');
+    var key = on ? NAV_MAP[on.id] : null;
+    document.querySelectorAll('#customer-nav [data-cnav]').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-cnav') === key);
+    });
   }
 
-  function goCustomer(target) {
-    if (target === 'home') {
-      document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
-      var w = document.getElementById('screen-welcome');
-      if (w) w.classList.add('on');
-      try { history.pushState({ mm: 'home' }, '', location.pathname + location.search); } catch (e) {}
-      updateCustomerNav();
-      return;
-    }
-    if (target === 'menu') {
-      var back = document.getElementById('btn-menu-home');
-      var view = document.getElementById('btn-view-menu');
-      var menu = document.getElementById('screen-menu');
-      if (menu && menu.querySelector('.food-card')) {
-        document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
-        menu.classList.add('on');
-        try { history.pushState({ mm: 'menu' }, '', location.pathname + location.search); } catch (e) {}
-        updateCustomerNav();
-        return;
-      }
-      if (view) { view.click(); setTimeout(updateCustomerNav, 50); return; }
-      if (back) { back.click(); setTimeout(updateCustomerNav, 50); return; }
-      document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
-      if (menu) menu.classList.add('on');
-      updateCustomerNav();
-      return;
-    }
-    if (target === 'cart') {
-      var open = document.getElementById('btn-open-cart');
-      if (open) open.click();
-      else {
-        document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
-        var c = document.getElementById('screen-cart');
-        if (c) c.classList.add('on');
-      }
-      try { history.pushState({ mm: 'cart' }, '', location.pathname + location.search); } catch (e) {}
-      setTimeout(updateCustomerNav, 50);
-      return;
-    }
-    if (target === 'order') {
-      var o1 = document.getElementById('btn-view-order-home');
-      var o2 = document.getElementById('btn-view-order');
-      var o3 = document.getElementById('btn-placed-view');
-      var coh = document.getElementById('current-order-home');
-      if (o1 && coh && !coh.hidden) o1.click();
-      else if (o3) o3.click();
-      else if (o2) o2.click();
-      else {
-        document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('on'); });
-        var od = document.getElementById('screen-order');
-        if (od) od.classList.add('on');
-      }
-      try { history.pushState({ mm: 'order' }, '', location.pathname + location.search); } catch (e) {}
-      setTimeout(updateCustomerNav, 50);
-      return;
-    }
-  }
-
-  document.addEventListener('click', function (ev) {
-    var btn = ev.target.closest('[data-cnav]');
-    if (!btn) return;
-    ev.preventDefault();
-    goCustomer(btn.getAttribute('data-cnav'));
-  }, true);
-
-  window.addEventListener('popstate', function () {
-    setTimeout(updateCustomerNav, 30);
-  });
+  var _observed = false;
+  var _started = false;
 
   function bootCritical() {
     enhanceHome();
