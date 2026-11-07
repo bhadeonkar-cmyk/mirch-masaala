@@ -148,6 +148,11 @@
       frame = requestAnimationFrame(function () { scanLoop(detector); });
     } catch (e) {
       if (myRun !== runId) return; /* a close interrupted the start; nothing to report */
+      /* The camera may already be open (e.g. video.play() was rejected). The fallback hides the
+       * video, so release the camera now instead of leaving it on until the dialog is closed. */
+      if (stream) stream.getTracks().forEach(function (track) { track.stop(); });
+      stream = null;
+      if (video) { try { video.pause(); } catch (err) {} video.srcObject = null; }
       showFallback(e && e.name === 'NotAllowedError'
         ? 'Camera permission was denied.'
         : 'Could not start the camera.');
