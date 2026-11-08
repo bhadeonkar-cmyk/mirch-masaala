@@ -12,14 +12,15 @@
 --
 -- These tests expect genuine privilege / RLS / trigger failures.
 -- They intentionally use the real column list of order_payments.
+-- Mutations are attempted under SET ROLE anon so they exercise real grants.
 
 DO $sec$
 DECLARE
   v_rejected boolean;
   v_order_id uuid;
-  v_visit_id uuid;
   v_table_id uuid := '11111111-1111-1111-1111-111111111111';
   v_count integer;
+  v_has_open boolean;
 BEGIN
   -- Ensure a minimal order exists for foreign-key targets (fixture may already have data).
   INSERT INTO public.restaurant_tables(id, restaurant_id, table_number, is_active)
@@ -28,25 +29,33 @@ BEGIN
 
   INSERT INTO public.orders(restaurant_id, table_id, status, total, ticket_id)
   VALUES ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_id, 'NEW', 10, 'MM-SEC-PAY-001')
-  RETURNING id INTO v_order_id;
+  ON CONFLICT DO NOTHING;
+
+  SELECT id INTO v_order_id FROM public.orders WHERE ticket_id = 'MM-SEC-PAY-001' LIMIT 1;
+  IF v_order_id IS NULL THEN
+    RAISE EXCEPTION 'SECURITY FIXTURE: could not seed MM-SEC-PAY-001';
+  END IF;
 
   -- 1. Payment forgery: anon must not be able to INSERT a payment row.
   --    Use the real columns: restaurant_id, order_id, ticket_id, table_number, amount, method.
-  PERFORM set_config('app.qa_role', '', false);  -- anonymous customer
+  PERFORM set_config('app.qa_role', '', false);
   PERFORM set_config('app.qa_uid', '', false);
 
   v_rejected := false;
   BEGIN
+    SET ROLE anon;
     INSERT INTO public.order_payments
       (restaurant_id, order_id, ticket_id, table_number, amount, method, note)
     VALUES
       ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_order_id, 'MM-SEC-PAY-001', '01', 10.00, 'cash', 'forged by customer');
+    RESET ROLE;
   EXCEPTION WHEN insufficient_privilege THEN
+    RESET ROLE;
     v_rejected := true;
   WHEN OTHERS THEN
-    -- RLS or other security error is also acceptable
+    RESET ROLE;
     IF SQLSTATE IN ('42501', '42503') OR SQLERRM ILIKE '%permission%' OR SQLERRM ILIKE '%policy%'
-       OR SQLERRM ILIKE '%denied%' THEN
+       OR SQLERRM ILIKE '%denied%' OR SQLERRM ILIKE '%row-level security%' THEN
       v_rejected := true;
     ELSE
       RAISE;
@@ -57,20 +66,25 @@ BEGIN
   END IF;
 
   -- Confirm no forged row landed
-  SELECT count(*) INTO v_count FROM public.order_payments WHERE ticket_id = 'MM-SEC-PAY-001';
+  SELECT count(*) INTO v_count FROM public.order_payments WHERE ticket_id = 'MM-SEC-PAY-001' AND note = 'forged by customer';
   IF v_count > 0 THEN
     RAISE EXCEPTION 'SECURITY FAIL: forged payment row exists after rejected INSERT';
   END IF;
 
-  -- 2. Unauthorized payment UPDATE (if any grant existed it must still fail)
+  -- 2. Unauthorized payment UPDATE
   v_rejected := false;
   BEGIN
+    SET ROLE anon;
     UPDATE public.order_payments SET amount = 999 WHERE ticket_id = 'MM-SEC-PAY-001';
+    RESET ROLE;
   EXCEPTION WHEN insufficient_privilege THEN
+    RESET ROLE;
     v_rejected := true;
   WHEN OTHERS THEN
+    RESET ROLE;
     IF SQLSTATE IN ('42501', '42503') OR SQLERRM ILIKE '%permission%' OR SQLERRM ILIKE '%policy%'
-       OR SQLERRM ILIKE '%denied%' OR SQLERRM ILIKE '%does not exist%' THEN
+       OR SQLERRM ILIKE '%denied%' OR SQLERRM ILIKE '%does not exist%'
+       OR SQLERRM ILIKE '%row-level security%' THEN
       v_rejected := true;
     ELSE
       RAISE;
@@ -81,6 +95,8 @@ BEGIN
   END IF;
 
   -- 3. Direct PAID status change must still be blocked by the order guard trigger
+  --    (runs as current role; the trigger uses get_my_staff_role which reads app.qa_role)
+  PERFORM set_config('app.qa_role', '', false);
   v_rejected := false;
   BEGIN
     UPDATE public.orders SET status = 'PAID' WHERE ticket_id = 'MM-SEC-PAY-001';
@@ -98,24 +114,33 @@ BEGIN
   END IF;
 
   -- 4. Visit ownership: anon must not UPDATE restaurant_table_visits
-  --    (table has REVOKE ALL; no policies for anon)
-  INSERT INTO public.restaurant_table_visits
-    (restaurant_id, table_id, table_number, status, started_at)
-  VALUES
-    ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_id, '01', 'OPEN', now())
-  ON CONFLICT DO NOTHING
-  RETURNING id INTO v_visit_id;
+  SELECT EXISTS (
+    SELECT 1 FROM public.restaurant_table_visits
+    WHERE restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+      AND table_id = v_table_id AND status = 'OPEN'
+  ) INTO v_has_open;
+
+  IF NOT v_has_open THEN
+    INSERT INTO public.restaurant_table_visits
+      (restaurant_id, table_id, table_number, status, started_at)
+    VALUES
+      ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_id, '01', 'OPEN', now());
+  END IF;
 
   v_rejected := false;
   BEGIN
+    SET ROLE anon;
     UPDATE public.restaurant_table_visits
     SET guest_order_code = '999999', assigned_waiter_code = 'HACKED'
     WHERE table_number = '01' AND status = 'OPEN';
+    RESET ROLE;
   EXCEPTION WHEN insufficient_privilege THEN
+    RESET ROLE;
     v_rejected := true;
   WHEN OTHERS THEN
+    RESET ROLE;
     IF SQLSTATE IN ('42501', '42503') OR SQLERRM ILIKE '%permission%' OR SQLERRM ILIKE '%policy%'
-       OR SQLERRM ILIKE '%denied%' THEN
+       OR SQLERRM ILIKE '%denied%' OR SQLERRM ILIKE '%row-level security%' THEN
       v_rejected := true;
     ELSE
       RAISE;
