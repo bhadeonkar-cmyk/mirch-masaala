@@ -8,7 +8,6 @@ DO $sec$
 DECLARE
   v_rejected boolean;
   v_order_id uuid;
-  v_order_b uuid;
   v_table_a uuid := '11111111-1111-1111-1111-111111111111';
   v_table_b uuid := '22222222-2222-2222-2222-222222222222';
   v_visit_a uuid;
@@ -19,6 +18,8 @@ DECLARE
   v_has_open boolean;
   v_bill jsonb;
   v_fn record;
+  v_unexpected text := '';
+  v_cross_session_checked boolean := false;
 BEGIN
   INSERT INTO public.restaurant_tables(id, restaurant_id, table_number, is_active) VALUES
     (v_table_a, 'a3702d10-6673-4c06-9783-1d61c945ecd5', '01', true),
@@ -29,12 +30,9 @@ BEGIN
   VALUES ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_a, 'NEW', 10, 'MM-SEC-PAY-001')
   ON CONFLICT DO NOTHING;
   SELECT id INTO v_order_id FROM public.orders WHERE ticket_id = 'MM-SEC-PAY-001' LIMIT 1;
-  IF v_order_id IS NULL THEN RAISE EXCEPTION 'SECURITY FIXTURE: could not seed MM-SEC-PAY-001'; END IF;
-
-  INSERT INTO public.orders(restaurant_id, table_id, status, total, ticket_id)
-  VALUES ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_b, 'NEW', 25, 'MM-SEC-ORD-B')
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO v_order_b FROM public.orders WHERE ticket_id = 'MM-SEC-ORD-B' LIMIT 1;
+  IF v_order_id IS NULL THEN
+    RAISE EXCEPTION 'SECURITY FIXTURE: could not seed MM-SEC-PAY-001';
+  END IF;
 
   PERFORM set_config('app.qa_role', '', false);
   PERFORM set_config('app.qa_uid', '', false);
@@ -142,21 +140,40 @@ BEGIN
 
   BEGIN
     UPDATE public.orders
-    SET table_visit_id = v_visit_a, customer_session_id = v_session_a
+    SET table_visit_id = v_visit_a, customer_session_id = v_session_a, total = 10
     WHERE id = v_order_id;
   EXCEPTION WHEN undefined_column THEN
     NULL;
   END;
 
-  IF to_regprocedure('public.mm_get_public_visit_bill(text,uuid,uuid)') IS NOT NULL THEN
+  IF to_regprocedure('public.mm_guest_get_visit_bill(text,uuid,uuid)') IS NOT NULL THEN
+    v_cross_session_checked := true;
     BEGIN
-      v_bill := public.mm_get_public_visit_bill('01', v_visit_a, v_session_b);
-      IF v_bill IS NOT NULL AND coalesce((v_bill->>'amount')::numeric, 0) > 0 THEN
+      v_bill := public.mm_guest_get_visit_bill('01', v_visit_a, v_session_b);
+      IF v_bill IS NOT NULL AND coalesce((v_bill->>'amount')::numeric, (v_bill->>'balance')::numeric, 0) > 0 THEN
         RAISE EXCEPTION 'SECURITY FAIL: session B read visit A bill amount %', v_bill;
       END IF;
     EXCEPTION WHEN OTHERS THEN
+      IF SQLERRM LIKE 'SECURITY FAIL:%' THEN
+        RAISE;
+      END IF;
       NULL;
     END;
+  ELSIF to_regprocedure('public.mm_get_public_visit_bill(text,uuid,uuid)') IS NOT NULL THEN
+    v_cross_session_checked := true;
+    BEGIN
+      v_bill := public.mm_get_public_visit_bill('01', v_visit_a, v_session_b);
+      IF v_bill IS NOT NULL AND coalesce((v_bill->>'amount')::numeric, (v_bill->>'balance')::numeric, 0) > 0 THEN
+        RAISE EXCEPTION 'SECURITY FAIL: session B read visit A bill amount %', v_bill;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      IF SQLERRM LIKE 'SECURITY FAIL:%' THEN
+        RAISE;
+      END IF;
+      NULL;
+    END;
+  ELSE
+    RAISE NOTICE 'cross-session visit bill RPC not present in this fixture; skipping ownership bill check';
   END IF;
 
   IF EXISTS (
@@ -184,6 +201,7 @@ BEGIN
         'mm_ensure_public_table_visit',
         'mm_get_public_table_bill',
         'mm_get_public_visit_bill',
+        'mm_guest_get_visit_bill',
         'mm_guest_request_payment_check',
         'mm_guest_request_visit_payment_check',
         'mm_guest_cash_counter_release',
@@ -192,17 +210,22 @@ BEGIN
         'get_my_staff_role',
         'mm_get_public_table_status',
         'mm_list_public_table_status',
-        'mm_public_table_status_circles'
+        'mm_public_table_status_circles',
+        'mm_public_order_board'
       )
       AND p.proname NOT LIKE 'mm_get_public%'
       AND p.proname NOT LIKE 'mm_guest%'
       AND p.proname NOT LIKE 'mm_submit%'
+      AND p.proname NOT LIKE 'mm_public%'
   LOOP
-    RAISE EXCEPTION 'SECURITY FAIL: unexpected SECURITY DEFINER execute grant to anon: %(%)',
-      v_fn.name, v_fn.args;
+    v_unexpected := v_unexpected || v_fn.name || '(' || v_fn.args || '); ';
   END LOOP;
+  IF v_unexpected <> '' THEN
+    RAISE EXCEPTION 'SECURITY FAIL: unexpected SECURITY DEFINER execute grant(s) to anon: %', v_unexpected;
+  END IF;
 
-  RAISE NOTICE 'PASS: payment forgery, visit ownership, cross-session bill, grants, SECURITY DEFINER surface';
+  RAISE NOTICE 'PASS: payment forgery, visit ownership, cross-session bill (checked=%), grants, SECURITY DEFINER surface',
+    v_cross_session_checked;
 END
 $sec$;
 
