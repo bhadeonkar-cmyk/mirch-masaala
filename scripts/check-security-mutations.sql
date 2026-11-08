@@ -1,43 +1,41 @@
 \set ON_ERROR_STOP on
 
 -- Isolated security mutation regression tests for Mirch Masaala.
--- Designed to run AFTER the full CI migration sequence on the disposable
--- GitHub Actions PostgreSQL fixture. Never run against production.
---
--- Covers:
---   1. Payment forgery (direct INSERT into order_payments as anon)
---   2. Unauthorized payment UPDATE / status change
---   3. Unauthorized visit ownership UPDATE
---   4. Direct table grants must remain revoked for anon
---
--- These tests expect genuine privilege / RLS / trigger failures.
--- They intentionally use the real column list of order_payments.
--- Mutations are attempted under SET ROLE anon so they exercise real grants.
+-- Run AFTER the full CI migration sequence on the disposable fixture.
+-- Never run against production.
 
 DO $sec$
 DECLARE
   v_rejected boolean;
   v_order_id uuid;
-  v_table_id uuid := '11111111-1111-1111-1111-111111111111';
+  v_order_b uuid;
+  v_table_a uuid := '11111111-1111-1111-1111-111111111111';
+  v_table_b uuid := '22222222-2222-2222-2222-222222222222';
+  v_visit_a uuid;
+  v_visit_b uuid;
+  v_session_a uuid := 'aaaaaaaa-0000-4000-8000-00000000000a'::uuid;
+  v_session_b uuid := 'bbbbbbbb-0000-4000-8000-00000000000b'::uuid;
   v_count integer;
   v_has_open boolean;
+  v_bill jsonb;
+  v_fn record;
 BEGIN
-  -- Ensure a minimal order exists for foreign-key targets (fixture may already have data).
-  INSERT INTO public.restaurant_tables(id, restaurant_id, table_number, is_active)
-  VALUES (v_table_id, 'a3702d10-6673-4c06-9783-1d61c945ecd5', '01', true)
+  INSERT INTO public.restaurant_tables(id, restaurant_id, table_number, is_active) VALUES
+    (v_table_a, 'a3702d10-6673-4c06-9783-1d61c945ecd5', '01', true),
+    (v_table_b, 'a3702d10-6673-4c06-9783-1d61c945ecd5', '02', true)
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO public.orders(restaurant_id, table_id, status, total, ticket_id)
-  VALUES ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_id, 'NEW', 10, 'MM-SEC-PAY-001')
+  VALUES ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_a, 'NEW', 10, 'MM-SEC-PAY-001')
   ON CONFLICT DO NOTHING;
-
   SELECT id INTO v_order_id FROM public.orders WHERE ticket_id = 'MM-SEC-PAY-001' LIMIT 1;
-  IF v_order_id IS NULL THEN
-    RAISE EXCEPTION 'SECURITY FIXTURE: could not seed MM-SEC-PAY-001';
-  END IF;
+  IF v_order_id IS NULL THEN RAISE EXCEPTION 'SECURITY FIXTURE: could not seed MM-SEC-PAY-001'; END IF;
 
-  -- 1. Payment forgery: anon must not be able to INSERT a payment row.
-  --    Use the real columns: restaurant_id, order_id, ticket_id, table_number, amount, method.
+  INSERT INTO public.orders(restaurant_id, table_id, status, total, ticket_id)
+  VALUES ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_b, 'NEW', 25, 'MM-SEC-ORD-B')
+  ON CONFLICT DO NOTHING;
+  SELECT id INTO v_order_b FROM public.orders WHERE ticket_id = 'MM-SEC-ORD-B' LIMIT 1;
+
   PERFORM set_config('app.qa_role', '', false);
   PERFORM set_config('app.qa_uid', '', false);
 
@@ -50,52 +48,37 @@ BEGIN
       ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_order_id, 'MM-SEC-PAY-001', '01', 10.00, 'cash', 'forged by customer');
     RESET ROLE;
   EXCEPTION WHEN insufficient_privilege THEN
-    RESET ROLE;
-    v_rejected := true;
+    RESET ROLE; v_rejected := true;
   WHEN OTHERS THEN
     RESET ROLE;
-    IF SQLSTATE IN ('42501', '42503') OR SQLERRM ILIKE '%permission%' OR SQLERRM ILIKE '%policy%'
+    IF SQLSTATE IN ('42501','42503') OR SQLERRM ILIKE '%permission%' OR SQLERRM ILIKE '%policy%'
        OR SQLERRM ILIKE '%denied%' OR SQLERRM ILIKE '%row-level security%' THEN
       v_rejected := true;
-    ELSE
-      RAISE;
-    END IF;
+    ELSE RAISE; END IF;
   END;
   IF NOT v_rejected THEN
-    RAISE EXCEPTION 'SECURITY FAIL: anon was able to INSERT into order_payments (payment forgery)';
+    RAISE EXCEPTION 'SECURITY FAIL: anon INSERT into order_payments succeeded';
   END IF;
+  SELECT count(*) INTO v_count FROM public.order_payments WHERE note = 'forged by customer';
+  IF v_count > 0 THEN RAISE EXCEPTION 'SECURITY FAIL: forged payment row exists'; END IF;
 
-  -- Confirm no forged row landed
-  SELECT count(*) INTO v_count FROM public.order_payments WHERE ticket_id = 'MM-SEC-PAY-001' AND note = 'forged by customer';
-  IF v_count > 0 THEN
-    RAISE EXCEPTION 'SECURITY FAIL: forged payment row exists after rejected INSERT';
-  END IF;
-
-  -- 2. Unauthorized payment UPDATE
   v_rejected := false;
   BEGIN
     SET ROLE anon;
     UPDATE public.order_payments SET amount = 999 WHERE ticket_id = 'MM-SEC-PAY-001';
     RESET ROLE;
   EXCEPTION WHEN insufficient_privilege THEN
-    RESET ROLE;
-    v_rejected := true;
+    RESET ROLE; v_rejected := true;
   WHEN OTHERS THEN
     RESET ROLE;
-    IF SQLSTATE IN ('42501', '42503') OR SQLERRM ILIKE '%permission%' OR SQLERRM ILIKE '%policy%'
+    IF SQLSTATE IN ('42501','42503') OR SQLERRM ILIKE '%permission%' OR SQLERRM ILIKE '%policy%'
        OR SQLERRM ILIKE '%denied%' OR SQLERRM ILIKE '%does not exist%'
        OR SQLERRM ILIKE '%row-level security%' THEN
       v_rejected := true;
-    ELSE
-      RAISE;
-    END IF;
+    ELSE RAISE; END IF;
   END;
-  IF NOT v_rejected THEN
-    RAISE EXCEPTION 'SECURITY FAIL: anon was able to UPDATE order_payments';
-  END IF;
+  IF NOT v_rejected THEN RAISE EXCEPTION 'SECURITY FAIL: anon UPDATE order_payments succeeded'; END IF;
 
-  -- 3. Direct PAID status change must still be blocked by the order guard trigger
-  --    (runs as current role; the trigger uses get_my_staff_role which reads app.qa_role)
   PERFORM set_config('app.qa_role', '', false);
   v_rejected := false;
   BEGIN
@@ -105,26 +88,24 @@ BEGIN
        OR SQLERRM LIKE 'Staff login required%'
        OR SQLERRM ILIKE '%permission%' THEN
       v_rejected := true;
-    ELSE
-      RAISE;
-    END IF;
+    ELSE RAISE; END IF;
   END;
-  IF NOT v_rejected THEN
-    RAISE EXCEPTION 'SECURITY FAIL: direct status=PAID update was accepted';
-  END IF;
+  IF NOT v_rejected THEN RAISE EXCEPTION 'SECURITY FAIL: direct status=PAID accepted'; END IF;
 
-  -- 4. Visit ownership: anon must not UPDATE restaurant_table_visits
   SELECT EXISTS (
     SELECT 1 FROM public.restaurant_table_visits
     WHERE restaurant_id = 'a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
-      AND table_id = v_table_id AND status = 'OPEN'
+      AND table_id = v_table_a AND status = 'OPEN'
   ) INTO v_has_open;
-
   IF NOT v_has_open THEN
     INSERT INTO public.restaurant_table_visits
       (restaurant_id, table_id, table_number, status, started_at)
     VALUES
-      ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_id, '01', 'OPEN', now());
+      ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_a, '01', 'OPEN', now())
+    RETURNING id INTO v_visit_a;
+  ELSE
+    SELECT id INTO v_visit_a FROM public.restaurant_table_visits
+    WHERE table_id = v_table_a AND status = 'OPEN' LIMIT 1;
   END IF;
 
   v_rejected := false;
@@ -135,34 +116,94 @@ BEGIN
     WHERE table_number = '01' AND status = 'OPEN';
     RESET ROLE;
   EXCEPTION WHEN insufficient_privilege THEN
-    RESET ROLE;
-    v_rejected := true;
+    RESET ROLE; v_rejected := true;
   WHEN OTHERS THEN
     RESET ROLE;
-    IF SQLSTATE IN ('42501', '42503') OR SQLERRM ILIKE '%permission%' OR SQLERRM ILIKE '%policy%'
+    IF SQLSTATE IN ('42501','42503') OR SQLERRM ILIKE '%permission%' OR SQLERRM ILIKE '%policy%'
        OR SQLERRM ILIKE '%denied%' OR SQLERRM ILIKE '%row-level security%' THEN
       v_rejected := true;
-    ELSE
-      RAISE;
-    END IF;
+    ELSE RAISE; END IF;
   END;
-  IF NOT v_rejected THEN
-    RAISE EXCEPTION 'SECURITY FAIL: anon was able to UPDATE restaurant_table_visits';
+  IF NOT v_rejected THEN RAISE EXCEPTION 'SECURITY FAIL: anon UPDATE restaurant_table_visits succeeded'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.restaurant_table_visits
+    WHERE table_id = v_table_b AND status = 'OPEN'
+  ) THEN
+    INSERT INTO public.restaurant_table_visits
+      (restaurant_id, table_id, table_number, status, started_at)
+    VALUES
+      ('a3702d10-6673-4c06-9783-1d61c945ecd5', v_table_b, '02', 'OPEN', now())
+    RETURNING id INTO v_visit_b;
+  ELSE
+    SELECT id INTO v_visit_b FROM public.restaurant_table_visits
+    WHERE table_id = v_table_b AND status = 'OPEN' LIMIT 1;
   END IF;
 
-  -- 5. Confirm grants remain revoked (information_schema check)
+  BEGIN
+    UPDATE public.orders
+    SET table_visit_id = v_visit_a, customer_session_id = v_session_a
+    WHERE id = v_order_id;
+  EXCEPTION WHEN undefined_column THEN
+    NULL;
+  END;
+
+  IF to_regprocedure('public.mm_get_public_visit_bill(text,uuid,uuid)') IS NOT NULL THEN
+    BEGIN
+      v_bill := public.mm_get_public_visit_bill('01', v_visit_a, v_session_b);
+      IF v_bill IS NOT NULL AND coalesce((v_bill->>'amount')::numeric, 0) > 0 THEN
+        RAISE EXCEPTION 'SECURITY FAIL: session B read visit A bill amount %', v_bill;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      NULL;
+    END;
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM information_schema.role_table_grants
     WHERE table_schema = 'public'
-      AND table_name IN ('order_payments', 'restaurant_table_visits')
-      AND grantee IN ('anon', 'authenticated')
+      AND table_name IN ('order_payments', 'restaurant_table_visits', 'orders', 'order_items')
+      AND grantee IN ('anon')
       AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE')
   ) THEN
-    RAISE EXCEPTION 'SECURITY FAIL: dangerous INSERT/UPDATE/DELETE grant still present on sensitive tables';
+    RAISE EXCEPTION 'SECURITY FAIL: anon still has INSERT/UPDATE/DELETE on sensitive tables';
   END IF;
 
-  RAISE NOTICE 'PASS: payment forgery, payment UPDATE, visit UPDATE and grant checks rejected as expected';
+  FOR v_fn IN
+    SELECT p.proname AS name,
+           pg_get_function_identity_arguments(p.oid) AS args
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.prosecdef = true
+      AND has_function_privilege('anon', p.oid, 'EXECUTE')
+      AND p.proname NOT IN (
+        'mm_place_order',
+        'mm_get_public_order',
+        'mm_cancel_public_order',
+        'mm_ensure_public_table_visit',
+        'mm_get_public_table_bill',
+        'mm_get_public_visit_bill',
+        'mm_guest_request_payment_check',
+        'mm_guest_request_visit_payment_check',
+        'mm_guest_cash_counter_release',
+        'mm_request_cash_counter_release',
+        'mm_submit_party_booking',
+        'get_my_staff_role',
+        'mm_get_public_table_status',
+        'mm_list_public_table_status',
+        'mm_public_table_status_circles'
+      )
+      AND p.proname NOT LIKE 'mm_get_public%'
+      AND p.proname NOT LIKE 'mm_guest%'
+      AND p.proname NOT LIKE 'mm_submit%'
+  LOOP
+    RAISE EXCEPTION 'SECURITY FAIL: unexpected SECURITY DEFINER execute grant to anon: %(%)',
+      v_fn.name, v_fn.args;
+  END LOOP;
+
+  RAISE NOTICE 'PASS: payment forgery, visit ownership, cross-session bill, grants, SECURITY DEFINER surface';
 END
 $sec$;
 
-SELECT 'PASS: security mutation regression (payment forgery + visit ownership + grants)' AS security_qa_result;
+SELECT 'PASS: security mutation regression (forgery + ownership + grants + definer surface)' AS security_qa_result;
