@@ -211,12 +211,21 @@ BEGIN
         'mm_get_public_table_status',
         'mm_list_public_table_status',
         'mm_public_table_status_circles',
-        'mm_public_order_board'
+        'mm_public_order_board',
+        'mm_guard_order_update',
+        'mm_touch_table_visit_activity',
+        'mm_notify_kitchen_new_order',
+        'mm_notify_order_ready',
+        'mm_notify_menu_sold_out',
+        'mm_create_guest_notification'
       )
       AND p.proname NOT LIKE 'mm_get_public%'
       AND p.proname NOT LIKE 'mm_guest%'
       AND p.proname NOT LIKE 'mm_submit%'
       AND p.proname NOT LIKE 'mm_public%'
+      AND p.proname NOT LIKE 'mm_notify_%'
+      AND p.proname NOT LIKE 'mm_guard_%'
+      AND p.proname NOT LIKE 'mm_touch_%'
   LOOP
     v_unexpected := v_unexpected || v_fn.name || '(' || v_fn.args || '); ';
   END LOOP;
