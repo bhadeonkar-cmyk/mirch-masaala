@@ -28,7 +28,10 @@ function fail(message) {
   process.exitCode = 1;
 }
 function requireText(source, needle, label) {
-  if (!source.includes(needle)) fail(label + ' missing: ' + needle);
+  // Normalize CRLF/LF so Windows-checked-out SQL/HTML does not fail on whitespace alone.
+  var src = String(source).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  var need = String(needle).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (!src.includes(need)) fail(label + ' missing: ' + needle);
   else console.log('✓ ' + label);
 }
 if (scripts.length === 0) {
