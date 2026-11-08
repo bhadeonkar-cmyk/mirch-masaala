@@ -2,7 +2,7 @@ name: Validate Mirch Masaala app
 
 on:
   push:
-    branches: [main]
+    branches: [main, security/isolated-mutation-tests-2026-11-08]
   pull_request:
   workflow_dispatch:
 
@@ -217,3 +217,8 @@ jobs:
           if grep -v '|READY|' /tmp/readiness.txt; then echo 'QA failed: a component is not READY after all migrations'; exit 1; fi
           if grep '|READY|' /tmp/readiness.txt | grep -v 'No action needed'; then echo 'QA failed: a READY row still asks for action'; exit 1; fi
           test "$(wc -l < /tmp/readiness.txt)" -ge 20
+      - name: Security mutation regression (payment forgery, visit ownership, grants)
+        run: |
+          # Runs after the complete migration sequence so order_payments and
+          # restaurant_table_visits exist with their final RLS and grants.
+          psql -v ON_ERROR_STOP=1 -f scripts/check-security-mutations.sql
