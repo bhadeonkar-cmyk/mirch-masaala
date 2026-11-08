@@ -1390,3 +1390,35 @@ span.role-alert-action { background: rgba(255,255,255,.05) !important; color: va
 /* Owner "Verify an order": the full-width Find button used to squeeze the input to ~24px */
 #admin-ticket-lookup { flex: 1 1 auto; min-width: 140px; width: auto; }
 #admin-ticket-lookup + .btn { width: auto; flex: 0 0 auto; min-width: 72px; }
+
+
+/* Batch 2 customer cart polish: larger touch targets without changing staff controls. */
+#menu .qty button, #cart-list .qty button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  font-size: 20px;
+  touch-action: manipulation;
+}
+#cart-list .cart-line { flex-wrap: wrap; align-items: center; row-gap: 10px; }
+#cart-list .cart-remove {
+  min-height: 40px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#cart-list .cart-remove:focus-visible, #cart-list .qty button:focus-visible, #menu .qty button:focus-visible {
+  outline: 2px solid var(--gold2);
+  outline-offset: 2px;
+}
+@media (max-width: 420px) {
+  #cart-list .cart-line { gap: 8px; }
+  #cart-list .cart-line .price { width: auto !important; min-width: 54px; }
+  #cart-list .cart-remove { margin-left: auto; }
+}
