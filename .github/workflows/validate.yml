@@ -38,6 +38,8 @@ jobs:
         run: node scripts/check-browser-smoke.cjs
       - name: Party Booking frontend-to-Supabase contract test (fake backend)
         run: node scripts/check-party-booking-contract.cjs
+      - name: Place order button test (valid and invalid table sessions, single order, visible errors)
+        run: node scripts/check-place-order-gate.cjs
       - name: Web Push key configuration is consistent and no secret is committed
         run: node scripts/check-vapid-config.cjs
 

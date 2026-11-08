@@ -291,9 +291,18 @@ button, input, select, textarea { font: inherit; }
 .mm-table-gate b { display:block; font-size:14px; margin-bottom:3px; }
 .mm-table-gate p { margin:0; font-size:12px; color: var(--mm-muted, #ad9f91); line-height:1.35; }
 .mm-table-gate[hidden] { display:none !important; }
-#place-order-button[disabled], #place-order-button.is-blocked {
+#place-order-button[disabled] {
   opacity: .45; pointer-events: none; filter: grayscale(.25);
 }
+/* Table not seated yet: the button looks inactive but stays tappable, so a tap explains why
+   (and never submits). A truly dead button with no reason looks like a bug to guests. */
+#place-order-button.is-blocked { opacity: .45; filter: grayscale(.25); }
+.mm-cart-gate-note {
+  margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.35;
+  border: 1px solid rgba(214,164,91,.45); background: rgba(214,164,91,.1);
+  color: var(--mm-cream, #faf5ec);
+}
+.mm-cart-gate-note[hidden] { display: none !important; }
 /* Waiter table glance: three operational colors */
 .waiter-table-card[data-glance="available"] { border-color: rgba(105,181,140,.45) !important; }
 .waiter-table-card[data-glance="active"] { border-color: rgba(214,164,91,.55) !important; }
@@ -2139,6 +2148,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
     <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:800;margin:10px 0">
       <span>Total</span><span class="gold" id="total">₹0</span>
     </div>
+    <p class="mm-cart-gate-note" id="cart-gate-note" role="status" aria-live="polite" hidden></p>
     <button type="button" class="btn btn-main" id="place-order-button" onclick="placeOrder()">Place order</button>
     <button type="button" class="btn btn-soft" id="cart-change-items" style="margin-top:8px" onclick="closeCart()">← Change items</button>
   </div>
@@ -3006,6 +3016,9 @@ function maybeSuggestSpecial() {
   } catch(e) {}
   setTimeout(function() {
     if (!document.getElementById('customer').classList.contains('on')) return;
+    // Never pop this suggestion over the cart or another open sheet: its full-screen backdrop sits
+    // above the Place order button and swallows the guest's taps.
+    if (document.querySelector('.drawer.on, .modal.on')) return;
     var picks = pickSpecials();
     if (picks.length) openSpecial(picks[0].id);
   }, 4500);
@@ -3041,21 +3054,27 @@ var mmCustomerGateState = { status: 'UNKNOWN', can_order: false };
 
 function setPlaceOrderBlocked(blocked, reason) {
   var btn = document.getElementById('place-order-button');
+  var note = document.getElementById('cart-gate-note');
   if (!btn) return;
   if (blocked) {
-    btn.setAttribute('disabled', 'disabled');
+    var why = reason || window.mmI18n('This table is not active yet. Please ask the waiter to activate it.', 'हे टेबल अजून सक्रिय नाही. कृपया वेटरला सक्रिय करण्यास सांगा.');
+    // aria-disabled, not the disabled attribute: the button looks inactive, but a tap still gets an
+    // answer. It cannot submit while blocked: placeCustomerOrder re-checks the table with the server first.
+    btn.setAttribute('aria-disabled', 'true');
     btn.classList.add('is-blocked');
-    btn.setAttribute('title', reason || 'Table is not active yet');
-    if (!window.MM_ORDER_SENDING) {
-      btn.textContent = window.mmI18n ? window.mmI18n('Place order','ऑर्डर द्या') : 'Place order';
-    }
+    btn.setAttribute('title', why);
+    // The table banner lives on the menu screen, underneath the cart. Show the reason where the button is.
+    if (note) { note.textContent = why; note.hidden = false; }
   } else {
-    btn.removeAttribute('disabled');
+    btn.removeAttribute('aria-disabled');
     btn.classList.remove('is-blocked');
     btn.removeAttribute('title');
-    if (!window.MM_ORDER_SENDING) {
-      btn.textContent = window.mmI18n ? window.mmI18n('Place order','ऑर्डर द्या') : 'Place order';
-    }
+    if (note) { note.textContent = ''; note.hidden = true; }
+  }
+  // While an order is in flight the submit handler owns the button (disabled + "Sending order…"),
+  // so the 5-second gate poll must not touch it.
+  if (!window.MM_ORDER_SENDING) {
+    btn.textContent = window.mmI18n ? window.mmI18n('Place order','ऑर्डर द्या') : 'Place order';
   }
 }
 
@@ -3090,18 +3109,19 @@ async function refreshCustomerTableGate(force) {
       gate.setAttribute('data-state', 'waiting');
       if (title) title.textContent = window.mmI18n('Please wait for the waiter to activate this table.', 'कृपया वेटरने हे टेबल सक्रिय करेपर्यंत थांबा.');
       if (copy) copy.textContent = window.mmI18n('Table ' + table + ' is identified. Ordering unlocks after the waiter seats you.', 'टेबल ' + table + ' ओळखले आहे. वेटर बसवल्यानंतर ऑर्डर उघडेल.');
-      setPlaceOrderBlocked(true, 'Wait for waiter');
+      setPlaceOrderBlocked(true, window.mmI18n('Please wait for the waiter to activate this table. Ordering unlocks as soon as you are seated.', 'कृपया वेटरने हे टेबल सक्रिय करेपर्यंत थांबा. तुम्हाला बसवल्यावर ऑर्डर लगेच उघडेल.'));
     } else {
       // UNKNOWN / transient: do not permanently lock ordering — server validates on submit.
       gate.hidden = true;
       setPlaceOrderBlocked(false);
     }
   } catch (e) {
-    gate.hidden = false;
-    gate.setAttribute('data-state', 'waiting');
-    if (title) title.textContent = window.mmI18n('Please wait for the waiter to activate this table.', 'कृपया वेटरने हे टेबल सक्रिय करेपर्यंत थांबा.');
-    if (copy) copy.textContent = window.mmI18n('We could not confirm table status yet. Ask your waiter if this continues.', 'टेबल स्थिती अजून पुष्टी झाली नाही. वेटरला विचारा.');
-    setPlaceOrderBlocked(true);
+    // The status lookup itself failed (for example a network blip). That is not proof the table is
+    // inactive, so never lock ordering on it: the server re-validates on submit and any failure is
+    // shown to the guest. Drop any stale AVAILABLE state so it cannot block a later attempt.
+    mmCustomerGateState = { status: 'UNKNOWN', can_order: false, message: '' };
+    gate.hidden = true;
+    setPlaceOrderBlocked(false);
   }
   if (mmCustomerGateTimer) clearInterval(mmCustomerGateTimer);
   mmCustomerGateTimer = setInterval(function () {

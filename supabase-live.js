@@ -1420,7 +1420,12 @@
       if (typeof cart !== 'undefined' && Array.isArray(cart) && cart.length) liveCart = cart;
       else if (Array.isArray(window.cart) && window.cart.length) liveCart = window.cart;
     } catch (e) { liveCart = window.cart; }
-    if (!liveCart || !liveCart.length) return;
+    if (!liveCart || !liveCart.length) {
+      notifyError(window.mmI18n
+        ? window.mmI18n('Your cart is empty. Add a dish first.', 'तुमची कार्ट रिकामी आहे. आधी एखादा पदार्थ जोडा.')
+        : 'Your cart is empty. Add a dish first.');
+      return;
+    }
 
     // Soft pre-check only. Server remains the authority via createSharedOrder/ensure.
     // Never block solely on UNKNOWN / network hiccups — only hard-stop when the table is
@@ -1505,14 +1510,13 @@
     } finally {
       window.MM_ORDER_SENDING = false;
       if (orderButton) {
+        // Always hand the button back first. Previously a customer's button was only restored if the
+        // table-gate refresh happened to run, so any early return there left it stuck on "Sending order…".
+        orderButton.disabled = false;
+        orderButton.textContent = window.mmI18n ? window.mmI18n('Place order','ऑर्डर द्या') : 'Place order';
+        // Then let the gate decide whether the table still allows ordering (it re-blocks if not).
         if (!window.role && typeof window.refreshCustomerTableGate === 'function') {
           window.refreshCustomerTableGate(true);
-        } else {
-          orderButton.disabled = false;
-          orderButton.textContent = window.mmI18n ? window.mmI18n('Place order','ऑर्डर द्या') : 'Place order';
-        }
-        if (!orderButton.disabled) {
-          orderButton.textContent = window.mmI18n ? window.mmI18n('Place order','ऑर्डर द्या') : 'Place order';
         }
       }
     }
