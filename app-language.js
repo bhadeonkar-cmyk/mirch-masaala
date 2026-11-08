@@ -6,6 +6,8 @@
   'use strict';
 
   var dictionary = {
+    'Order':'ऑर्डर',
+    'Scan':'स्कॅन',
     'Dine in made easy — scan your table QR.':'टेबलचा QR स्कॅन करा आणि सहज ऑर्डर द्या.',
     'Welcome!':'स्वागत आहे!',
     'No table selection or code needed. Scan your table QR and your table is selected automatically.':'टेबल निवडण्याची किंवा कोड टाकण्याची गरज नाही. टेबलचा QR स्कॅन करा; टेबल आपोआप निवडले जाईल.',
