@@ -76,7 +76,7 @@ If order placement reports a missing SQL function or table, the browser cannot i
 9. `supabase/visit-service-controls.sql`
 10. `supabase/direct-kitchen-qr-orders.sql`
 11. `supabase/menu-item-options-and-table-capacity.sql`
-12. `supabase/qr-ordering-consolidated.sql` — **always apply last.** It installs the final order RPC that combines code-free QR ordering with per-dish spice/instructions. Applying the menu-options file after direct-kitchen without this step re-introduces the retired six-digit code and blocks customer orders.
+12. `supabase/qr-ordering-consolidated.sql` — **always apply last.** It installs the final order RPC that combines code-free QR ordering with per-dish spice/instructions, plus the public table-visit gate (`mm_public_table_visit_status` and the strict `mm_ensure_public_table_visit`) that blocks customers until a waiter seats the table. Applying the menu-options file after direct-kitchen without this step re-introduces the retired six-digit code and blocks customer orders.
 13. Optional for lock-screen/background staff alerts and device language: `supabase/staff-push-notifications.sql`
 
 

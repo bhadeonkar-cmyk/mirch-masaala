@@ -227,6 +227,38 @@ BEGIN
     RAISE EXCEPTION 'QA failed: pending approval tickets remain after consolidation';
   END IF;
 
+  -- 12. Public visit gate: seated tables report OPEN, unseated tables report
+  --     AVAILABLE, and ensure never auto-opens a visit for a customer.
+  v_result := public.mm_public_table_visit_status('06');
+  IF v_result->>'status' IS DISTINCT FROM 'OPEN'
+     OR (v_result->>'can_order')::boolean IS DISTINCT FROM true
+     OR v_result->>'visit_id' IS DISTINCT FROM v_visit_id::text THEN
+    RAISE EXCEPTION 'QA failed: seated table 06 must report OPEN with its visit id: %', v_result;
+  END IF;
+  v_result := public.mm_public_table_visit_status(v_closed_table);
+  IF v_result->>'status' IS DISTINCT FROM 'AVAILABLE'
+     OR (v_result->>'can_order')::boolean IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'QA failed: unseated table % must report AVAILABLE and block ordering: %', v_closed_table, v_result;
+  END IF;
+  v_result := public.mm_ensure_public_table_visit('06');
+  IF v_result->>'visit_id' IS DISTINCT FROM v_visit_id::text THEN
+    RAISE EXCEPTION 'QA failed: ensure must return the waiter-opened visit: %', v_result;
+  END IF;
+  v_rejected := false;
+  BEGIN
+    PERFORM public.mm_ensure_public_table_visit(v_closed_table);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'This table is not open for online orders yet%' THEN v_rejected := true; ELSE RAISE; END IF;
+  END;
+  IF NOT v_rejected THEN
+    RAISE EXCEPTION 'QA failed: ensure auto-opened or accepted the unseated table %', v_closed_table;
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.restaurant_table_visits v
+    JOIN public.restaurant_tables t ON t.id = v.table_id
+    WHERE t.table_number = v_closed_table AND v.status = 'OPEN') THEN
+    RAISE EXCEPTION 'QA failed: a customer lookup created an OPEN visit on table %', v_closed_table;
+  END IF;
+
   RAISE NOTICE 'QA passed: consolidated QR ordering keeps code-free seating validation, dish options, kitchen routing, duplicate protection and server-side prices.';
 END
 $qa$;

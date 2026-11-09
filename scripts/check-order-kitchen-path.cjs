@@ -30,17 +30,26 @@ function check(ok, name, detail) {
 // supabase/qr-ordering-consolidated.sql (mm_place_order, mm_get_public_order) and the staff reads.
 function installFakeSupabase(scenario) {
   const VISIT = '11111111-1111-4111-8111-111111111111';
+  const VISIT06 = '11111111-1111-4111-8111-111111111106';
   window.__rpc = [];
   window.__updates = [];
-  window.__sc = Object.assign({ status: 'open', place: 'success', placeDelay: 0, staffFail: false }, scenario || {});
+  window.__sc = Object.assign({ status: 'open', place: 'success', placeDelay: 0, staffFail: false, statusDelay: 0, firstStatusDelay: 0 }, scenario || {});
   window.__db = { orders: [], items: [], seq: 0 };
+  // Per-table visit state. Table 05 mirrors __sc.status so older scenarios keep working;
+  // table 06 starts unseated so cross-table isolation can be proven.
+  window.__visits = { '05': window.__sc.status === 'open' ? { visit_id: VISIT } : null, '06': null };
+  try { localStorage.setItem('mm_waiter_staff_code', 'W01'); } catch (e) {}
+  const visitFor = (tn) => tn === '05'
+    ? (window.__sc.status === 'open' ? { visit_id: VISIT } : null)
+    : window.__visits[tn];
+  const visitIdFor = (tn) => tn === '06' ? VISIT06 : VISIT;
   const rows = {
     categories: [{ id: 'c1', name: 'Probe', sort_order: 1, is_active: true }],
     menu_items: [
       { id: 'aaaaaaaa-0000-4000-8800-000000000001', category_id: 'c1', name: 'Probe Paneer', description: '', price: 300, image_url: null, is_available: true, sort_order: 1, is_veg: true, is_bestseller: false, spicy_level: 1 },
       { id: 'aaaaaaaa-0000-4000-8800-000000000002', category_id: 'c1', name: 'Probe Biryani', description: '', price: 400, image_url: null, is_available: true, sort_order: 2, is_veg: false, is_bestseller: false, spicy_level: 2 }
     ],
-    restaurant_tables: [{ id: 'tbl-05', table_number: '05' }]
+    restaurant_tables: [{ id: 'tbl-05', table_number: '05' }, { id: 'tbl-06', table_number: '06' }]
   };
   const menuById = {};
   rows.menu_items.forEach((m) => { menuById[m.id] = m; });
@@ -109,23 +118,57 @@ function installFakeSupabase(scenario) {
       const tn = String((args && args.p_table_number) || '');
       if (name === 'mm_public_table_visit_status') {
         if (!validTable(tn)) return Promise.resolve({ data: null, error: { code: 'P0001', message: 'Choose a valid table number' } });
-        if (s.status === 'open') return Promise.resolve({ data: { table_number: tn, status: 'OPEN', can_order: true, visit_id: VISIT, message: 'You are ready to order.' }, error: null });
-        if (s.status === 'available') return Promise.resolve({ data: { table_number: tn, status: 'AVAILABLE', can_order: false, visit_id: null, message: 'Please wait for the waiter to activate this table.' }, error: null });
-        return Promise.resolve({ data: { table_number: tn, status: 'UNKNOWN', can_order: false, message: 'Table not found' }, error: null });
+        // Snapshot the visit at call time so a delayed reply is genuinely stale.
+        const v = visitFor(tn);
+        const payload = v
+          ? { data: { table_number: tn, status: 'OPEN', can_order: true, visit_id: v.visit_id, message: 'You are ready to order.' }, error: null }
+          : { data: { table_number: tn, status: 'AVAILABLE', can_order: false, visit_id: null, message: 'Please wait for the waiter to activate this table.' }, error: null };
+        let ms = s.statusDelay || 0;
+        if (s.firstStatusDelay && !s.__firstStatusUsed) { ms = s.firstStatusDelay; s.__firstStatusUsed = true; }
+        return new Promise((res) => setTimeout(() => res(payload), ms));
       }
       if (name === 'mm_ensure_public_table_visit') {
         if (!validTable(tn)) return Promise.resolve({ data: null, error: { code: 'P0001', message: 'Choose a valid table number' } });
-        if (s.status === 'open') return Promise.resolve({ data: { table_number: tn, status: 'OPEN', visit_id: VISIT }, error: null });
+        const v = visitFor(tn);
+        if (v) return Promise.resolve({ data: { table_number: tn, status: 'OPEN', visit_id: v.visit_id }, error: null });
         return Promise.resolve({ data: null, error: { code: 'P0001', message: 'This table is not open for online orders yet. Please ask your waiter to start the visit.' } });
       }
+      if (name === 'mm_staff_get_table_visits') {
+        if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) return Promise.resolve({ data: null, error: { message: 'Owner/Admin or signed-in waiter access required' } });
+        return Promise.resolve({ data: ['05', '06'].map((t) => {
+          const v = visitFor(t);
+          return { table_number: t, status: v ? 'OPEN' : 'AVAILABLE', started_at: v ? new Date().toISOString() : null, visit_id: v ? v.visit_id : null, assigned_waiter_code: v ? 'W01' : '', guest_order_code: '' };
+        }), error: null });
+      }
+      if (name === 'mm_staff_set_table_visit_status') {
+        if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) return Promise.resolve({ data: null, error: { message: 'Owner/Admin or signed-in waiter access required' } });
+        const action = String(args.p_action || '').toUpperCase();
+        if (action === 'START') {
+          window.__visits[tn] = { visit_id: visitIdFor(tn) };
+          if (tn === '05') window.__sc.status = 'open';
+          return Promise.resolve({ data: { table_number: tn, status: 'OPEN', visit_id: visitIdFor(tn), assigned_waiter_code: String(args.p_waiter_code || 'W01') }, error: null });
+        }
+        if (action === 'FINISH' || action === 'RELEASE') {
+          window.__visits[tn] = null;
+          if (tn === '05') window.__sc.status = 'available';
+          return Promise.resolve({ data: { table_number: tn, status: 'AVAILABLE' }, error: null });
+        }
+        return Promise.resolve({ data: null, error: { message: 'Unknown visit action' } });
+      }
+      if (name === 'mm_list_waiters') {
+        if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) return Promise.resolve({ data: null, error: { message: 'Staff sign-in required.' } });
+        return Promise.resolve({ data: [{ waiter_code: 'W01', display_name: 'QA Waiter', active: true, created_at: '2026-01-01T00:00:00Z' }], error: null });
+      }
+      if (name === 'get_my_staff_role') return Promise.resolve({ data: window.role || null, error: null });
       if (name === 'mm_place_order') {
         return new Promise((res, rej) => setTimeout(() => {
           if (s.place === 'network') return rej(new Error('Failed to fetch'));
           if (s.place !== 'success') return res({ data: null, error: { code: 'P0001', message: s.placeMsg || 'Menu item unavailable' } });
           const a = args || {};
-          if (s.status !== 'open') return res({ data: null, error: { code: 'P0001', message: 'This table is not open for online orders yet. Please ask your waiter to start the visit.' } });
+          const tn = String(a.p_table_number || '').padStart(2, '0');
+          if (!visitFor(tn)) return res({ data: null, error: { code: 'P0001', message: 'This table is not open for online orders yet. Please ask your waiter to start the visit.' } });
           if (!a.p_customer_session_id && !window.role) return res({ data: null, error: { code: 'P0001', message: 'Customer session is missing. Refresh this page and try again.' } });
-          if (a.p_table_visit_id !== VISIT) return res({ data: null, error: { code: 'P0001', message: 'The table visit has changed. Refresh and ask your waiter for the current order code.' } });
+          if (a.p_table_visit_id !== visitIdFor(tn)) return res({ data: null, error: { code: 'P0001', message: 'The table visit has changed. Refresh and ask your waiter for the current order code.' } });
           if (window.__db.orders.some((o) => o.ticket_id === a.p_ticket_id)) return res({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } });
           const items = Array.isArray(a.p_items) ? a.p_items : [];
           let total = 0;
@@ -141,7 +184,7 @@ function installFakeSupabase(scenario) {
           const n = window.__db.seq;
           const row = {
             id: 'db-order-' + n, restaurant_id: 'a3702d10-6673-4c06-9783-1d61c945ecd5',
-            ticket_id: a.p_ticket_id, table_id: 'tbl-05', status: 'NEW',
+            ticket_id: a.p_ticket_id, table_id: 'tbl-' + tn, status: 'NEW',
             approval_status: 'APPROVED', notes: a.p_notes || '', total,
             public_token: 'cccccccc-0000-4000-8000-' + String(n).padStart(12, '0'),
             order_number: n, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -154,7 +197,7 @@ function installFakeSupabase(scenario) {
           });
           res({ data: {
             id: row.ticket_id, dbId: row.id, publicToken: row.public_token, table: String(a.p_table_number).padStart(2, '0'),
-            visitId: VISIT, customerSessionId: a.p_customer_session_id || null, total: row.total, status: 'NEW',
+            visitId: visitIdFor(tn), customerSessionId: a.p_customer_session_id || null, total: row.total, status: 'NEW',
             approvalStatus: 'APPROVED', notes: row.notes, createdAt: row.created_at, orderNumber: n,
             items: lineRows, notification_ids: [], dispatch_tokens: []
           }, error: null });
@@ -165,7 +208,7 @@ function installFakeSupabase(scenario) {
         if (!row) return Promise.resolve({ data: null, error: null });
         const items = window.__db.items.filter((i) => i.order_id === row.id)
           .map((i) => ({ name: i.item_name, price: i.price, qty: i.quantity, spiceLevel: i.spice_level, notes: i.notes || '' }));
-        return Promise.resolve({ data: { id: row.ticket_id, table: '05', total: row.total, status: row.status, approvalStatus: row.approval_status, notes: row.notes, createdAt: row.created_at, items }, error: null });
+        return Promise.resolve({ data: { id: row.ticket_id, table: String(row.table_id || 'tbl-05').replace('tbl-', ''), total: row.total, status: row.status, approvalStatus: row.approval_status, notes: row.notes, createdAt: row.created_at, items }, error: null });
       }
       if (name === 'mm_admin_get_order_details') {
         if (window.role !== 'admin') return Promise.resolve({ data: null, error: { message: 'Owner/Admin access required' } });
@@ -174,7 +217,7 @@ function installFakeSupabase(scenario) {
         const items = window.__db.items.filter((i) => i.order_id === row.id)
           .map((i) => ({ name: i.item_name, quantity: i.quantity, unit_price: i.price, line_total: i.price * i.quantity, notes: i.notes, spice_level: i.spice_level }));
         return Promise.resolve({ data: {
-          ticket_id: row.ticket_id, order_number: row.order_number, table: '05', status: row.status,
+          ticket_id: row.ticket_id, order_number: row.order_number, table: String(row.table_id || 'tbl-05').replace('tbl-', ''), status: row.status,
           total: row.total, paid_total: 0, balance_due: row.total, notes: row.notes,
           created_at: row.created_at, updated_at: row.updated_at,
           is_test_order: row.is_test_order, is_complimentary: false, complimentary_reason: '',
@@ -182,7 +225,7 @@ function installFakeSupabase(scenario) {
         }, error: null });
       }
       if (name === 'mm_public_order_board') {
-        return Promise.resolve({ data: window.__db.orders.filter((o) => !o.archived_at && ['NEW', 'PREPARING', 'READY'].includes(o.status)).map((o) => ({ ticket_id: o.ticket_id, table_number: '05', status: o.status })), error: null });
+        return Promise.resolve({ data: window.__db.orders.filter((o) => !o.archived_at && ['NEW', 'PREPARING', 'READY'].includes(o.status)).map((o) => ({ ticket_id: o.ticket_id, table_number: String(o.table_id || 'tbl-05').replace('tbl-', ''), status: o.status })), error: null });
       }
       return Promise.resolve({ data: null, error: null });
     },
@@ -201,7 +244,7 @@ function installFakeSupabase(scenario) {
 
   async function session(scenario, opts) {
     opts = opts || {};
-    const context = await browser.newContext({ viewport: { width: 390, height: 800 }, hasTouch: true });
+    const context = await browser.newContext({ viewport: { width: opts.width || 390, height: 800 }, hasTouch: true });
     await context.route(/^https?:/, (r) => r.abort('failed'));
     const page = await context.newPage();
     page.on('pageerror', (e) => unexpected.push('uncaught: ' + e.message));
@@ -212,7 +255,7 @@ function installFakeSupabase(scenario) {
       unexpected.push('console.error: ' + t.slice(0, 160));
     });
     await page.addInitScript(installFakeSupabase, scenario);
-    await page.addInitScript(() => { ['05', '99'].forEach((n) => sessionStorage.setItem('mm_sp_' + n, '1')); });
+    await page.addInitScript(() => { ['05', '06', '99'].forEach((n) => sessionStorage.setItem('mm_sp_' + n, '1')); });
     await page.goto(indexUrl + (opts.query === undefined ? '?table=05' : opts.query), { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(4300);
     if (!opts.noCart) {
@@ -442,6 +485,154 @@ function installFakeSupabase(scenario) {
   k = await s.page.evaluate(() => ({ cards: document.querySelectorAll('.kcard').length, text: document.getElementById('k-new').textContent }));
   check(k.cards === 1 && !/900/.test(k.text), 'archived test tickets are excluded from the live kitchen queue', JSON.stringify(k));
   await s.close();
+
+  // 9. Waiter activates an unseated table, orders immediately, then orders again on the
+  //    already-active table. The customer-only gate must never appear on the waiter device.
+  s = await session({ status: 'available', place: 'success' }, { noCart: true, query: '' });
+  await s.asRole('waiter');
+  await s.page.evaluate(() => window.MM_REFRESH_TABLE_VISITS());
+  await s.page.waitForTimeout(300);
+  await s.page.evaluate(() => { go('waiter'); enterWaiter(); });
+  await s.page.waitForTimeout(600);
+  await s.page.evaluate(() => pickW('05'));
+  await s.page.waitForTimeout(400);
+  const preControl = await s.page.evaluate(() => document.getElementById('w-visit-control').textContent);
+  check(/Seat Customer/.test(preControl), 'an unseated table offers the waiter the Seat Customer action', preControl.slice(0, 80));
+  await s.page.evaluate(() => window.startTableVisit());
+  await s.page.waitForTimeout(700);
+  const activated = await s.page.evaluate(() => window.MM_TABLE_VISITS && window.MM_TABLE_VISITS['05']);
+  check(activated && String(activated.status).toUpperCase() === 'OPEN', 'waiter activation opens the visit in the shared table cache', JSON.stringify(activated));
+  await s.page.evaluate(() => {
+    const i = window.MENU.menu_items[0];
+    wCart = [{ id: i.id, db_id: i.db_id, name: i.name, price: i.price, qty: 1 }];
+    window.wCart = wCart; window.MM_WAITER_CONFIRMATION_APPROVED = true; window.wSend();
+  });
+  await s.page.waitForTimeout(700);
+  check((await s.dbOrders()).length === 1, 'the waiter can place an order immediately after activating the table');
+  await s.page.evaluate(() => {
+    const i = window.MENU.menu_items[1];
+    wCart = [{ id: i.id, db_id: i.db_id, name: i.name, price: i.price, qty: 2 }];
+    window.wCart = wCart; window.MM_WAITER_CONFIRMATION_APPROVED = true; window.wSend();
+  });
+  await s.page.waitForTimeout(700);
+  db = await s.dbOrders();
+  check(db.length === 2 && db[1].status === 'NEW', 'a second waiter order on the already-active table is accepted', JSON.stringify(db));
+  const waiterGate = await s.page.evaluate(() => {
+    const n = document.getElementById('cart-gate-note');
+    return { noteHidden: !n || n.hidden, blocked: document.getElementById('place-order-button').getAttribute('aria-disabled') === 'true' };
+  });
+  check(waiterGate.noteHidden && !waiterGate.blocked, 'the customer-only activation message never blocks the waiter device', JSON.stringify(waiterGate));
+  await s.asRole('kitchen');
+  await s.page.evaluate(() => window.MM_REFRESH_STAFF_ORDERS());
+  await s.page.waitForTimeout(400);
+  await s.page.evaluate(() => { go('kitchen'); drawK(); });
+  k = await s.page.evaluate(() => document.querySelectorAll('#k-new .kcard').length);
+  check(k === 2, 'the kitchen receives both waiter orders as NEW tickets', 'cards=' + k);
+  await s.close();
+
+  // 10. A slow stale AVAILABLE reply must not re-lock a table that a fresh OPEN reply unlocked.
+  s = await session({ status: 'available', place: 'success', firstStatusDelay: 6000 });
+  await s.page.evaluate(() => { window.__sc.status = 'open'; window.refreshCustomerTableGate(true); });
+  await s.page.waitForTimeout(500);
+  let gate = await s.page.evaluate(() => ({
+    blocked: document.getElementById('place-order-button').getAttribute('aria-disabled') === 'true',
+    state: mmCustomerGateState.status
+  }));
+  check(!gate.blocked && gate.state === 'OPEN', 'the fresh OPEN status unlocks ordering right away', JSON.stringify(gate));
+  await s.page.waitForTimeout(2500);
+  gate = await s.page.evaluate(() => ({
+    blocked: document.getElementById('place-order-button').getAttribute('aria-disabled') === 'true',
+    state: mmCustomerGateState.status
+  }));
+  check(!gate.blocked && gate.state === 'OPEN', 'a stale AVAILABLE reply cannot re-block an activated table', JSON.stringify(gate));
+  await s.tap(); await s.page.waitForTimeout(800);
+  check((await s.dbOrders()).length === 1, 'the customer order still reaches the kitchen after the stale-reply race', JSON.stringify(await s.dbOrders()));
+  await s.close();
+
+  // 11. Customer blocked before activation, then orders on the very first tap after activation.
+  s = await session({ status: 'available', place: 'success' });
+  gate = await s.page.evaluate(() => ({
+    blocked: document.getElementById('place-order-button').getAttribute('aria-disabled') === 'true',
+    note: document.getElementById('cart-gate-note').textContent
+  }));
+  check(gate.blocked && /waiter to activate this table/i.test(gate.note), 'the customer sees the activation restriction before seating', JSON.stringify(gate));
+  await s.page.evaluate(() => { window.__sc.status = 'open'; });
+  await s.tap(); await s.page.waitForTimeout(800);
+  check((await s.dbOrders()).length === 1, 'the first tap after activation submits without waiting for the poll cycle', JSON.stringify(await s.dbOrders()));
+  await s.close();
+
+  // 12. Reloading the page on an active table keeps ordering unlocked (no stale cached gate).
+  s = await session({ status: 'open', place: 'success' });
+  await s.page.evaluate(() => localStorage.setItem('mm_c_05', JSON.stringify(cart)));
+  await s.page.reload({ waitUntil: 'domcontentloaded' });
+  await s.page.waitForTimeout(4300);
+  gate = await s.page.evaluate(() => ({
+    blocked: document.getElementById('place-order-button').getAttribute('aria-disabled') === 'true',
+    state: mmCustomerGateState.status,
+    customerOn: document.getElementById('customer').classList.contains('on')
+  }));
+  check(gate.customerOn && !gate.blocked && gate.state === 'OPEN', 'a page refresh re-reads the active visit and stays unlocked', JSON.stringify(gate));
+  await s.page.evaluate(() => openCart());
+  await s.page.waitForTimeout(300);
+  await s.tap(); await s.page.waitForTimeout(800);
+  check((await s.dbOrders()).length === 1, 'ordering works after the refresh', JSON.stringify(await s.dbOrders()));
+  await s.close();
+
+  // 13. Table 06 cannot ride on table 05's open visit; it unlocks only with its own visit.
+  const VISIT06 = '11111111-1111-4111-8111-111111111106';
+  s = await session({ status: 'open', place: 'success' }, { query: '?table=06' });
+  await s.page.waitForTimeout(600);
+  gate = await s.page.evaluate(() => ({
+    blocked: document.getElementById('place-order-button').getAttribute('aria-disabled') === 'true',
+    state: mmCustomerGateState.status
+  }));
+  check(gate.blocked && gate.state === 'AVAILABLE', 'table 06 stays blocked while only table 05 has an open visit', JSON.stringify(gate));
+  await s.tap(); await s.page.waitForTimeout(600);
+  check((await s.placeCalls()).length === 0, 'no order is submitted for a table without its own open visit');
+  await s.page.evaluate((v) => { window.__visits['06'] = { visit_id: v }; window.refreshCustomerTableGate(true); }, VISIT06);
+  await s.page.waitForTimeout(500);
+  await s.tap(); await s.page.waitForTimeout(800);
+  db = await s.dbOrders();
+  check(db.length === 1 && db[0].visit === VISIT06, 'table 06 orders only against its own visit once the waiter opens it', JSON.stringify(db));
+  await s.close();
+
+  // 14. Mobile cart layout: long names never squeeze the quantity controls at 375/390/430px.
+  for (const width of [375, 390, 430]) {
+    s = await session({ status: 'open', place: 'success' }, { noCart: true, width });
+    await s.page.evaluate(() => {
+      const items = window.MENU.menu_items;
+      cart = [
+        { id: items[0].id, name: 'Maharashtrian Special Spicy Paneer Tikka Masala Family Pack', price: items[0].price, qty: 2, spiceLevel: 'hot' },
+        { id: items[1].id, name: items[1].name, price: items[1].price, qty: 12, spiceLevel: 'medium' }
+      ];
+      window.cart = cart; updCart(); openCart();
+    });
+    await s.page.waitForTimeout(500);
+    const layout = await s.page.evaluate(() => {
+      const rect = (el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height, right: b.right, bottom: b.bottom }; };
+      const line = document.querySelector('#cart-list .cart-line');
+      const info = rect(line.querySelector('.cart-line-info'));
+      const controls = rect(line.querySelector('.cart-line-controls'));
+      const list = rect(document.getElementById('cart-list'));
+      const qtyBtns = Array.from(line.querySelectorAll('.qty button')).map(rect);
+      const remove = rect(line.querySelector('.cart-remove'));
+      const price = rect(line.querySelector('.cart-line-total'));
+      const place = rect(document.getElementById('place-order-button'));
+      return {
+        qtyOverlapsInfo: qtyBtns.some((b) => b.y < info.bottom && b.bottom > info.y && b.x < info.right && b.right > info.x),
+        controlsOverflow: controls.right > list.right + 1,
+        priceRemoveCollide: price.right > remove.x + 1 && price.y < remove.bottom && price.bottom > remove.y,
+        minQtyTap: Math.min(...qtyBtns.map((b) => Math.min(b.w, b.h))),
+        removeW: remove.w,
+        placeFits: place.right <= window.innerWidth + 1 && place.h >= 44,
+        nameWraps: line.querySelector('.name').getBoundingClientRect().height > 20
+      };
+    });
+    check(!layout.qtyOverlapsInfo && !layout.controlsOverflow && !layout.priceRemoveCollide &&
+      layout.minQtyTap >= 40 && layout.removeW >= 40 && layout.placeFits && layout.nameWraps,
+      'cart layout keeps name, quantity, price and Remove aligned at ' + width + 'px', JSON.stringify(layout));
+    await s.close();
+  }
 
   check(unexpected.length === 0, 'no uncaught script errors during any scenario', unexpected.join(' | ').slice(0, 400));
   await browser.close();

@@ -2641,6 +2641,7 @@ function go(id) {
   if (typeof renderPublicOrderBoard === 'function') renderPublicOrderBoard(window.MM_PUBLIC_ORDER_ROWS || []);
   if (id === 'home' && typeof renderCustomerHomeOrders === 'function') renderCustomerHomeOrders();
   if (id === 'customer' && typeof updateCustomerBottomActions === 'function') updateCustomerBottomActions();
+  if (id === 'customer' && !window.role && typeof refreshCustomerTableGate === 'function') refreshCustomerTableGate(true);
   if (id === 'reviews-page' && typeof renderReviewSection === 'function') renderReviewSection();
   if (id === 'visit-page' && typeof renderVisitSection === 'function') renderVisitSection();
 }
@@ -3051,6 +3052,10 @@ function startTable(n) {
 
 var mmCustomerGateTimer = null;
 var mmCustomerGateState = { status: 'UNKNOWN', can_order: false };
+// Boot fires several gate lookups (QR start, delayed start, 5s poll, checkout). Without a
+// sequence token a slow AVAILABLE reply can land after a fresh OPEN reply and re-lock a
+// table the waiter has already activated. Only the newest request may update the gate.
+var mmCustomerGateSeq = 0;
 
 function setPlaceOrderBlocked(blocked, reason) {
   var btn = document.getElementById('place-order-button');
@@ -3086,15 +3091,21 @@ async function refreshCustomerTableGate(force) {
   if (!table || !gate) return;
   // Staff roles never use this customer gate.
   if (window.role) {
+    if (mmCustomerGateTimer) { clearInterval(mmCustomerGateTimer); mmCustomerGateTimer = null; }
+    mmCustomerGateState = { status: 'UNKNOWN', can_order: false };
     gate.hidden = true;
     setPlaceOrderBlocked(false);
     return;
   }
+  var seq = ++mmCustomerGateSeq;
+  var requestedTable = String(table);
   try {
     var status = { status: 'UNKNOWN', can_order: false, message: '' };
     if (typeof window.MM_GET_PUBLIC_TABLE_VISIT_STATUS === 'function') {
-      status = await window.MM_GET_PUBLIC_TABLE_VISIT_STATUS(table) || status;
+      status = await window.MM_GET_PUBLIC_TABLE_VISIT_STATUS(requestedTable) || status;
     }
+    // Ignore stale replies: a newer lookup (or a different table) now owns the gate.
+    if (seq !== mmCustomerGateSeq || String(table) !== requestedTable) return;
     mmCustomerGateState = status;
     var st = String(status.status || 'UNKNOWN').toUpperCase();
     var canOrder = !!status.can_order;
@@ -3119,12 +3130,15 @@ async function refreshCustomerTableGate(force) {
     // The status lookup itself failed (for example a network blip). That is not proof the table is
     // inactive, so never lock ordering on it: the server re-validates on submit and any failure is
     // shown to the guest. Drop any stale AVAILABLE state so it cannot block a later attempt.
+    if (seq !== mmCustomerGateSeq || String(table) !== requestedTable) return;
     mmCustomerGateState = { status: 'UNKNOWN', can_order: false, message: '' };
     gate.hidden = true;
     setPlaceOrderBlocked(false);
   }
+  if (seq !== mmCustomerGateSeq) return;
   if (mmCustomerGateTimer) clearInterval(mmCustomerGateTimer);
   mmCustomerGateTimer = setInterval(function () {
+    if (window.role) return;
     if (!document.getElementById('customer') || !document.getElementById('customer').classList.contains('on')) return;
     refreshCustomerTableGate(false);
   }, 5000);
@@ -3578,6 +3592,8 @@ function removeCartItem(id) {
 function openCart() {
   drawCart();
   document.getElementById('cart').classList.add('on');
+  // Revalidate with the server at checkout time; never trust a cached gate state here.
+  if (!window.role && typeof refreshCustomerTableGate === 'function') refreshCustomerTableGate(true);
 }
 function closeCart() {
   document.getElementById('cart').classList.remove('on');
@@ -3589,9 +3605,9 @@ function drawCart() {
   if (!cart.length) { el.innerHTML = '<div class="empty-state"><svg class="empty-plate" viewBox="0 0 120 80" aria-hidden="true" focusable="false"><ellipse cx="60" cy="62" rx="44" ry="9" fill="rgba(0,0,0,.35)"/><ellipse cx="60" cy="52" rx="44" ry="16" fill="none" stroke="currentColor" stroke-width="2"/><ellipse cx="60" cy="50" rx="30" ry="9" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6"/></svg><b>' + window.mmI18n('Cart empty','कार्ट रिकामी आहे') + '</b><span>' + window.mmI18n('Pick a dish and it lands here.','पदार्थ निवडा, तो इथे दिसेल.') + '</span></div>'; document.getElementById('total').textContent = '₹0'; return; }
   el.innerHTML = cart.map(function(c) {
     var cartItem = (MENU.menu_items || []).find(function(i){ return i.id === c.id; }) || {name:c.name};
-    return '<div class="card cart-line"><div class="pic cart-pic">' + dishImageMarkup(cartItem, 'cart') + '</div><div style="flex:1;min-width:0"><div class="name">' + esc(window.mmDishName(c.name)) + '</div><div class="dish-line-preference">🌶️ ' + esc(spiceLabel(c.spiceLevel || getDishSpiceLevel(c.id))) + '</div><div class="desc">₹' + c.price + '</div></div>' +
-      '<div class="qty customer-cart-qty"><button type="button" aria-label="' + window.mmI18n('Decrease quantity','प्रमाण कमी करा') + '" onclick="qty(' + c.id + ',-1)">−</button><b aria-live="polite">' + c.qty + '</b><button type="button" class="p" aria-label="' + window.mmI18n('Increase quantity','प्रमाण वाढवा') + '" onclick="qty(' + c.id + ',1)">+</button></div>' +
-      '<div class="price" style="width:56px;text-align:right">₹' + (c.price*c.qty) + '</div><button type="button" class="cart-remove" aria-label="' + window.mmI18n('Remove item','पदार्थ काढून टाका') + '" onclick="removeCartItem(' + c.id + ')">' + window.mmI18n('Remove','काढा') + '</button></div>';
+    return '<div class="card cart-line"><div class="cart-line-main"><div class="pic cart-pic">' + dishImageMarkup(cartItem, 'cart') + '</div><div class="cart-line-info"><div class="name">' + esc(window.mmDishName(c.name)) + '</div><div class="dish-line-preference">🌶️ ' + esc(spiceLabel(c.spiceLevel || getDishSpiceLevel(c.id))) + '</div><div class="desc">₹' + c.price + '</div></div></div>' +
+      '<div class="cart-line-controls"><div class="qty customer-cart-qty"><button type="button" aria-label="' + window.mmI18n('Decrease quantity','प्रमाण कमी करा') + '" onclick="qty(' + c.id + ',-1)">−</button><b aria-live="polite">' + c.qty + '</b><button type="button" class="p" aria-label="' + window.mmI18n('Increase quantity','प्रमाण वाढवा') + '" onclick="qty(' + c.id + ',1)">+</button></div>' +
+      '<div class="price cart-line-total">₹' + (c.price*c.qty) + '</div><button type="button" class="cart-remove" aria-label="' + window.mmI18n('Remove item','पदार्थ काढून टाका') + '" onclick="removeCartItem(' + c.id + ')">' + window.mmI18n('Remove','काढा') + '</button></div></div>';
   }).join('');
   document.getElementById('total').textContent = '₹' + cart.reduce(function(s,c){ return s + c.price*c.qty; }, 0);
 }

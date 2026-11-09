@@ -330,6 +330,11 @@ requireText(consolidatedMigration, "nullif(v_item_notes, '')", 'Consolidated ord
 requireText(consolidatedMigration, 'Customer session is missing', 'Consolidated order RPC still requires a customer session');
 requireText(consolidatedMigration, 'The table visit has changed', 'Consolidated order RPC still rejects stale visits');
 requireText(consolidatedMigration, 'GRANT EXECUTE ON FUNCTION public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text) TO anon, authenticated;', 'Consolidated order RPC grant matches the live client signature');
+requireText(consolidatedMigration, 'CREATE OR REPLACE FUNCTION public.mm_public_table_visit_status', 'Consolidated migration installs the read-only public visit status gate');
+requireText(consolidatedMigration, 'CREATE OR REPLACE FUNCTION public.mm_ensure_public_table_visit', 'Consolidated migration keeps the strict waiter-opened visit requirement');
+requireText(consolidatedMigration, 'This table is not open for online orders yet', 'Consolidated ensure RPC rejects unseated tables');
+requireText(html, 'var mmCustomerGateSeq = 0;', 'Customer gate discards stale status replies (sequence guard)');
+requireText(html, 'if (seq !== mmCustomerGateSeq || String(table) !== requestedTable) return;', 'Customer gate ignores out-of-order and cross-table replies');
 if (/RAISE EXCEPTION 'The 6-digit table order code is incorrect/.test(consolidatedMigration)) {
   fail('Consolidated order RPC must not re-introduce the retired six-digit guest code');
 } else {
