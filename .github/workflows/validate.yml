@@ -2,7 +2,7 @@ name: Validate Mirch Masaala app
 
 on:
   push:
-    branches: [main]
+    branches: [main, security/isolated-mutation-tests-2026-11-08]
   pull_request:
   workflow_dispatch:
 
@@ -24,6 +24,8 @@ jobs:
         run: node scripts/check-inline-js.cjs
       - name: Check local links and in-page targets
         run: node scripts/check-links.cjs
+      - name: Customer batch-2 UI and language contract checks
+        run: node scripts/check-batch2-customer.cjs
       - name: Parse the Supabase integration JavaScript
         run: node --check supabase-live.js
       - name: Parse the app-wide English/Marathi language layer
@@ -38,6 +40,10 @@ jobs:
         run: node scripts/check-browser-smoke.cjs
       - name: Party Booking frontend-to-Supabase contract test (fake backend)
         run: node scripts/check-party-booking-contract.cjs
+      - name: Place order button test (valid and invalid table sessions, single order, visible errors)
+        run: node scripts/check-place-order-gate.cjs
+      - name: Order-to-kitchen path test (customer and waiter orders, kitchen queue, status changes, network failures)
+        run: node scripts/check-order-kitchen-path.cjs
       - name: Web Push key configuration is consistent and no secret is committed
         run: node scripts/check-vapid-config.cjs
 
@@ -206,6 +212,25 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f scripts/check-menu-item-options.sql
       - name: Verify menu options migration is re-runnable
         run: psql -v ON_ERROR_STOP=1 -f supabase/menu-item-options-and-table-capacity.sql
+      - name: Consolidate QR ordering (dish options + code-free kitchen routing)
+        run: |
+          # menu-item-options redefines mm_place_order with the retired six-digit
+          # guest code; the consolidated migration must restore the final contract.
+          psql -v ON_ERROR_STOP=1 -f supabase/qr-ordering-consolidated.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/check-qr-ordering-consolidated.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/qr-ordering-consolidated.sql
+          psql -v ON_ERROR_STOP=1 -c "DO \$qa\$ BEGIN
+            IF (SELECT count(*) FROM public.mm_restaurant_notifications
+                WHERE ticket_id='MM-CONSOL-QR-001' AND target_role='kitchen'
+                  AND notification_type='NEW_ORDER' AND resolved_at IS NULL) <> 1 THEN
+              RAISE EXCEPTION 'QA failed: rerunning consolidated migration duplicated or lost the kitchen alert';
+            END IF;
+            IF EXISTS (SELECT 1 FROM public.orders
+                       WHERE restaurant_id='a3702d10-6673-4c06-9783-1d61c945ecd5'::uuid
+                         AND approval_status='PENDING') THEN
+              RAISE EXCEPTION 'QA failed: consolidated migration rerun left pending tickets';
+            END IF;
+          END \$qa\$;"
       - name: Compile and test owner waiter, backup and reset tools
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/owner-operations-toolkit.sql
@@ -217,3 +242,8 @@ jobs:
           if grep -v '|READY|' /tmp/readiness.txt; then echo 'QA failed: a component is not READY after all migrations'; exit 1; fi
           if grep '|READY|' /tmp/readiness.txt | grep -v 'No action needed'; then echo 'QA failed: a READY row still asks for action'; exit 1; fi
           test "$(wc -l < /tmp/readiness.txt)" -ge 20
+      - name: Security mutation regression (payment forgery, visit ownership, grants)
+        run: |
+          # Runs after the complete migration sequence so order_payments and
+          # restaurant_table_visits exist with their final RLS and grants.
+          psql -v ON_ERROR_STOP=1 -f scripts/check-security-mutations.sql

@@ -28,7 +28,10 @@ function fail(message) {
   process.exitCode = 1;
 }
 function requireText(source, needle, label) {
-  if (!source.includes(needle)) fail(label + ' missing: ' + needle);
+  // Normalize CRLF/LF so Windows-checked-out SQL/HTML does not fail on whitespace alone.
+  var src = String(source).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  var need = String(needle).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (!src.includes(need)) fail(label + ' missing: ' + needle);
   else console.log('✓ ' + label);
 }
 if (scripts.length === 0) {
@@ -315,6 +318,33 @@ requireText(menuOptionsMigration, "ADD COLUMN IF NOT EXISTS spice_level text NOT
 requireText(menuOptionsMigration, 'ADD COLUMN IF NOT EXISTS seating_capacity smallint NOT NULL DEFAULT 4', 'Table seating capacity is persisted');
 requireText(menuOptionsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_set_table_capacity', 'Owner capacity RPC exists');
 requireText(menuOptionsMigration, 'GRANT EXECUTE ON FUNCTION public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text) TO anon, authenticated;', 'Dish-options order RPC grant matches the function signature');
+const consolidatedMigration = fs.readFileSync('supabase/qr-ordering-consolidated.sql', 'utf8');
+const consolidatedQa = fs.readFileSync('scripts/check-qr-ordering-consolidated.sql', 'utf8');
+checkSqlDollarQuotes(consolidatedMigration, 'Consolidated QR ordering migration');
+checkSqlDollarQuotes(consolidatedQa, 'Consolidated QR ordering QA script');
+requireText(consolidatedMigration, 'CREATE OR REPLACE FUNCTION public.mm_place_order', 'Consolidated migration installs the final order RPC');
+requireText(consolidatedMigration, "ALTER TABLE public.orders ALTER COLUMN approval_status SET DEFAULT 'APPROVED'", 'Consolidated migration keeps orders auto-approved');
+requireText(consolidatedMigration, "'APPROVED',", 'Consolidated order RPC inserts APPROVED explicitly');
+requireText(consolidatedMigration, 'spice_level', 'Consolidated order RPC persists dish spice levels');
+requireText(consolidatedMigration, "nullif(v_item_notes, '')", 'Consolidated order RPC persists per-dish instructions');
+requireText(consolidatedMigration, 'Customer session is missing', 'Consolidated order RPC still requires a customer session');
+requireText(consolidatedMigration, 'The table visit has changed', 'Consolidated order RPC still rejects stale visits');
+requireText(consolidatedMigration, 'GRANT EXECUTE ON FUNCTION public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text) TO anon, authenticated;', 'Consolidated order RPC grant matches the live client signature');
+requireText(consolidatedMigration, 'CREATE OR REPLACE FUNCTION public.mm_public_table_visit_status', 'Consolidated migration installs the read-only public visit status gate');
+requireText(consolidatedMigration, 'CREATE OR REPLACE FUNCTION public.mm_ensure_public_table_visit', 'Consolidated migration keeps the strict waiter-opened visit requirement');
+requireText(consolidatedMigration, 'This table is not open for online orders yet', 'Consolidated ensure RPC rejects unseated tables');
+requireText(html, 'var mmCustomerGateSeq = 0;', 'Customer gate discards stale status replies (sequence guard)');
+requireText(html, 'if (seq !== mmCustomerGateSeq || String(table) !== requestedTable) return;', 'Customer gate ignores out-of-order and cross-table replies');
+if (/RAISE EXCEPTION 'The 6-digit table order code is incorrect/.test(consolidatedMigration)) {
+  fail('Consolidated order RPC must not re-introduce the retired six-digit guest code');
+} else {
+  console.log('✓ Consolidated order RPC keeps the code-free QR flow');
+}
+requireText(consolidatedQa, 'MM-CONSOL-QR-001', 'Consolidated QA exercises a code-free customer order');
+requireText(consolidatedQa, 'unique_violation', 'Consolidated QA proves duplicate ticket protection');
+requireText(fs.readFileSync('.github/workflows/validate.yml', 'utf8'), 'supabase/qr-ordering-consolidated.sql', 'CI applies the consolidated QR ordering migration');
+requireText(fs.readFileSync('.github/workflows/validate.yml', 'utf8'), 'scripts/check-qr-ordering-consolidated.sql', 'CI runs the consolidated QR ordering regression');
+requireText(fs.readFileSync('.github/workflows/validate.yml', 'utf8'), 'scripts/check-order-kitchen-path.cjs', 'CI runs the order-to-kitchen path test');
 const homeOrdersStart = html.indexOf('function renderCustomerHomeOrders()');
 const homeOrdersEnd = html.indexOf('function renderPublicOrderBoard(', homeOrdersStart);
 const homeOrdersRenderer = html.slice(homeOrdersStart, homeOrdersEnd);
@@ -345,7 +375,7 @@ requireText(partyBookingsMigration, "'PARTY_BOOKING'", 'Party request creates an
 requireText(staffPushEdge, '"PARTY_BOOKING"', 'Background push sender supports party booking alerts');
 requireText(staffPushEdge, '"PAYMENT_CHECK"', 'Background push sender supports payment verification alerts');
 requireText(staffPushEdge, '"CASH_AT_COUNTER"', 'Background push sender supports urgent cash collection alerts');
-requireText(html, 'src="./app-language.js?v=20261026e"', 'App-wide language layer is loaded after screen-specific translations');
+requireText(html, 'src="./app-language.js?v=20261108b2"', 'App-wide language layer is loaded after screen-specific translations');
 requireText(appLanguage, 'new MutationObserver', 'Newly rendered UI and alerts are translated after screen updates');
 requireText(appLanguage, 'if (noTranslateTextTags[root.tagName]) return;', 'Form placeholders are translated without changing the guest typed text');
 requireText(appLanguage, 'window.mmFriendlyError', 'Order setup errors are presented in user-friendly language');
