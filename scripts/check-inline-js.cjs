@@ -318,6 +318,28 @@ requireText(menuOptionsMigration, "ADD COLUMN IF NOT EXISTS spice_level text NOT
 requireText(menuOptionsMigration, 'ADD COLUMN IF NOT EXISTS seating_capacity smallint NOT NULL DEFAULT 4', 'Table seating capacity is persisted');
 requireText(menuOptionsMigration, 'CREATE OR REPLACE FUNCTION public.mm_admin_set_table_capacity', 'Owner capacity RPC exists');
 requireText(menuOptionsMigration, 'GRANT EXECUTE ON FUNCTION public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text) TO anon, authenticated;', 'Dish-options order RPC grant matches the function signature');
+const consolidatedMigration = fs.readFileSync('supabase/qr-ordering-consolidated.sql', 'utf8');
+const consolidatedQa = fs.readFileSync('scripts/check-qr-ordering-consolidated.sql', 'utf8');
+checkSqlDollarQuotes(consolidatedMigration, 'Consolidated QR ordering migration');
+checkSqlDollarQuotes(consolidatedQa, 'Consolidated QR ordering QA script');
+requireText(consolidatedMigration, 'CREATE OR REPLACE FUNCTION public.mm_place_order', 'Consolidated migration installs the final order RPC');
+requireText(consolidatedMigration, "ALTER TABLE public.orders ALTER COLUMN approval_status SET DEFAULT 'APPROVED'", 'Consolidated migration keeps orders auto-approved');
+requireText(consolidatedMigration, "'APPROVED',", 'Consolidated order RPC inserts APPROVED explicitly');
+requireText(consolidatedMigration, 'spice_level', 'Consolidated order RPC persists dish spice levels');
+requireText(consolidatedMigration, "nullif(v_item_notes, '')", 'Consolidated order RPC persists per-dish instructions');
+requireText(consolidatedMigration, 'Customer session is missing', 'Consolidated order RPC still requires a customer session');
+requireText(consolidatedMigration, 'The table visit has changed', 'Consolidated order RPC still rejects stale visits');
+requireText(consolidatedMigration, 'GRANT EXECUTE ON FUNCTION public.mm_place_order(uuid, text, text, text, jsonb, uuid, uuid, text) TO anon, authenticated;', 'Consolidated order RPC grant matches the live client signature');
+if (/RAISE EXCEPTION 'The 6-digit table order code is incorrect/.test(consolidatedMigration)) {
+  fail('Consolidated order RPC must not re-introduce the retired six-digit guest code');
+} else {
+  console.log('✓ Consolidated order RPC keeps the code-free QR flow');
+}
+requireText(consolidatedQa, 'MM-CONSOL-QR-001', 'Consolidated QA exercises a code-free customer order');
+requireText(consolidatedQa, 'unique_violation', 'Consolidated QA proves duplicate ticket protection');
+requireText(fs.readFileSync('.github/workflows/validate.yml', 'utf8'), 'supabase/qr-ordering-consolidated.sql', 'CI applies the consolidated QR ordering migration');
+requireText(fs.readFileSync('.github/workflows/validate.yml', 'utf8'), 'scripts/check-qr-ordering-consolidated.sql', 'CI runs the consolidated QR ordering regression');
+requireText(fs.readFileSync('.github/workflows/validate.yml', 'utf8'), 'scripts/check-order-kitchen-path.cjs', 'CI runs the order-to-kitchen path test');
 const homeOrdersStart = html.indexOf('function renderCustomerHomeOrders()');
 const homeOrdersEnd = html.indexOf('function renderPublicOrderBoard(', homeOrdersStart);
 const homeOrdersRenderer = html.slice(homeOrdersStart, homeOrdersEnd);

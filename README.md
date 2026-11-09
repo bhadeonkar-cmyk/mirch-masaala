@@ -75,7 +75,9 @@ If order placement reports a missing SQL function or table, the browser cannot i
 8. `supabase/customer-cash-counter.sql`
 9. `supabase/visit-service-controls.sql`
 10. `supabase/direct-kitchen-qr-orders.sql`
-11. Optional for lock-screen/background staff alerts and device language: `supabase/staff-push-notifications.sql`
+11. `supabase/menu-item-options-and-table-capacity.sql`
+12. `supabase/qr-ordering-consolidated.sql` — **always apply last.** It installs the final order RPC that combines code-free QR ordering with per-dish spice/instructions. Applying the menu-options file after direct-kitchen without this step re-introduces the retired six-digit code and blocks customer orders.
+13. Optional for lock-screen/background staff alerts and device language: `supabase/staff-push-notifications.sql`
 
 
 ### Direct ordering, shared table bills and checkout
@@ -83,7 +85,7 @@ If order placement reports a missing SQL function or table, the browser cannot i
 - Customer food orders are approved automatically in the database and trigger a kitchen ticket immediately. No waiter or kitchen member has to approve each order.
 - Each phone can submit a separate ticket for the same open table visit. The bill and payment screen total every ticket attached to that visit, even when different diners choose different dishes.
 - Choosing **cash at counter** creates an Owner/Counter alert; it does not mark the table free or mark the bill paid. Only the Owner/Counter Admin login can record the cash received. The table visit is closed automatically after the full shared balance is paid and no kitchen tickets remain in progress.
-- Do not skip `supabase/direct-kitchen-qr-orders.sql`: it removes the legacy order-approval triggers and converts any remaining pending tickets to direct-to-kitchen flow. Re-apply `supabase/role-notifications.sql`, `supabase/customer-cash-counter.sql`, `supabase/visit-service-controls.sql`, and `supabase/direct-kitchen-qr-orders.sql` in the listed order to update an existing installation. Run `supabase/staff-push-notifications.sql` last when background push alerts are enabled.
+- Do not skip `supabase/direct-kitchen-qr-orders.sql`: it removes the legacy order-approval triggers and converts any remaining pending tickets to direct-to-kitchen flow. Re-apply `supabase/role-notifications.sql`, `supabase/customer-cash-counter.sql`, `supabase/visit-service-controls.sql`, and `supabase/direct-kitchen-qr-orders.sql` in the listed order to update an existing installation. If `supabase/menu-item-options-and-table-capacity.sql` is installed (or re-run), finish with `supabase/qr-ordering-consolidated.sql` so the final order RPC keeps both dish options and the code-free kitchen flow. Run `supabase/staff-push-notifications.sql` last when background push alerts are enabled.
 For staff background/lock-screen push, follow [`supabase/STAFF-PUSH.md`](./supabase/STAFF-PUSH.md): verify a database backup, run only `supabase/staff-push-notifications.sql` (safe to re-run), rerun `supabase/app-readiness-check.sql` until every push row is **READY**, deploy `supabase/functions/send-staff-push/index.ts`, set the three VAPID secrets, then enable alerts on each staff phone. Do not rerun unrelated migrations that already report **READY**. In-app alerts and background push are separate paths; a working in-app alert does not prove phone push works.
 
 ## Important limitations before real service
@@ -124,6 +126,8 @@ Record received cash/card/UPI in **Owner → Payment log** by table. Opening a U
 ## Final menu options and seating capacity
 After `setup-live.sql`, `order-management-accounting.sql`, `table-visits.sql`, `visit-billing-upgrade.sql`, `customer-cash-counter.sql`, and `visit-service-controls.sql` are installed, run `supabase/menu-item-options-and-table-capacity.sql` once in Supabase SQL Editor. It stores a spice level for each dish line, returns those details to customer and owner ticket lookup, and adds owner-managed seating capacity (1–30). Existing orders, cancellations, payments, and audit history are preserved.
 
+**Important:** that file redefines `mm_place_order` with the retired six-digit guest code, which blocks the current QR-only customer checkout. Always follow it with `supabase/qr-ordering-consolidated.sql` (safe to re-run): it keeps the spice/capacity features, restores code-free ordering into the open table visit, auto-approves tickets to the kitchen, and re-runs cleanly. This pair is the supported way to install or update the QR ordering flow.
+
 At checkout, the customer only needs to scan the table QR after the waiter has started the visit. No guest PIN is required; if a request fails, the dishes remain in the cart. The Mutton Biryani fallback photo is credited to Jayanthkumar101 on Wikimedia Commons under CC BY-SA 4.0; other menu items use their HTTPS `image_url` when the owner has added one.
 
 For test-heavy tables, use Owner/Admin → Accounts → Table cleanup, preview the affected tickets, then confirm. Test tickets are archived and remaining active test tickets cancelled, never deleted, so they can be audited but do not count as live sales. Use Complimentary only for genuinely free meals and record a reason so they do not inflate paid revenue. Customers can return Home → Recheck order / Track items & status on the same phone to verify each saved ticket and its ordered dish choices.
@@ -139,10 +143,13 @@ Run from the repository root (CI runs the same commands):
 ```
 node scripts/check-inline-js.cjs          # source, order lifecycle and push/party contract checks
 node scripts/check-links.cjs              # local links and in-page targets
+node scripts/check-batch2-customer.cjs    # customer UI/language contract checks
 node scripts/check-vapid-config.cjs       # public push key consistency; fails if a private key is committed
 npm i --no-save playwright && npx playwright install chromium
 node scripts/check-browser-smoke.cjs     # headless browser: start-up, Places, Party Booking form, Business enquiries
 node scripts/check-party-booking-contract.cjs   # Party Booking against a fake Supabase client
+node scripts/check-place-order-gate.cjs  # place-order button: valid/invalid sessions, single order, visible errors
+node scripts/check-order-kitchen-path.cjs # customer/waiter order → kitchen queue → status changes, network failures
 ```
 
 The browser tests run offline with a fake backend. They prove the app's behaviour and its calls, not the production database or a real phone. The PostgreSQL checks in `scripts/*.sql` run in CI against a local database.
