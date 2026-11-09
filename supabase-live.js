@@ -1215,9 +1215,18 @@
         message: 'Online ordering is connecting. Please wait a moment.'
       };
     }
+    var diagTableNumber = String(tableNumber || '').padStart(2, '0');
+    console.info('[MM-DIAG gate] request', { table_number: diagTableNumber });
     var result = await client.rpc('mm_public_table_visit_status', {
-      p_table_number: String(tableNumber || '').padStart(2, '0')
+      p_table_number: diagTableNumber
     });
+    if (result.error) {
+      console.warn('[MM-DIAG gate] RPC error', {
+        table_number: diagTableNumber,
+        code: result.error.code || '',
+        message: String(result.error.message || '').slice(0, 180)
+      });
+    }
     if (result.error) {
       var detail = String(result.error.message || '');
       // Backward compatible: older projects without this RPC still use ensure.
@@ -1258,6 +1267,12 @@
       };
     }
     var data = rpcPayload(result.data) || result.data || {};
+    console.info('[MM-DIAG gate] RPC result', {
+      table_number: diagTableNumber,
+      status: String(data.status || 'UNKNOWN').toUpperCase(),
+      can_order: !!data.can_order,
+      visit_id: data.visit_id || null
+    });
     return {
       table_number: String(data.table_number || tableNumber || '').padStart(2, '0'),
       status: String(data.status || 'UNKNOWN').toUpperCase(),
@@ -1304,12 +1319,34 @@
     if (['admin', 'waiter'].indexOf(String(window.role || '')) < 0) {
       throw new Error('Sign in as the owner or waiter to manage table visits.');
     }
+    var diagTableNumber = String(tableNumber || '').padStart(2, '0');
+    var diagAction = String(action || '').toUpperCase();
+    console.info('[MM-DIAG waiter-activate] request', {
+      table_number: diagTableNumber,
+      action: diagAction
+    });
     var result = await client.rpc('mm_staff_set_table_visit_status', {
-      p_table_number: String(tableNumber || '').padStart(2, '0'),
-      p_action: String(action || '').toUpperCase(),
+      p_table_number: diagTableNumber,
+      p_action: diagAction,
       p_waiter_code: waiterCode ? String(waiterCode).trim().toUpperCase() : null
     });
-    if (result.error) throw new Error(result.error.message || 'Could not update the table visit.');
+    if (result.error) {
+      console.error('[MM-DIAG waiter-activate] RPC error', {
+        table_number: diagTableNumber,
+        action: diagAction,
+        code: result.error.code || '',
+        message: String(result.error.message || '').slice(0, 180)
+      });
+      throw new Error(result.error.message || 'Could not update the table visit.');
+    }
+    var diagVisit = rpcPayload(result.data) || result.data || {};
+    console.info('[MM-DIAG waiter-activate] RPC success', {
+      table_number: diagTableNumber,
+      action: diagAction,
+      visit_id: diagVisit.visit_id || null,
+      status: diagVisit.status || null,
+      already_open: diagVisit.already_open
+    });
     await refreshTableVisits();
     if (typeof window.drawWaiterOrders === 'function') window.drawWaiterOrders();
     return result.data;
