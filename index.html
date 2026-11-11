@@ -12,7 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="Mirch Masaala">
 <meta name="theme-color" content="#120c0a">
-<link rel="manifest" href="./manifest.webmanifest">
+<link id="app-manifest" rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icons/mirch-masaala-garden-resto-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="./icons/mirch-masaala-garden-resto-192.png">
 
@@ -647,7 +647,16 @@ body{line-height:1.5}
 .diet-filters,.cats{padding-top:4px;padding-bottom:10px}
 .diet-filter,.cat{min-height:38px}
 .customer-bottom{display:flex;align-items:center;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(18,12,10,.96);border-top:1px solid var(--line);backdrop-filter:blur(12px)}
-.customer-bottom #cart-bar{min-width:0;flex:1;padding:14px 12px;font-size:14px}
+.customer-bottom.has-cart{justify-content:center}
+.customer-bottom #cart-bar{min-width:0;flex:1 1 240px;max-width:420px;min-height:54px;display:flex;align-items:center;gap:10px;padding:8px 14px;border:1px solid rgba(255,241,196,.55);border-radius:16px;background:linear-gradient(135deg,#f7e6ae 0%,#e2b95f 45%,#c99536 100%);color:#1a1208;font-size:15px;font-weight:800;letter-spacing:0;text-align:left;box-shadow:0 8px 22px rgba(0,0,0,.34),0 0 0 1px rgba(255,255,255,.2) inset!important;transition:transform .16s ease,box-shadow .16s ease}
+.customer-bottom #cart-bar:active{transform:scale(.985)!important}
+.customer-bottom #cart-bar .cb-count{flex:0 0 auto;min-width:32px;height:32px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:#1a1208;color:#f7e6ae;font-size:15px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.customer-bottom #cart-bar .cb-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:850;line-height:1.1}
+.customer-bottom #cart-bar .cb-label-short{display:none}
+.customer-bottom #cart-bar .cb-total{flex:0 0 auto;font-size:16px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+.customer-bottom #cart-bar.bump{animation:cartBarBump .4s cubic-bezier(.2,.8,.25,1.2)}
+@keyframes cartBarBump{0%{transform:scale(1)}40%{transform:scale(1.035)}100%{transform:scale(1)}}
+@media(max-width:430px){.customer-bottom #cart-bar .cb-label-full{display:none}.customer-bottom #cart-bar .cb-label-short{display:inline}}
 .customer-bottom .customer-help-btn{width:auto;flex:0 0 auto;padding:14px 12px;font-size:14px}
 .order-success-wrap{max-width:460px;padding-top:32px;padding-bottom:30px}
 .success-mark{margin:4px auto 14px;width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(62,207,142,.15);border:1px solid rgba(62,207,142,.55);color:var(--ok);font-size:32px;font-weight:900}
@@ -671,7 +680,11 @@ body{line-height:1.5}
   .topbar{padding:12px;gap:8px}
   .topbar .back{padding:8px 10px}
   .wrap{padding:16px}
-  .customer-bottom #cart-bar{font-size:13px}
+  .customer-bottom{gap:8px}
+  .customer-bottom #cart-bar{font-size:13px;gap:8px;padding:8px 12px}
+  .customer-bottom #cart-bar .cb-label{font-size:13px}
+  .customer-bottom #cart-bar .cb-total{font-size:14px}
+  .customer-bottom #cart-bar .cb-count{min-width:28px;height:28px;font-size:13px}
 }
 @media(prefers-reduced-motion:reduce){.success-mark,.order-progress,.card{animation:none!important}}
 
@@ -1359,7 +1372,10 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 #table-swipe-guide { line-height: 1.4; }
 @media(max-width:360px) {
   .customer-bottom { gap: 6px; padding-left: 8px; padding-right: 8px; }
-  .customer-bottom #cart-bar { padding: 11px 8px; font-size: 12px; }
+  .customer-bottom #cart-bar { padding: 8px 10px; gap: 7px; min-height: 48px; }
+  .customer-bottom #cart-bar .cb-count { min-width: 26px; height: 26px; padding: 0 6px; font-size: 12px; }
+  .customer-bottom #cart-bar .cb-label { font-size: 12px; }
+  .customer-bottom #cart-bar .cb-total { font-size: 13px; }
   .customer-bottom #customer-bill-pay-btn { padding: 11px 7px; font-size: 11px; }
   .customer-bottom .customer-help-btn { padding: 11px 7px; font-size: 11px; }
 }
@@ -1367,6 +1383,9 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 
 /* Customer table selection is QR-only. Staff table selectors are separate and remain available. */
 #home-choose-table, #table-swipe-guide, #tables, #table-continue { display: none !important; }
+.qr-entry-error{display:none;margin:10px 0 0;padding:13px 14px;border:1px solid rgba(239,68,68,.55);border-radius:14px;background:rgba(127,29,29,.24);text-align:center}
+.qr-entry-error p{margin:0 0 10px;color:#fecaca;font-size:13px;font-weight:700;line-height:1.45}
+.qr-entry-error .btn{width:100%}
 
 /* QR is the primary customer action; guidance is intentionally short and step-based. */
 .qr-entry-kicker{display:flex;align-items:center;gap:10px;text-align:left;margin:10px 0 8px;padding:11px 13px;border:1px solid rgba(212,168,75,.24);border-radius:14px;background:linear-gradient(105deg,rgba(212,168,75,.12),rgba(30,21,18,.75))}
@@ -1490,6 +1509,8 @@ body{background:var(--bg);color:var(--text);letter-spacing:-.01em}
 @media(max-width:420px){#scan-table-btn{min-height:76px;padding:11px 12px;gap:10px;border-radius:17px}.scan-qr-visual{width:45px;height:45px;flex-basis:45px}.scan-qr-copy b{font-size:14px}.scan-qr-copy small{font-size:10px}.success-flow-step{padding:9px}.success-flow-step b{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.scan-qr-beam,.scan-cta-arrow{animation:none!important}.success-heading{scroll-behavior:auto}}
 </style>
+<script src="./env-config.js"></script>
+<script src="./env-config-core.js"></script>
 <script src="./qr-matrices.js"></script>
 <script src="./menu-images.js"></script>
 <style>
@@ -1962,10 +1983,6 @@ html, body { max-width: 100%; overflow-x: hidden; }
       <div class="tx"><b id="home-welcome">Welcome!</b> <span id="home-welcome-text">No table selection or code needed. Scan your table QR and your table is selected automatically.</span></div>
       <button type="button" class="x" onclick="this.parentElement.style.display='none'">×</button>
     </div>
-    <p class="muted" style="margin-bottom:4px"><b id="home-choose-table" style="color:var(--text)">Choose your table</b></p>
-    <div class="table-swipe-guide" id="table-swipe-guide" aria-live="polite"><span class="swipe-side">↔</span><span id="home-swipe-label">Swipe sideways to find your table</span><span class="swipe-hand">👆</span></div>
-    <div class="table-grid" id="tables" aria-label="Swipe sideways to choose your table"></div>
-    <button type="button" class="btn btn-main" id="table-continue" style="display:none;margin-top:8px" onclick="continueHomeTable()">Continue to table →</button>
     <div class="qr-guide-mini" aria-label="Table QR ordering guide">
       <span class="qr-mini-mascot" aria-hidden="true"><span>👨‍🍳</span></span>
       <div class="qr-mini-copy"><b id="home-qr-entry-title">Start with your table QR</b><span id="home-qr-entry-copy">Scan <em>→</em> choose dishes <em>→</em> track order</span></div>
@@ -1988,6 +2005,10 @@ html, body { max-width: 100%; overflow-x: hidden; }
       <span class="scan-qr-copy"><b id="home-scan-label">Scan table QR</b><small id="home-scan-hint">Open your table menu and start ordering</small></span>
       <span class="scan-cta-arrow" aria-hidden="true">→</span>
     </button>
+    <div class="qr-entry-error" id="qr-entry-error" role="alert" aria-live="assertive">
+      <p id="qr-entry-error-text">Please scan the QR code placed on your table to view the menu.</p>
+      <button type="button" class="btn btn-main" onclick="openScan()">Scan QR</button>
+    </div>
     <p class="qr-no-sticker" id="home-no-install">Sticker missing? Ask your waiter for the correct table link.</p>
     <div class="home-shortcuts" aria-label="Helpful links">
       <div class="home-shortcut">
@@ -2089,7 +2110,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
 <!-- CUSTOMER -->
 <div id="customer" class="screen">
   <div class="topbar">
-    <button type="button" class="back" id="customer-change-table" onclick="go('home')">← Change table</button>
+    <button type="button" class="back" id="customer-change-table" onclick="go('home')">← Home</button>
     <div class="customer-table-lock" id="customer-table-lock" style="display:none" aria-live="polite">YOUR TABLE <b id="customer-table-context-number">01</b></div>
     <div>
       <div style="font-weight:800;color:var(--gold2);font-size:14px">🌶️ Mirch Masaala</div>
@@ -2129,7 +2150,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
     <div id="menu"></div>
   </div>
   <div class="bottom customer-bottom">
-    <button type="button" class="btn btn-main" id="cart-bar" style="display:none;flex:1" onclick="openCart()">View cart</button>
+    <button type="button" class="btn btn-main" id="cart-bar" style="display:none" onclick="openCart()" aria-controls="cart">View cart</button>
     <button type="button" class="btn btn-main customer-bill-pay-btn" id="customer-bill-pay-btn" style="display:none" aria-label="Bill and payment" onclick="reqBill()">🧾 Bill &amp; pay</button>
     <button type="button" class="btn btn-soft customer-help-btn" id="customer-help-button" aria-label="Help and orders" onclick="openCustomerActions()">Help</button>
   </div>  </div>
@@ -2321,7 +2342,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
     <p class="muted" style="margin:8px 0">Point camera at QR on the table</p>
     <div id="qr-reader" aria-label="Live camera preview"></div>
     <p class="muted" id="scan-st" style="margin:8px 0;min-height:18px" aria-live="polite">Allow camera access when your browser asks.</p>
-    <div class="scan-manual-panel"><label for="manual-t">Camera not working? Enter your table number</label><div class="scan-manual-row"><input id="manual-t" type="number" min="1" max="50" step="1" inputmode="numeric" pattern="[0-9]*" placeholder="Table no. (e.g. 5)" aria-label="Table number"><button type="button" class="btn btn-soft" onclick="useManualScanTable()">Open table</button></div><p class="scan-fallback-help">You can also scan the sticker with your phone’s built-in Camera app.</p></div>
+    <p class="muted" style="margin:8px 0 0;font-size:12px">Camera not working? Open the QR link shared by staff, or use your phone’s built-in Camera app on the table sticker.</p>
     <button type="button" class="btn btn-soft" style="margin-top:8px" onclick="closeScan()">Close scanner</button>
   </div>
 </div>
@@ -2883,13 +2904,13 @@ function showRoleGuide(roleName) {
   var mr = guideLanguage === 'mr';
   var guideData = {
     customer: mr ? [
-      {kind:'table-options',title:'टेबल निवडण्याचे २ पर्याय — यापैकी एक निवडा',text:'पर्याय १: टेबलवरील QR कोड स्कॅन करा. किंवा पर्याय २: “टेबल निवडा” मधून टेबल क्रमांकावर थेट टॅप करा. दोन्ही पर्याय एकाच मेनूकडे नेतात; यापैकी फक्त एकच वापरा.'},
+      {kind:'scan',title:'टेबलवरील QR स्कॅन करा',text:'फक्त टेबलवर ठेवलेला QR कोड स्कॅन करा. त्यामुळे तुमचा टेबल मेनू आपोआप उघडेल. टेबल क्रमांक हाताने टाकू नका किंवा दुसरे टेबल निवडू नका.'},
       {kind:'menu',title:'आवडते पदार्थ निवडा',text:'मेनूमधील पदार्थ पाहा. शाकाहारी किंवा मांसाहारी पदार्थ निवडण्यासाठी वरचे पर्याय वापरा. पदार्थ जोडण्यासाठी “जोडा” दाबा.'},
       {kind:'cart',title:'ऑर्डर तपासून घ्या',text:'कार्ट उघडा. पदार्थ, संख्या आणि एकूण रक्कम तपासा. काही सांगायचे असल्यास सूचना लिहा.'},
       {kind:'submit',title:'ऑर्डर द्या',text:'सगळे बरोबर असल्यावर “ऑर्डर द्या” दाबा. ऑर्डर किचनला पाठवली जाईल.'},
       {kind:'track',title:'ऑर्डरची स्थिती पाहा',text:'ऑर्डर नवीन आहे, बनत आहे की तयार आहे ते पाहा. मदत हवी असल्यास वेटरला बोलवा.'}
     ] : [
-      {kind:'table-options',title:'Two ways to choose your table — use either one',text:'Option 1: Scan the QR code on your table. OR Option 2: Tap a table number under “Choose Table”. Both options open the same menu, so use just one.'},
+      {kind:'scan',title:'Scan the QR on your table',text:'Scan the printed QR on your table. It opens the exact table menu automatically. Do not type a table number or choose another table.'},
       {kind:'menu',title:'Choose your food',text:'Browse the menu. Use the Veg or Non-veg filters if needed, then tap ADD for a dish.'},
       {kind:'cart',title:'Review your order',text:'Open the cart and check the dishes, quantities and total. Add a note if needed.'},
       {kind:'submit',title:'Place the order',text:'When everything looks correct, tap Place order to send it to the kitchen.'},
@@ -3026,11 +3047,154 @@ function maybeSuggestSpecial() {
 }
 
 
-function startTable(n) {
+// A scan can fire before supabase-live.js finishes loading on a slow connection.
+// Keep the table pending and let the integration trigger it once it is ready.
+var mmPendingTableActivationTable = '';
+function requestCustomerTableActivation(tableNumber) {
+  mmPendingTableActivationTable = String(tableNumber || '').padStart(2, '0');
+  activatePendingCustomerTable();
+}
+function activatePendingCustomerTable() {
+  var pendingTable = mmPendingTableActivationTable;
+  if (!pendingTable || window.role || typeof window.MM_ACTIVATE_PUBLIC_TABLE_VISIT !== 'function') return;
+  mmPendingTableActivationTable = '';
+  try {
+    window.MM_ACTIVATE_PUBLIC_TABLE_VISIT(pendingTable).then(function () {
+      if (String(table) === pendingTable) refreshCustomerTableGate(true);
+    }).catch(function (e) {
+      console.info('[Mirch Masaala] Automatic table activation skipped:', e && e.message ? e.message : e);
+    });
+  } catch (e) {
+    console.info('[Mirch Masaala] Automatic table activation skipped:', e && e.message ? e.message : e);
+  }
+}
+
+var MM_QR_ENTRY_MESSAGE = 'Please scan the QR code placed on your table to view the menu.';
+var MM_QR_ENTRY_LOCK_KEY = 'mm_customer_qr_entry_table';
+var MM_QR_ENTRY_SWITCH_MESSAGE = 'This phone is already linked to Table {table}. Ask staff to close that visit before changing tables.';
+
+function customerQrEntryLockTable() {
+  if (window.role) return '';
+  try {
+    var value = String(sessionStorage.getItem(MM_QR_ENTRY_LOCK_KEY) || '');
+    return /^[0-9]{2}$/.test(value) ? value : '';
+  } catch (e) { return ''; }
+}
+function customerQrEntryLockedTable() {
+  return customerQrEntryLockTable() || getCustomerHomeLockTable();
+}
+function rememberCustomerQrEntryLock(tableNumber) {
+  var tableNo = String(tableNumber || '').padStart(2, '0');
+  if (!/^[0-9]{2}$/.test(tableNo)) return false;
+  try { sessionStorage.setItem(MM_QR_ENTRY_LOCK_KEY, tableNo); return true; } catch (e) { return false; }
+}
+function clearCustomerQrEntryLock(tableNumber) {
+  var tableNo = String(tableNumber || '').padStart(2, '0');
+  try {
+    if (!tableNo || sessionStorage.getItem(MM_QR_ENTRY_LOCK_KEY) === tableNo) {
+      sessionStorage.removeItem(MM_QR_ENTRY_LOCK_KEY);
+    }
+  } catch (e) {}
+}
+// Client-side format check only. The server verifies the credential whenever QR
+// protection is enabled; staging keeps protection off until stickers are verified.
+function isQrEntryCredential(value) {
+  return /^[0-9a-f]{64}$/i.test(String(value || '').trim());
+}
+function qrEntryFromScanText(text) {
+  var raw = String(text || '').trim();
+  if (!raw) return null;
+  var tableNo = parseTable(raw);
+  if (!tableNo) return null;
+  var token = '';
+  var match = raw.match(/[?&]qr=([^&#\s]+)/i);
+  if (match) {
+    try { token = decodeURIComponent(match[1]); } catch (e) { token = match[1]; }
+  }
+  return { table: String(tableNo).padStart(2, '0'), token: token.trim() };
+}
+function showQrEntryError(message) {
+  var panel = document.getElementById('qr-entry-error');
+  var text = document.getElementById('qr-entry-error-text');
+  if (text) text.textContent = message || MM_QR_ENTRY_MESSAGE;
+  if (panel) panel.style.display = 'block';
+  if (!window.role && typeof go === 'function') go('home');
+}
+function hideQrEntryError() {
+  var panel = document.getElementById('qr-entry-error');
+  if (panel) panel.style.display = 'none';
+}
+function reportQrEntryFailure(message, fromScanner) {
+  if (fromScanner) {
+    var status = document.getElementById('scan-st');
+    if (status) status.textContent = message;
+    return;
+  }
+  showQrEntryError(message);
+}
+function qrEntrySwitchMessage(tableNumber) {
+  return MM_QR_ENTRY_SWITCH_MESSAGE.replace('{table}', String(tableNumber || ''));
+}
+function enterCustomerTableFromQr(tableNumber, token, fromScanner) {
+  var tableNo = String(tableNumber || '').padStart(2, '0');
+  var credential = String(token || '').trim().toLowerCase();
+  if (!/^[0-9]{2}$/.test(tableNo) || !isQrEntryCredential(credential)) {
+    reportQrEntryFailure(MM_QR_ENTRY_MESSAGE, fromScanner);
+    return false;
+  }
+  var locked = customerQrEntryLockedTable();
+  if (locked && locked !== tableNo) {
+    reportQrEntryFailure(qrEntrySwitchMessage(locked), fromScanner);
+    return false;
+  }
+  if (!customerQrEntryLockTable() && !rememberCustomerQrEntryLock(tableNo)) {
+    reportQrEntryFailure(MM_QR_ENTRY_MESSAGE, fromScanner);
+    return false;
+  }
+  if (!mmRememberQrToken(tableNo, credential)) {
+    reportQrEntryFailure(MM_QR_ENTRY_MESSAGE, fromScanner);
+    return false;
+  }
+  hideQrEntryError();
+  startTable(tableNo, { activate: true });
+  return true;
+}
+function resumeCustomerTableFromQrSession(tableNumber) {
+  var tableNo = String(tableNumber || '').padStart(2, '0');
+  if (!/^[0-9]{2}$/.test(tableNo)) return false;
+  if (customerQrEntryLockTable() !== tableNo) return false;
+  if (!isQrEntryCredential(mmQrTokenForTable(tableNo))) return false;
+  hideQrEntryError();
+  startTable(tableNo, { activate: true });
+  return true;
+}
+function handleCustomerQrEntryFromLocation() {
+  var params = new URLSearchParams(window.location.search);
+  if (!params.get('table')) return;
+  var tableNo = parseTable(window.location.search);
+  if (!tableNo) { showQrEntryError(MM_QR_ENTRY_MESSAGE); return; }
+  var token = params.get('qr') || '';
+  if (isQrEntryCredential(token)) {
+    enterCustomerTableFromQr(tableNo, token, false);
+    return;
+  }
+  var locked = customerQrEntryLockTable();
+  if (locked && locked !== tableNo) {
+    showQrEntryError(qrEntrySwitchMessage(locked));
+    return;
+  }
+  if (resumeCustomerTableFromQrSession(tableNo)) return;
+  showQrEntryError(MM_QR_ENTRY_MESSAGE);
+}
+
+// opts.activate is set only on a QR entry (scan or QR link).
+// Navigation such as backMenu must not re-open a visit staff already finished.
+function startTable(n, opts) {
   if (!isOpen) { toast(SETTINGS.closedMessage || 'Restaurant is closed'); return; }
   table = String(n).padStart(2, '0');
   try { window.table = table; } catch (e) {}
   try { localStorage.setItem('mm_customer_active_table', table); } catch (e) {}
+  if (opts && opts.activate && !window.role) requestCustomerTableActivation(table);
   dishSpicePrefs = load('mm_spice_pref_' + table, {}) || {};
   cart = load('mm_c_' + table, []);
   try { window.cart = cart; } catch (e) {}
@@ -3100,6 +3264,11 @@ async function refreshCustomerTableGate(force) {
   var seq = ++mmCustomerGateSeq;
   var requestedTable = String(table);
   try {
+    // A scan-triggered activation may still be in flight; read the gate after it settles.
+    if (typeof window.MM_AWAIT_TABLE_ACTIVATION === 'function') {
+      await window.MM_AWAIT_TABLE_ACTIVATION(requestedTable);
+      if (seq !== mmCustomerGateSeq || String(table) !== requestedTable) return;
+    }
     var status = { status: 'UNKNOWN', can_order: false, message: '' };
     if (typeof window.MM_GET_PUBLIC_TABLE_VISIT_STATUS === 'function') {
       status = await window.MM_GET_PUBLIC_TABLE_VISIT_STATUS(requestedTable) || status;
@@ -3121,6 +3290,13 @@ async function refreshCustomerTableGate(force) {
       if (title) title.textContent = window.mmI18n('Please wait for the waiter to activate this table.', 'कृपया वेटरने हे टेबल सक्रिय करेपर्यंत थांबा.');
       if (copy) copy.textContent = window.mmI18n('Table ' + table + ' is identified. Ordering unlocks after the waiter seats you.', 'टेबल ' + table + ' ओळखले आहे. वेटर बसवल्यानंतर ऑर्डर उघडेल.');
       setPlaceOrderBlocked(true, window.mmI18n('Please wait for the waiter to activate this table. Ordering unlocks as soon as you are seated.', 'कृपया वेटरने हे टेबल सक्रिय करेपर्यंत थांबा. तुम्हाला बसवल्यावर ऑर्डर लगेच उघडेल.'));
+    } else if (st === 'LOCKED') {
+      var qrMessage = status.message || window.mmI18n('This table QR code is not valid. Scan the QR code on your table again.', 'हे टेबल QR वैध नाही. टेबलावरील QR पुन्हा स्कॅन करा.');
+      gate.hidden = false;
+      gate.setAttribute('data-state', 'waiting');
+      if (title) title.textContent = window.mmI18n('Scan the QR code on your table', 'टेबलावरील QR कोड स्कॅन करा');
+      if (copy) copy.textContent = qrMessage;
+      setPlaceOrderBlocked(true, qrMessage);
     } else {
       // UNKNOWN / transient: do not permanently lock ordering — server validates on submit.
       gate.hidden = true;
@@ -3227,10 +3403,9 @@ window.showStaffPanel = showStaffPanel;
 window.hideStaffPanel = hideStaffPanel;
 window.goManualHomeTable = goManualHomeTable;
 window.startTable = startTable;
+window.mmTriggerTableActivation = activatePendingCustomerTable;
 window.openScan = openScan;
 window.closeScan = closeScan;
-window.manualTable = manualTable;
-window.goManualTable = manualTable;
 window.openCart = openCart;
 window.closeCart = closeCart;
 window.placeOrder = placeOrder;
@@ -3578,8 +3753,17 @@ function updCart() {
   var tot = cart.reduce(function(s,c){ return s + c.price * c.qty; }, 0);
   document.getElementById('badge').textContent = n;
   var bar = document.getElementById('cart-bar');
-  if (n > 0) { bar.style.display = 'flex'; bar.innerHTML = '<span class="cb-count" aria-hidden="true">' + n + '</span><span class="cb-label">' + window.mmI18n('View order','ऑर्डर पाहा') + '</span><span class="cb-total">₹' + tot + '</span>'; bar.setAttribute('aria-label', window.mmI18n('View order','ऑर्डर पाहा') + ', ' + n + ' items, ₹' + tot); bar.classList.remove('bump'); void bar.offsetWidth; bar.classList.add('bump'); }
-  else bar.style.display = 'none';
+  if (bar.parentElement) bar.parentElement.classList.toggle('has-cart', n > 0);
+  if (n > 0) {
+    var label = window.mmI18n('View cart','कार्ट पाहा');
+    bar.style.display = 'flex';
+    bar.innerHTML = '<span class="cb-count" aria-hidden="true">' + n + '</span><span class="cb-label"><span class="cb-label-full">' + label + '</span><span class="cb-label-short">' + window.mmI18n('Cart','कार्ट') + '</span></span><span class="cb-total">₹' + tot + '</span>';
+    bar.setAttribute('aria-label', label + ', ' + n + (n === 1 ? ' item' : ' items') + ', ₹' + tot);
+    bar.classList.remove('bump'); void bar.offsetWidth; bar.classList.add('bump');
+  } else {
+    bar.style.display = 'none';
+    bar.classList.remove('bump');
+  }
   if (typeof updateCustomerBottomActions === 'function') updateCustomerBottomActions();
 }
 function removeCartItem(id) {
@@ -3887,6 +4071,7 @@ function addCustomerClosedVisit(visitId, tableNumber) {
       localStorage.removeItem('mm_customer_active_table');
     }
   } catch (e) {}
+  clearCustomerQrEntryLock(tableNo);
   try { var cr = JSON.parse(localStorage.getItem('mm_cash_request') || 'null'); if (cr && String(cr.visitId) === visit) localStorage.removeItem('mm_cash_request'); } catch (e) {}
   if (String(payContext.visitId || '') === visit) {
     payContext.visitId = null;
@@ -4551,21 +4736,30 @@ function qrApiURLs(text,size) {
   ];
 }
 function qrApiURL(text,size) { return qrApiURLs(text,size)[0]; }
+// A URL carrying the private table credential (?qr=) must never be sent to a
+// third-party QR image service, so it is only ever rendered by the local library.
+function mmIsSecureQrText(text) { return /[?&]qr=/i.test(String(text || '')); }
 function makeQRImage(text,size) {
-  return new Promise(function(resolve){
+  return new Promise(function(resolve,reject){
+    var secure=mmIsSecureQrText(text);
     var settled=false,timer=null;
     function finish(src){if(settled)return;settled=true;if(timer)clearTimeout(timer);resolve(src);}
+    function fallback(){
+      if(!secure){finish(qrApiURL(text,size));return;}
+      if(settled)return;settled=true;if(timer)clearTimeout(timer);
+      reject(new Error('Secure QR could not be generated on this device.'));
+    }
     // If JavaScript CDNs are slow on mobile, use the image fallback quickly rather than showing a spinner indefinitely.
-    timer=setTimeout(function(){finish(qrApiURL(text,size));},1800);
+    if(!secure)timer=setTimeout(function(){finish(qrApiURL(text,size));},1800);
     ensureQRCode().then(function(QR){
       QR.toDataURL(text,{width:size,margin:2,errorCorrectionLevel:'H'},function(err,data){
-        finish(!err&&data?data:qrApiURL(text,size));
+        if(!err&&data)finish(data);else fallback();
       });
-    }).catch(function(){finish(qrApiURL(text,size));});
+    }).catch(fallback);
   });
 }
 function configureQRImage(img,text,size,firstSource,onReady,onFailure) {
-  var sources=qrApiURLs(text,size);
+  var sources=mmIsSecureQrText(text)?[]:qrApiURLs(text,size);
   var next=0;
   if(firstSource.indexOf('api.qrserver.com')>=0)next=1;
   else if(firstSource.indexOf('quickchart.io')>=0)next=2;
@@ -4652,8 +4846,12 @@ function startScan() {
   if (reader) reader.innerHTML = '';
   if (status) status.textContent = window.mmI18n('Requesting rear camera access…','मागील कॅमेऱ्याची परवानगी मागत आहे…');
   function handleScanText(txt) {
-    var t = parseTable(txt);
-    if (t) { closeScan(); startTable(t); toast('Table ' + t); }
+    var entry = qrEntryFromScanText(txt);
+    if (!entry) { reportQrEntryFailure(MM_QR_ENTRY_MESSAGE, true); return; }
+    if (enterCustomerTableFromQr(entry.table, entry.token, true)) {
+      closeScan();
+      toast('Table ' + entry.table);
+    }
   }
   function startWithCamera(H5, camera) {
     var instance = new H5('qr-reader');
@@ -4681,20 +4879,8 @@ function startScan() {
     });
   }).catch(function (err) {
     console.warn('[Mirch Masaala] QR camera scan unavailable:', err);
-    if (status) status.textContent = window.mmI18n('Camera unavailable. Allow camera access in your browser settings, or enter the table number below.','कॅमेरा उपलब्ध नाही. ब्राउझर सेटिंग्जमध्ये कॅमेऱ्याची परवानगी द्या किंवा खाली टेबल क्रमांक टाका.');
+    if (status) status.textContent = window.mmI18n('Camera unavailable. Allow camera access in your browser settings, or open the QR link shared by staff.','कॅमेरा उपलब्ध नाही. ब्राउझर सेटिंग्जमध्ये कॅमेऱ्याची परवानगी द्या किंवा कर्मचाऱ्यांनी दिलेली QR लिंक उघडा.');
   });
-}
-function manualTable() {
-  var input = document.getElementById('manual-t');
-  var t = parseTable(input ? input.value : '');
-  if (!t) { toast(window.mmI18n('Enter a valid table number','योग्य टेबल क्रमांक टाका')); return; }
-  closeScan(); startTable(t);
-}
-function useManualScanTable() {
-  var input = document.getElementById('manual-t');
-  var t = parseTable(input ? input.value : '');
-  if (!t) { toast(window.mmI18n('Enter a table number from 1 to ','१ ते ') + tableCount()); if (input) input.focus(); return; }
-  closeScan(); startTable(t);
 }
 
 /* Waiter */
@@ -5536,10 +5722,9 @@ window.showStaffPanel = showStaffPanel;
 window.hideStaffPanel = hideStaffPanel;
 window.goManualHomeTable = goManualHomeTable;
 window.startTable = startTable;
+window.mmTriggerTableActivation = activatePendingCustomerTable;
 window.openScan = openScan;
 window.closeScan = closeScan;
-window.manualTable = manualTable;
-window.goManualTable = manualTable;
 window.openCart = openCart;
 window.closeCart = closeCart;
 window.placeOrder = placeOrder;
@@ -6081,7 +6266,213 @@ function drawQR() {
     '</div></section>' +
     '<details class="qr-advanced"><summary>More settings · seating capacity</summary><div class="seating-capacity-settings"><b>Seats per table</b><p class="muted" style="font-size:11px;margin-top:3px">Set 1–30 seats if your tables have different capacities.</p><div class="seating-capacity-controls">' +
     '<select id="capacity-table-select" aria-label="Choose table for seating capacity" onchange="loadSelectedTableCapacity()">' + tableRows.map(function(t){return '<option value="' + t.number + '">Table ' + t.number + '</option>';}).join('') + '</select>' +
-    '<input id="capacity-seats-input" type="number" min="1" max="30" step="1" value="4" inputmode="numeric" aria-label="Number of seats at table"><button type="button" class="btn btn-main" id="capacity-save-button" onclick="saveTableCapacity()">Save capacity</button></div><p class="muted" id="capacity-save-status" style="font-size:11px;margin-top:7px" aria-live="polite"></p></div></details>';
+    '<input id="capacity-seats-input" type="number" min="1" max="30" step="1" value="4" inputmode="numeric" aria-label="Number of seats at table"><button type="button" class="btn btn-main" id="capacity-save-button" onclick="saveTableCapacity()">Save capacity</button></div><p class="muted" id="capacity-save-status" style="font-size:11px;margin-top:7px" aria-live="polite"></p></div></details>' +
+    '<section class="qr-main-guide" aria-labelledby="secure-qr-title" style="margin-top:16px">' +
+      '<div class="qr-main-head"><div class="qr-main-copy"><span class="qr-main-eyebrow">SECURITY</span><h2 id="secure-qr-title">Secure table QR codes</h2><p>Each sticker carries a private per-table code. Print and place every sticker, confirm, then switch protection on. Guests keep using the same QR flow.</p></div></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">' +
+        '<button type="button" class="btn btn-main" onclick="generateSecureTableQRs(false)">Generate missing secure QRs</button>' +
+        '<button type="button" class="btn btn-soft" onclick="downloadAllQRCodes()">Print all table QRs</button>' +
+        '<button type="button" class="btn btn-ok" onclick="confirmSecureTableQRs()">I printed and placed every sticker</button>' +
+        '<button type="button" class="btn btn-ok" onclick="setSecureQREnforcement(true)">Enable QR protection</button>' +
+        '<button type="button" class="btn btn-soft" onclick="setSecureQREnforcement(false)">Disable protection</button>' +
+        '<button type="button" class="btn btn-bad" onclick="generateSecureTableQRs(true)">Rotate all codes</button>' +
+      '</div>' +
+      '<p class="muted" id="secure-qr-status" style="font-size:11px;margin:0" aria-live="polite">Checking secure QR status…</p>' +
+      '<p id="secure-qr-notice" role="alert" style="display:' + (mmSecureQrNotice ? 'block' : 'none') + ';font-size:12px;font-weight:700;color:var(--gold2);margin:8px 0 0;white-space:pre-line">' + esc(mmSecureQrNotice) + '</p>' +
+      '<div id="secure-qr-table-status" style="margin-top:10px"></div>' +
+      '<p class="muted" style="font-size:11px;margin:8px 0 0">The server keeps only a hash of each code and shows the original once. A table can be printed only from the device that received its code. Rotating invalidates that table\'s old sticker immediately.</p>' +
+    '</section>';
+  if (role === 'admin') setTimeout(refreshSecureQrStatus, 0);
+}
+var mmSecureQrNotice = '';
+function mmSetSecureQrNotice(text) {
+  mmSecureQrNotice = String(text || '');
+  var host = document.getElementById('secure-qr-notice');
+  if (host) { host.textContent = mmSecureQrNotice; host.style.display = mmSecureQrNotice ? 'block' : 'none'; }
+}
+function setSecureQrStatusText(text) {
+  var host = document.getElementById('secure-qr-status');
+  if (host) host.textContent = String(text || '');
+}
+// Server credentials and locally printable tokens are different things: the
+// server stores only a hash, so a table can be printed only from a device that
+// still holds the original token. Normalise the server status next to that.
+async function mmSecureQrSnapshot() {
+  if (typeof window.MM_ADMIN_QR_STATUS !== 'function') throw new Error('Secure QR setup is not installed yet. Apply supabase/p0-security-hardening.sql, then refresh.');
+  var status = await window.MM_ADMIN_QR_STATUS();
+  var tables = Array.isArray(status && status.tables) ? status.tables : [];
+  var rows = tables.map(function(t) {
+    var number = String(t && t.table_number || '');
+    return {
+      number: number,
+      server: !!(t && t.has_credential),
+      verified: !!(t && t.verified),
+      local: !!mmQrTokenForTable(number)
+    };
+  });
+  return { enforcement: !!(status && status.qr_enforcement_enabled), rows: rows };
+}
+function mmQrNumbers(rows, test) {
+  return rows.filter(test).map(function(r) { return r.number; });
+}
+function renderSecureQrTableStatus(rows) {
+  var host = document.getElementById('secure-qr-table-status');
+  if (!host) return;
+  if (!rows.length) { host.innerHTML = '<p class="muted" style="font-size:12px;margin:0">No active tables on the server.</p>'; return; }
+  var noServer = mmQrNumbers(rows, function(r) { return !r.server; });
+  var noLocal = mmQrNumbers(rows, function(r) { return r.server && !r.local; });
+  var hints = '';
+  if (noServer.length) hints += '<p style="font-size:12px;margin:0 0 6px;color:var(--gold2)">No server credential yet for Table ' + esc(noServer.join(', ')) + ' — use “Generate missing secure QRs”.</p>';
+  if (noLocal.length) hints += '<p style="font-size:12px;margin:0 0 6px;color:var(--gold2)">Server credential exists but this device has no printable token for Table ' + esc(noLocal.join(', ')) + ' — rotate those tables to print new stickers.</p>';
+  host.innerHTML = hints +
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left"><th>Table</th><th>Server credential</th><th>Printable on this device</th><th>Confirmed</th><th></th></tr></thead><tbody>' +
+    rows.map(function(r) {
+      var safe = /^[0-9]{2}$/.test(r.number);
+      return '<tr data-table="' + esc(r.number) + '"><td><b>' + esc(r.number) + '</b></td>' +
+        '<td>' + (r.server ? 'Issued' : 'Missing') + '</td>' +
+        '<td>' + (r.local ? 'Token available' : 'No printable token') + '</td>' +
+        '<td>' + (r.verified ? 'Yes' : 'No') + '</td>' +
+        '<td>' + (r.server && safe ? '<button type="button" class="btn btn-bad btn-sm" onclick="rotateSecureTableQR(\'' + r.number + '\')">Rotate</button>' : '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+}
+async function refreshSecureQrStatus() {
+  if (role !== 'admin') return null;
+  try {
+    var snap = await mmSecureQrSnapshot();
+    var n = snap.rows.length;
+    var server = snap.rows.filter(function(r) { return r.server; }).length;
+    var local = snap.rows.filter(function(r) { return r.local; }).length;
+    var verified = snap.rows.filter(function(r) { return r.verified; }).length;
+    setSecureQrStatusText(
+      'Protection: ' + (snap.enforcement ? 'ON' : 'OFF') +
+      ' · Server credentials: ' + server + '/' + n +
+      ' · Printable on this device: ' + local + '/' + n +
+      ' · Printed and confirmed: ' + verified + '/' + n +
+      (snap.enforcement ? '' : ' · Old QR codes still work until protection is enabled.')
+    );
+    renderSecureQrTableStatus(snap.rows);
+    return snap;
+  } catch (e) {
+    setSecureQrStatusText(e && e.message ? e.message : 'Could not read secure QR status.');
+    return null;
+  }
+}
+var MM_QR_STORAGE_BLOCKED = 'This browser cannot save secure QR codes (local storage is blocked or full), so nothing was generated. Turn off private browsing or free up storage, then try again.';
+// Store each freshly issued token and report exactly what happened. The server
+// shows an original token only once, so a token that cannot be stored is lost.
+function mmStoreIssuedTokens(rows) {
+  var res = { stored: [], storeFailed: [], noLocal: [] };
+  rows.forEach(function(row) {
+    if (!row) return;
+    var number = String(row.table_number || '');
+    if (row.token) {
+      if (mmRememberQrToken(number, row.token)) res.stored.push(number);
+      else res.storeFailed.push(number);
+    } else if (row.already_provisioned && !mmQrTokenForTable(number)) {
+      res.noLocal.push(number);
+    }
+  });
+  return res;
+}
+function mmIssueNotice(res) {
+  var lines = [];
+  if (res.storeFailed.length) lines.push('WARNING: Table ' + res.storeFailed.join(', ') + ' got a new server credential but the code could not be saved on this device, so it cannot be printed. Fix browser storage, then rotate each of these tables.');
+  if (res.noLocal.length) lines.push('Table ' + res.noLocal.join(', ') + ' already has a server credential but this device has no printable token. Rotate those tables to print new stickers.');
+  if (res.stored.length) lines.push('Secure QR saved on this device for Table ' + res.stored.join(', ') + '.');
+  return lines.join('\n');
+}
+async function generateSecureTableQRs(rotate) {
+  rotate = rotate === true;
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
+  if (typeof window.MM_ADMIN_GENERATE_ALL_QR !== 'function') { toast('Secure QR setup is not installed yet.'); return; }
+  if (!mmQrStorageWritable()) { mmSetSecureQrNotice(MM_QR_STORAGE_BLOCKED); toast(MM_QR_STORAGE_BLOCKED); return; }
+  if (rotate && !confirm('Rotate EVERY table QR?\n\nAll printed stickers, including those already placed on tables, stop working immediately. If QR protection is ON, guests cannot order until you print, place and confirm the new stickers.')) return;
+  if (!rotate && !confirm('Generate secure QR codes only for tables that do not have one yet? Existing codes are not changed.')) return;
+  try {
+    var data = await window.MM_ADMIN_GENERATE_ALL_QR(rotate);
+    var res = mmStoreIssuedTokens(Array.isArray(data && data.tables) ? data.tables : []);
+    var notice = mmIssueNotice(res);
+    mmSetSecureQrNotice(notice);
+    drawQR();
+    if (res.storeFailed.length) toast('Could not save the code for Table ' + res.storeFailed.join(', ') + ' on this device. See the warning below.');
+    else if (res.stored.length) toast('Secure QR codes generated for ' + res.stored.length + ' table(s). Print the sheet from this device now.');
+    else if (res.noLocal.length) toast('These tables already have a server credential but cannot be printed from this device: ' + res.noLocal.join(', ') + '.');
+    else toast('No active tables found.');
+  } catch (e) {
+    toast(e && e.message ? e.message : 'Could not generate secure QR codes.');
+  }
+}
+async function rotateSecureTableQR(tableNumber) {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
+  if (typeof window.MM_ADMIN_GENERATE_TABLE_QR !== 'function') { toast('Secure QR setup is not installed yet.'); return; }
+  var number = String(tableNumber == null ? '' : tableNumber).padStart(2, '0');
+  if (!/^[0-9]{2}$/.test(number)) { toast('Choose a valid table.'); return; }
+  if (!mmQrStorageWritable()) { mmSetSecureQrNotice(MM_QR_STORAGE_BLOCKED); toast(MM_QR_STORAGE_BLOCKED); return; }
+  if (!confirm('Rotate the QR for Table ' + number + '?\n\nThe sticker already on this table stops working immediately. If QR protection is ON, this table cannot take orders until the new sticker is printed, placed and confirmed.')) return;
+  try {
+    var data = await window.MM_ADMIN_GENERATE_TABLE_QR(number, true);
+    var res = mmStoreIssuedTokens([data && { table_number: number, token: data.token, already_provisioned: data.already_provisioned }]);
+    var notice = mmIssueNotice(res);
+    if (!res.stored.length && !res.storeFailed.length) notice = 'The server did not issue a new code for Table ' + number + '. Nothing was changed on this device.';
+    mmSetSecureQrNotice(notice);
+    drawQR();
+    toast(res.stored.length ? 'Table ' + number + ' rotated. Print its new sticker now.' : notice.split('\n')[0]);
+  } catch (e) {
+    toast(e && e.message ? e.message : 'Could not rotate this table QR.');
+  }
+}
+async function confirmSecureTableQRs() {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
+  if (typeof window.MM_ADMIN_CONFIRM_TABLE_QR !== 'function') { toast('Secure QR setup is not installed yet.'); return; }
+  var snap;
+  try { snap = await mmSecureQrSnapshot(); }
+  catch (e) { toast(e && e.message ? e.message : 'Could not read secure QR status.'); return; }
+  if (!snap.rows.length) { toast('No active tables to confirm.'); return; }
+  var noServer = mmQrNumbers(snap.rows, function(r) { return !r.server; });
+  if (noServer.length) {
+    var blocked = 'Nothing was confirmed. Generate secure QRs first for Table ' + noServer.join(', ') + '.';
+    mmSetSecureQrNotice(blocked); toast(blocked); return;
+  }
+  var noLocal = mmQrNumbers(snap.rows, function(r) { return !r.local; });
+  var question = 'Confirm that every active table sticker was printed, placed on the correct table and scanned successfully?';
+  if (noLocal.length) question += '\n\nThis device has no printable token for Table ' + noLocal.join(', ') + '. Confirm only if those stickers were printed from another device and tested.';
+  if (!confirm(question)) return;
+  try {
+    var data = await window.MM_ADMIN_CONFIRM_TABLE_QR();
+    toast('Confirmed ' + Number(data && data.verified_count || 0) + ' table QR code(s).');
+    refreshSecureQrStatus();
+  } catch (e) {
+    toast(e && e.message ? e.message : 'Could not confirm the printed QR codes.');
+  }
+}
+async function setSecureQREnforcement(enabled) {
+  if (role !== 'admin') { toast('Owner/Admin access required'); return; }
+  if (typeof window.MM_ADMIN_SET_QR_ENFORCEMENT !== 'function') { toast('Secure QR setup is not installed yet.'); return; }
+  if (enabled) {
+    // Never switch protection on unless every active table has a server
+    // credential that the owner has confirmed as printed and placed.
+    var snap;
+    try { snap = await mmSecureQrSnapshot(); }
+    catch (e) {
+      var unread = 'QR protection was NOT enabled: ' + (e && e.message ? e.message : 'the secure QR status could not be read.');
+      mmSetSecureQrNotice(unread); toast(unread); return;
+    }
+    var notReady = mmQrNumbers(snap.rows, function(r) { return !r.server || !r.verified; });
+    if (!snap.rows.length || notReady.length) {
+      var refused = snap.rows.length
+        ? 'QR protection was NOT enabled. Table ' + notReady.join(', ') + ' still needs a printed and confirmed secure QR.'
+        : 'QR protection was NOT enabled: there are no active tables.';
+      mmSetSecureQrNotice(refused); toast(refused); return;
+    }
+    if (!confirm('Enable QR protection? Orders and visit activation will require the secure QR printed for that exact table.')) return;
+  }
+  try {
+    var data = await window.MM_ADMIN_SET_QR_ENFORCEMENT(!!enabled);
+    toast('QR protection ' + (data && data.qr_enforcement_enabled ? 'enabled' : 'disabled') + '.');
+    refreshSecureQrStatus();
+  } catch (e) {
+    toast(e && e.message ? e.message : 'Could not change QR protection.');
+  }
 }
 function loadSelectedTableCapacity() {
  var selector=document.getElementById('capacity-table-select'),input=document.getElementById('capacity-seats-input');if(selector&&input)input.value=String(tableCapacityFor(selector.value));
@@ -6097,14 +6488,80 @@ async function saveTableCapacity() {
  catch(e){if(status)status.textContent=e&&e.message?e.message:'Could not save table capacity.';toast(e&&e.message?e.message:'Could not save table capacity.');}
  finally{var nextButton=document.getElementById('capacity-save-button');if(nextButton){nextButton.disabled=false;nextButton.textContent='Save capacity';}}
 }
-function tableURL(t) {
-  return location.origin + location.pathname + '?table=' + encodeURIComponent(String(t).padStart(2,'0'));
+var MM_QR_TOKEN_RE = /^[0-9a-f]{64}$/i;
+function mmQrTokenForTable(t) {
+  var number = String(t == null ? '' : t).padStart(2, '0');
+  if (!/^[0-9]{2}$/.test(number)) return '';
+  try {
+    var token = String(localStorage.getItem('mm_table_qr_' + number) || '');
+    return MM_QR_TOKEN_RE.test(token) ? token : '';
+  } catch (e) { return ''; }
+}
+// True only when the token was really written: storage that throws, or that
+// silently drops the write, both report false.
+function mmRememberQrToken(t, token) {
+  var number = String(t == null ? '' : t).padStart(2, '0');
+  var value = String(token || '').trim();
+  if (!/^[0-9]{2}$/.test(number) || !MM_QR_TOKEN_RE.test(value)) return false;
+  try {
+    localStorage.setItem('mm_table_qr_' + number, value);
+    return localStorage.getItem('mm_table_qr_' + number) === value;
+  } catch (e) { return false; }
+}
+function mmQrStorageWritable() {
+  var key = 'mm_qr_storage_probe';
+  try {
+    localStorage.setItem(key, '1');
+    var ok = localStorage.getItem(key) === '1';
+    localStorage.removeItem(key);
+    return ok;
+  } catch (e) { return false; }
+}
+window.MM_QR_TOKEN_FOR_TABLE = mmQrTokenForTable;
+window.MM_REMEMBER_QR_TOKEN = mmRememberQrToken;
+// The one place a secure table URL is built. It returns '' (never an insecure
+// URL) unless this device holds a valid 64-hex token for the table and the
+// finished URL parses back to exactly this table and this token.
+function mmSecureTableURL(t) {
+  var number = String(t == null ? '' : t).trim().padStart(2, '0');
+  if (!/^[0-9]{2}$/.test(number)) return '';
+  var token = mmQrTokenForTable(number);
+  if (!MM_QR_TOKEN_RE.test(token)) return '';
+  var base;
+  try {
+    base = typeof window.MM_TABLE_URL === 'function'
+      ? window.MM_TABLE_URL(number)
+      : location.origin + location.pathname + '?table=' + encodeURIComponent(number);
+  } catch (e) { return ''; }
+  base = String(base || '');
+  if (!base) return '';
+  var url = base + (base.indexOf('?') >= 0 ? '&' : '?') + 'qr=' + encodeURIComponent(token);
+  try {
+    var parsed = new URL(url);
+    var tables = parsed.searchParams.getAll('table'), tokens = parsed.searchParams.getAll('qr');
+    if (tables.length !== 1 || tables[0] !== number || tokens.length !== 1 || tokens[0] !== token) return '';
+  } catch (e) { return ''; }
+  return url;
+}
+// Kept for existing callers; now never returns a URL without its credential.
+function tableURL(t) { return mmSecureTableURL(t); }
+// Every active table must have a secure URL before a printable sheet is made.
+function mmQrPrintReadiness() {
+  var tables = (Array.isArray(MENU.tables) ? MENU.tables : []).filter(function(t) { return t && t.is_active !== false; });
+  var items = [], missing = [];
+  tables.forEach(function(t) {
+    var number = String(t.number);
+    var url = mmSecureTableURL(number);
+    if (url) items.push({ number: number, url: url });
+    else missing.push(number);
+  });
+  return { total: tables.length, items: items, missing: missing };
 }
 function localTableQRDataURL(t) {
   var assets=window.MM_QR_MATRICES, num=String(t).padStart(2,'0');
   if(!assets||!assets.tables||!assets.tables[num])return null;
   var target=tableURL(num);
-  if(target!==assets.baseURL+num)return null;
+  if(!target||target!==assets.baseURL+num)return null;
   var packed;
   try{packed=atob(assets.tables[num]);}catch(e){return null;}
   var size=assets.size||41,commands=[];
@@ -6121,23 +6578,43 @@ function localTableQRDataURL(t) {
   return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
 }
 function makeTableQRImage(t,size) {
+  var url=tableURL(t);
+  if(!url)return Promise.reject(new Error('No secure QR is available for Table '+String(t).padStart(2,'0')+'.'));
   var local=localTableQRDataURL(t);
-  return local?Promise.resolve(local):makeQRImage(tableURL(t),size||240);
+  return local?Promise.resolve(local):makeQRImage(url,size||240);
 }
 var currentQRCodeTable = null;
+var currentQRCodeURL = '';
 function retryCurrentQR(){if(currentQRCodeTable)showQR(currentQRCodeTable);}
+// The validated URL for the table open in the QR dialog, or '' if it is no
+// longer exactly the secure URL this device would build for that table.
+function mmCurrentQrUrl() {
+  if (!currentQRCodeTable || !currentQRCodeURL) return '';
+  var fresh = mmSecureTableURL(currentQRCodeTable);
+  return fresh && fresh === currentQRCodeURL ? fresh : '';
+}
 function showQR(t) {
   currentQRCodeTable=String(t).padStart(2,'0');
+  currentQRCodeURL='';
   document.getElementById('qr-lab').textContent=currentQRCodeTable;
-  var url=tableURL(currentQRCodeTable),box=document.getElementById('qr-code');
+  var url=mmSecureTableURL(currentQRCodeTable),box=document.getElementById('qr-code');
   var linkInput=document.getElementById('qr-table-url');if(linkInput)linkInput.value=url;
   var button=document.getElementById('qr-download-btn'),openLink=document.getElementById('qr-open-link');
-  if(button){button.disabled=true;button.textContent='Preparing QR…';}
   if(openLink){openLink.style.display='none';openLink.href='#';}
-  box.innerHTML='<div class="muted" style="padding:55px 8px">Preparing QR…</div>';
   document.getElementById('qr-modal').classList.add('on');
+  if(!url){
+    box.innerHTML='';
+    var unavailable=document.createElement('p');unavailable.className='muted';unavailable.style.padding='22px 8px';unavailable.setAttribute('role','alert');
+    unavailable.textContent='No secure QR is available for Table '+currentQRCodeTable+' on this device. Use “Generate missing secure QRs”, or rotate this table, then try again.';
+    box.appendChild(unavailable);
+    if(button){button.disabled=true;button.textContent='No secure QR';}
+    return;
+  }
+  currentQRCodeURL=url;
+  if(button){button.disabled=true;button.textContent='Preparing QR…';}
+  box.innerHTML='<div class="muted" style="padding:55px 8px">Preparing QR…</div>';
   makeTableQRImage(currentQRCodeTable,240).then(function(src){
-    if(!document.getElementById('qr-modal').classList.contains('on')||currentQRCodeTable!==String(t).padStart(2,'0'))return;
+    if(!document.getElementById('qr-modal').classList.contains('on')||currentQRCodeTable!==String(t).padStart(2,'0')||currentQRCodeURL!==url)return;
     box.innerHTML='';
     var img=document.createElement('img');img.id='qr-image';img.alt='QR code for Table '+currentQRCodeTable;img.width=220;img.height=220;
     img.style.cssText='width:220px;height:220px;max-width:100%;object-fit:contain;background:#fff;padding:8px;border-radius:8px';
@@ -6146,19 +6623,21 @@ function showQR(t) {
       if(button){button.disabled=false;button.textContent='Download QR';}
       if(openLink){openLink.href=readyImg.src;openLink.style.display='flex';}
     },function(){
-      box.innerHTML='<p class="muted" style="padding:22px 8px">QR services did not load. Check the internet and try again.</p>';
+      box.innerHTML='<p class="muted" style="padding:22px 8px">The secure QR could not be drawn on this device. Check the internet (the QR library must load) and try again.</p>';
       if(button){button.disabled=false;button.textContent='Retry QR';}
       if(openLink)openLink.style.display='none';
     });
     box.appendChild(img);
   }).catch(function(){
-    box.innerHTML='<p class="muted" style="padding:22px 8px">QR could not be generated. Check internet and retry.</p>';
+    if(currentQRCodeURL!==url)return;
+    box.innerHTML='<p class="muted" style="padding:22px 8px">The secure QR could not be generated. Check the internet (the QR library must load) and retry.</p>';
     if(button){button.disabled=false;button.textContent='Retry QR';}
   });
 }
 function copyCurrentTableLink() {
   if (!currentQRCodeTable) { toast('Choose a table QR first.'); return; }
-  var url = tableURL(currentQRCodeTable);
+  var url = mmCurrentQrUrl();
+  if (!url) { toast('No secure link is available for this table.'); return; }
   var field = document.getElementById('qr-table-url');
   function fallbackCopy() {
     if (field) { field.value = url; field.focus(); field.select(); }
@@ -6172,7 +6651,8 @@ function copyCurrentTableLink() {
 }
 function shareCurrentTableLink() {
   if (!currentQRCodeTable) { toast('Choose a table QR first.'); return; }
-  var url = tableURL(currentQRCodeTable);
+  var url = mmCurrentQrUrl();
+  if (!url) { toast('No secure link is available for this table.'); return; }
   if (navigator.share) {
     navigator.share({title:'Mirch Masaala · Table ' + currentQRCodeTable, text:'Open the menu for this table:', url:url}).catch(function(e) {
       if (!e || e.name !== 'AbortError') copyCurrentTableLink();
@@ -6186,28 +6666,38 @@ function dlQR() {
     if(button&&button.textContent==='Retry QR'){retryCurrentQR();return;}
     toast('QR is still loading. Please wait a moment.');return;
   }
+  var url=mmCurrentQrUrl();
+  if(!url||img.dataset.qrUrl!==url){toast('This QR does not match the secure code for the table. Close it and open the table again.');return;}
   var n=(document.getElementById('qr-lab').textContent||'table').replace(/[^0-9]/g,'');
   downloadQRImage(img.src,'mirch-masaala-table-'+n+'-qr.png');
 }
 function downloadAllQRCodes() {
+  // Refuse before opening any tab: a sheet is only made when EVERY active
+  // table has a valid secure token on this device.
+  var readiness=mmQrPrintReadiness();
+  if(!readiness.total){toast('No tables are set up, so there is nothing to print.');return;}
+  if(readiness.missing.length){
+    var blocked='Cannot print the QR sheet: no secure QR is available on this device for Table '+readiness.missing.join(', ')+'. Generate missing secure QRs, or rotate those tables, then print again.';
+    mmSetSecureQrNotice(blocked);toast(blocked);return;
+  }
   var win=window.open('','_blank');
   if(!win){toast('Pop-up blocked. Allow pop-ups for this site to make the printable QR sheet.');return;}
   win.document.open();
   win.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mirch Masaala · Table QR codes</title><style>body{font-family:Arial,sans-serif;color:#21160f;padding:22px}h1{text-align:center;margin:0 0 4px}p{text-align:center;margin:0 0 20px;color:#665}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.item{border:1px solid #b9a889;border-radius:12px;padding:10px;text-align:center;break-inside:avoid}.item img{width:100%;max-width:190px;display:block;margin:8px auto;background:#fff}.item strong{font-size:19px;letter-spacing:2px}.url{font-size:9px;overflow-wrap:anywhere;color:#555}.help{font-size:12px;color:#555}@media print{body{padding:0}.grid{gap:8px}.item{padding:6px}}</style></head><body><h1>MIRCH MASAALA</h1><p>Scan each QR to open the matching table menu · Print and place on the correct table</p><p id="qr-sheet-status">Preparing QR codes…</p></body></html>');
   win.document.close();
-  Promise.all(MENU.tables.map(function(t){
-    var target=tableURL(t.number);
-    return makeTableQRImage(t.number,240).then(function(src){return{number:t.number,url:target,src:src};});
+  Promise.all(readiness.items.map(function(it){
+    return makeTableQRImage(it.number,240).then(function(src){return{number:it.number,url:it.url,src:src};});
   })).then(function(items){
     if(win.closed)return;
     var status=win.document.getElementById('qr-sheet-status');
     status.outerHTML='<div class="grid">'+items.map(function(it,i){
-      return '<div class="item"><strong>TABLE '+it.number+'</strong><img id="qr-sheet-'+i+'" alt="QR for Table '+it.number+'" src="'+it.src+'"><div class="url">'+it.url+'</div></div>';
-    }).join('')+'</div><p class="help">If printing is not available, use the browser Share menu and choose Print or Save as PDF. QR codes need internet during generation; test a sticker before placing all of them.</p>';
+      return '<div class="item"><strong>TABLE '+esc(it.number)+'</strong><img id="qr-sheet-'+i+'" alt="QR for Table '+esc(it.number)+'" src="'+it.src+'"><div class="url">'+esc(it.url)+'</div></div>';
+    }).join('')+'</div><p class="help">If printing is not available, use the browser Share menu and choose Print or Save as PDF. The QR library needs internet while the codes are drawn; test a sticker before placing all of them.</p>';
+    var failed=[];
     var imgs=Array.prototype.slice.call(win.document.querySelectorAll('.item img'));
     imgs.forEach(function(img,i){
       var it=items[i];
-      configureQRImage(img,it.url,240,it.src,function(){},function(){img.alt='QR failed for Table '+it.number;});
+      configureQRImage(img,it.url,240,it.src,function(){},function(){img.alt='QR failed for Table '+it.number;failed.push(it.number);});
     });
     Promise.all(imgs.map(function(img){return new Promise(function(resolve){
       var finished=false;function done(){if(finished)return;finished=true;resolve();}
@@ -6215,11 +6705,19 @@ function downloadAllQRCodes() {
       if(img.complete&&img.naturalWidth)done();
       setTimeout(done,9000);
     });})).then(function(){
-      if(!win.closed){win.focus();toast('Printable QR sheet ready. Use Print / Save as PDF in the new tab.');}
+      if(win.closed)return;
+      if(failed.length){
+        var warn=win.document.createElement('p');warn.style.cssText='color:#b00020;font-weight:700';
+        warn.textContent='Do not print this sheet: the QR failed for Table '+failed.join(', ')+'. Close this tab and try again.';
+        win.document.body.insertBefore(warn,win.document.body.children[2]||null);
+        toast('QR failed for Table '+failed.join(', ')+'. Do not print this sheet.');
+        return;
+      }
+      win.focus();toast('Printable QR sheet ready. Use Print / Save as PDF in the new tab.');
     });
   }).catch(function(err){
-    console.warn(err);
-    if(!win.closed)win.document.getElementById('qr-sheet-status').textContent='Could not create QR sheet. Check internet and retry.';
+    console.warn(err&&err.message);
+    if(!win.closed)win.document.getElementById('qr-sheet-status').textContent='Could not create the secure QR sheet. Check the internet and retry.';
     toast('Could not generate QR sheet');
   });
 }
@@ -7029,14 +7527,16 @@ function updateCustomerBottomActions() {
     try { tableNo = String(localStorage.getItem('mm_customer_active_table') || '').padStart(2, '0'); } catch (e) {}
   }
   var activeOrders = !!tableNo && tableNo !== '00' && customerHasActiveOrdersForTable(tableNo);
+  var entryLockedTable = customerQrEntryLockTable();
   var billButton = document.getElementById('customer-bill-pay-btn');
   if (billButton) billButton.style.display = activeOrders ? 'inline-flex' : 'none';
   var changeButton = document.getElementById('customer-change-table');
   var lockLabel = document.getElementById('customer-table-lock');
   var lockNumber = document.getElementById('customer-table-context-number');
-  if (lockNumber && tableNo && tableNo !== '00') lockNumber.textContent = tableNo;
+  var shownLockTable = entryLockedTable || (activeOrders ? tableNo : '');
+  if (lockNumber && shownLockTable) lockNumber.textContent = shownLockTable;
   if (changeButton) changeButton.style.display = activeOrders ? 'none' : 'inline-flex';
-  if (lockLabel) lockLabel.style.display = activeOrders ? 'inline-flex' : 'none';
+  if (lockLabel) lockLabel.style.display = shownLockTable ? 'inline-flex' : 'none';
   return activeOrders;
 }
 var homeRenderedCustomerLockTable = '';
@@ -7678,7 +8178,6 @@ setInterval(function() {
 }, 2000);
 
 var params = new URLSearchParams(location.search);
-if (params.get('table')) setTimeout(function(){ startTable(params.get('table')); }, 2900);
 setOpenPill();
 
 /* ===== BOOT: wire everything ===== */
@@ -7690,10 +8189,9 @@ window.showStaffPanel = showStaffPanel;
 window.hideStaffPanel = hideStaffPanel;
 window.goManualHomeTable = goManualHomeTable;
 window.startTable = startTable;
+window.mmTriggerTableActivation = activatePendingCustomerTable;
 window.openScan = openScan;
 window.closeScan = closeScan;
-window.manualTable = manualTable;
-window.goManualTable = manualTable;
 window.openCart = openCart;
 window.closeCart = closeCart;
 window.placeOrder = placeOrder;
@@ -7765,13 +8263,7 @@ function bootApp() {
     if (typeof renderPublicOrderBoard === 'function') renderPublicOrderBoard(window.MM_PUBLIC_ORDER_ROWS || []);
     if (typeof setOpenPill === 'function') setOpenPill();
     if (typeof bindStaffSecrets === 'function') bindStaffSecrets();
-    var params = new URLSearchParams(window.location.search);
-    var fromQR = params.get('table');
-    if (fromQR) {
-      var validTable = parseTable(window.location.search);
-      if (validTable) startTable(validTable);
-      else toast('Invalid table QR. Please select your table.');
-    }
+    handleCustomerQrEntryFromLocation();
   } catch (e) { console.error('boot', e); }
 }
 if (document.readyState === 'loading') {
@@ -7786,6 +8278,7 @@ window.drawAdminMenu = drawAdminMenu;
 window.saveItemPrice = saveItemPrice;
 window.filterAdminMenu = filterAdminMenu;
 window.downloadAllQRCodes = downloadAllQRCodes;
+window.mmQrPrintReadiness = mmQrPrintReadiness;
 window.showRoleGuide = showRoleGuide;
 window.setDietFilter = setDietFilter;
 window.selectHomeTable = selectHomeTable;
@@ -7858,7 +8351,7 @@ window.setWDietFilter = setWDietFilter;
   });
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+      navigator.serviceWorker.register('./service-worker.js?env=' + encodeURIComponent(window.MM_ENV_NAME || 'production'), { scope: './' })
         .catch(function (err) { console.info('[Mirch Masaala PWA] Service worker registration unavailable:', err && err.message ? err.message : err); });
     }, { once: true });
   }
@@ -7902,7 +8395,7 @@ window.setWDietFilter = setWDietFilter;
       'menu-tip-title': 'How to order:',
       'menu-tip-message': 'Choose dishes, tap ADD, then open your cart to place the order.',
       'customer-help-button': 'Help & orders',
-      'customer-change-table': '← Change table',
+      'customer-change-table': '← Home',
       'cart-back-button': '← Back to menu',
       'cart-title': 'Your order',
       'cart-note-label': 'Any special request?',
@@ -7959,7 +8452,7 @@ window.setWDietFilter = setWDietFilter;
       'menu-tip-title': 'ऑर्डर कशी द्यावी:',
       'menu-tip-message': 'पदार्थ निवडा, जोडा बटण दाबा आणि ऑर्डर देण्यासाठी कार्ट उघडा.',
       'customer-help-button': 'मदत व ऑर्डर्स',
-      'customer-change-table': '← टेबल बदला',
+      'customer-change-table': '← मुख्यपृष्ठ',
       'cart-back-button': '← मेनूकडे परत',
       'cart-title': 'तुमची ऑर्डर',
       'cart-note-label': 'काही खास सूचना?',

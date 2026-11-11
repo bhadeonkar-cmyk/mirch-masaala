@@ -4,10 +4,48 @@
 (function () {
   'use strict';
 
-  var SUPABASE_URL = 'https://adbhxldsqwsyaqzdmxnf.supabase.co';
-  var SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_jAm4636kkOg-EysRgIa_Jw_bt967sZ9';
-  var RESTAURANT_ID = 'a3702d10-6673-4c06-9783-1d61c945ecd5';
+  var ENV = window.MM_ENV || null;
+  var ENV_NAME = ENV ? ENV.name : 'invalid';
+  var SUPABASE_URL = ENV ? ENV.supabaseUrl : '';
+  var SUPABASE_PUBLISHABLE_KEY = ENV ? ENV.publishableKey : '';
+  var RESTAURANT_ID = ENV ? ENV.restaurantId : '';
   var client = null;
+  var requestAttempts = Object.create(null);
+
+  function newRequestId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+    });
+  }
+
+  function stableAttempt(scope, signature, maxAgeMs) {
+    var key = scope + '|' + signature;
+    var now = Date.now();
+    var rec = requestAttempts[key];
+    if (!rec || now - rec.at > (maxAgeMs || 600000)) {
+      rec = { id: newRequestId(), at: now };
+      requestAttempts[key] = rec;
+    }
+    return rec;
+  }
+
+  function clearAttempt(scope, signature) {
+    try { delete requestAttempts[scope + '|' + signature]; } catch (e) {}
+  }
+
+  function qrCredentialFor(tableNumber) {
+    try {
+      return window.MM_QR_TOKEN_FOR_TABLE ? (window.MM_QR_TOKEN_FOR_TABLE(tableNumber) || '') : '';
+    } catch (e) { return ''; }
+  }
+
+  function addQrCredential(args, tableNumber) {
+    var token = qrCredentialFor(tableNumber);
+    if (token) args.p_qr_credential = token;
+    return args;
+  }
 
   // Keep stable UI IDs for bundled dishes by matching their canonical names.
   // Database UUIDs remain the only identifiers submitted when an order is placed.
@@ -128,13 +166,13 @@
     if (!client || !window.MM_SUPABASE_ENABLED) {
       throw new Error('The shared payment verification service is not connected yet.');
     }
-    var result = await client.rpc('mm_guest_request_visit_payment_check', {
+    var result = await client.rpc('mm_guest_request_visit_payment_check', addQrCredential({
       p_restaurant_id: RESTAURANT_ID,
       p_table_number: String(tableNumber || '').padStart(2, '0'),
       p_visit_id: String(visitId || ''),
       p_customer_session_id: String(customerSessionId || ''),
       p_method: String(method || 'upi').toLowerCase()
-    });
+    }, tableNumber));
     if (result.error) {
       var code = String(result.error.code || '');
       var detail = String(result.error.message || '');
@@ -154,11 +192,11 @@
     if (!client || !window.MM_SUPABASE_ENABLED) {
       throw new Error('The shared payment verification service is not connected yet.');
     }
-    var result = await client.rpc('mm_guest_request_payment_check', {
+    var result = await client.rpc('mm_guest_request_payment_check', addQrCredential({
       p_restaurant_id: RESTAURANT_ID,
       p_table_number: String(tableNumber || '').padStart(2, '0'),
       p_method: String(method || 'upi').toLowerCase()
-    });
+    }, tableNumber));
     if (result.error) {
       var code = String(result.error.code || '');
       var detail = String(result.error.message || '');
@@ -361,7 +399,7 @@
   }
 
   // Public Web Push key; the matching private key exists only in Supabase Edge Function secrets.
-  var WEB_PUSH_VAPID_PUBLIC_KEY = 'BCGV3-RIkNT5dJfV96yuWS61iZe5Zf85s8CJWBgq-Q_pGJWCLEkMD-91IB7yvsZ6Z0mGebJCohhVJmUHcuNW1E0';
+  var WEB_PUSH_VAPID_PUBLIC_KEY = (ENV && ENV.vapidPublicKey) ? ENV.vapidPublicKey : '';
 
   function vapidKeyBytes(base64Url) {
     var padding = '='.repeat((4 - base64Url.length % 4) % 4);
@@ -452,6 +490,10 @@
       notifyError('Notifications are blocked for this app. Enable them in phone Settings, then try again.');
       return false;
     }
+    if (!WEB_PUSH_VAPID_PUBLIC_KEY) {
+      notifyError('Background push is not configured for this environment. In-app alerts still work while the screen is open.');
+      return false;
+    }
     var pushStage = 'notification permission';
     try {
       // This function is invoked directly from the staff member's tap.
@@ -466,7 +508,7 @@
         return false;
       }
       pushStage = 'service worker registration';
-      var registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+      var registration = await navigator.serviceWorker.register('./service-worker.js?env=' + encodeURIComponent(window.MM_ENV_NAME || 'production'), { scope: './' });
       pushStage = 'service worker ready';
       await navigator.serviceWorker.ready;
       var subscription = await registration.pushManager.getSubscription();
@@ -1143,6 +1185,7 @@
 
   var tableVisitRefreshBusy = false;
   var tableVisitSetupMessageShown = false;
+  var pendingTableActivation = null;
 
   async function refreshTableVisits() {
     if (tableVisitRefreshBusy || !client || !window.MM_SUPABASE_ENABLED ||
@@ -1184,9 +1227,9 @@
     if (!client || !window.MM_SUPABASE_ENABLED) {
       throw new Error('Online table ordering is not connected. Please ask staff for help.');
     }
-    var result = await client.rpc('mm_ensure_public_table_visit', {
+    var result = await client.rpc('mm_ensure_public_table_visit', addQrCredential({
       p_table_number: String(tableNumber || '').padStart(2, '0')
-    });
+    }, tableNumber));
     if (result.error) {
       var detail = String(result.error.message || '');
       if (result.error.code === 'PGRST202' || result.error.code === '42883' ||
@@ -1215,9 +1258,9 @@
         message: 'Online ordering is connecting. Please wait a moment.'
       };
     }
-    var result = await client.rpc('mm_public_table_visit_status', {
+    var result = await client.rpc('mm_public_table_visit_status', addQrCredential({
       p_table_number: String(tableNumber || '').padStart(2, '0')
-    });
+    }, tableNumber));
     if (result.error) {
       var detail = String(result.error.message || '');
       // Backward compatible: older projects without this RPC still use ensure.
@@ -1266,6 +1309,52 @@
       started_at: data.started_at || null,
       message: String(data.message || '')
     };
+  }
+
+  // Automatic QR activation: opening the table QR URL is the guest's request to start
+  // a visit at that exact table. The server returns an existing OPEN visit, so repeat
+  // scans and a table already seated by staff stay idempotent.
+  async function activatePublicTableVisit(tableNumber) {
+    var padded = String(tableNumber || '').padStart(2, '0');
+    if (!client || !window.MM_SUPABASE_ENABLED) {
+      throw new Error('Online table ordering is connecting. Please wait a moment.');
+    }
+    var promise = client.rpc('mm_public_activate_table_visit', addQrCredential({
+      p_table_number: padded
+    }, padded)).then(function (result) {
+      if (result.error) {
+        var detail = String(result.error.message || '');
+        if (result.error.code === 'PGRST202' || result.error.code === '42883' ||
+            /mm_public_activate_table_visit/i.test(detail)) {
+          throw new Error('Automatic table activation is not installed yet. Please ask the waiter to activate this table.');
+        }
+        throw new Error(detail || 'Could not activate this table. Please ask the waiter.');
+      }
+      var data = rpcPayload(result.data) || result.data || {};
+      return {
+        table_number: String(data.table_number || padded).padStart(2, '0'),
+        status: String(data.status || 'OPEN').toUpperCase(),
+        can_order: data.can_order !== false,
+        visit_id: data.visit_id || null,
+        started_at: data.started_at || null,
+        already_open: !!data.already_open,
+        message: String(data.message || 'You are ready to order.')
+      };
+    });
+    pendingTableActivation = { table: padded, promise: promise };
+    try {
+      return await promise;
+    } finally {
+      if (pendingTableActivation && pendingTableActivation.promise === promise) pendingTableActivation = null;
+    }
+  }
+
+  // The first tap after a scan can beat the activation round-trip. Submission and gate
+  // reads wait for that in-flight activation instead of seeing a missing visit.
+  async function awaitPendingTableActivation(tableNumber) {
+    var pending = pendingTableActivation;
+    if (!pending || pending.table !== String(tableNumber || '').padStart(2, '0')) return;
+    try { await pending.promise; } catch (e) {}
   }
 
   function customerSessionIdForVisit(visitId) {
@@ -1338,6 +1427,7 @@
   async function createSharedOrder(tableNumber, cartItems, notes) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('Shared database is not connected yet. Please refresh and try again.');
     var actorRole = String(window.role || '');
+    await awaitPendingTableActivation(tableNumber);
     var visit = await ensurePublicTableVisit(tableNumber);
     if (!visit || !visit.visit_id) {
       throw new Error('This table is not open for ordering yet. Please ask your waiter to start the visit.');
@@ -1345,18 +1435,25 @@
     // Each guest phone has a separate session ID tied to the current visit.
     var customerSessionId = !actorRole ? customerSessionIdForVisit(visit.visit_id) : null;
 
-    var ticket = window.makeTicketId(tableNumber, new Date());
     var payload = buildOrderItems(cartItems);
-    var orderArgs = {
+    var tableNo = String(tableNumber).padStart(2, '0');
+    var noteValue = String(notes || '').slice(0, 1000);
+    // One stable request key per cart+visit. A double tap or network retry
+    // returns the original ticket instead of creating a second order.
+    var attemptSignature = [tableNo, noteValue, String(visit.visit_id), JSON.stringify(payload)].join('|');
+    var attempt = stableAttempt('order', attemptSignature);
+    if (!attempt.ticket) attempt.ticket = window.makeTicketId(tableNumber, new Date());
+    var orderArgs = addQrCredential({
       p_restaurant_id: RESTAURANT_ID,
-      p_table_number: String(tableNumber).padStart(2, '0'),
-      p_ticket_id: ticket,
-      p_notes: String(notes || '').slice(0, 1000),
+      p_table_number: tableNo,
+      p_ticket_id: attempt.ticket,
+      p_notes: noteValue,
       p_items: payload,
       p_table_visit_id: visit.visit_id,
       p_customer_session_id: customerSessionId,
-      p_guest_order_code: null
-    };
+      p_guest_order_code: null,
+      p_idempotency_key: 'ord-' + attempt.id
+    }, tableNo);
     var result = await client.rpc('mm_place_order', orderArgs);
     if (result.error) {
       var placeError = result.error;
@@ -1371,6 +1468,7 @@
     if (!created || !created.id || !created.publicToken || !created.visitId) {
       throw new Error('Supabase did not confirm the new order and table visit. Please refresh and check My Orders before trying again.');
     }
+    clearAttempt('order', attemptSignature);
     /* Kitchen receives an in-app NEW_ORDER alert from the database insert trigger. No owner order push is dispatched. */
     if (!actorRole) {
       try {
@@ -1432,6 +1530,7 @@
     // definitively AVAILABLE (not seated).
     if (!window.role) {
       try {
+        await awaitPendingTableActivation(tableNo);
         var gate = await getPublicTableVisitStatus(tableNo);
         var st = String(gate && gate.status || '').toUpperCase();
         if (st === 'AVAILABLE' && !gate.can_order) {
@@ -1581,6 +1680,38 @@
     return rpcPayload(result.data);
   }
 
+  async function adminQrStatus() {
+    return ownerRpc('mm_admin_qr_status', { p_restaurant_id: RESTAURANT_ID });
+  }
+  async function adminGenerateAllTableQR(rotate) {
+    return ownerRpc('mm_admin_generate_all_table_qr', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_rotate: !!rotate
+    });
+  }
+  // Single-table variant of the call above (mm_admin_generate_table_qr). With
+  // rotate=false an already-provisioned table is left untouched; rotate=true
+  // replaces only that table's credential. The token is returned once.
+  async function adminGenerateTableQR(tableNumber, rotate) {
+    return ownerRpc('mm_admin_generate_table_qr', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_table_number: String(tableNumber || ''),
+      p_rotate: rotate === true
+    });
+  }
+  async function adminConfirmTableQR(tableNumbers) {
+    return ownerRpc('mm_admin_confirm_table_qr', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_table_numbers: Array.isArray(tableNumbers) && tableNumbers.length ? tableNumbers : null
+    });
+  }
+  async function adminSetQrEnforcement(enabled) {
+    return ownerRpc('mm_admin_set_qr_enforcement', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_enabled: !!enabled
+    });
+  }
+
   async function previewTableCleanup(tableNumber) {
     return ownerRpc('mm_admin_preview_table_cleanup', { p_table_number: String(tableNumber || '') });
   }
@@ -1622,9 +1753,9 @@
 
   async function getPublicTableBill(tableNumber) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
-    var result = await client.rpc('mm_get_public_table_bill', {
+    var result = await client.rpc('mm_get_public_table_bill', addQrCredential({
       p_table_number: String(tableNumber || '')
-    });
+    }, tableNumber));
     if (result.error) throw new Error(result.error.message || 'Could not calculate the current table balance.');
     return rpcPayload(result.data);
   }
@@ -1632,11 +1763,11 @@
   async function getPublicVisitBill(tableNumber, visitId, customerSessionId) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
     if (!visitId || !customerSessionId) throw new Error('This phone is not linked to an active table visit. Please ask staff for the bill.');
-    var result = await client.rpc('mm_guest_get_visit_bill', {
+    var result = await client.rpc('mm_guest_get_visit_bill', addQrCredential({
       p_table_number: String(tableNumber || '').padStart(2, '0'),
       p_visit_id: String(visitId),
       p_customer_session_id: String(customerSessionId)
-    });
+    }, tableNumber));
     if (result.error) throw new Error(result.error.message || 'Could not calculate this visit’s balance.');
     return rpcPayload(result.data);
   }
@@ -1651,11 +1782,11 @@
 
   async function requestCashCounterRelease(tableNumber, visitId, customerSessionId) {
     if (!client || !window.MM_SUPABASE_ENABLED) throw new Error('The shared database is not connected.');
-    var result = await client.rpc('mm_guest_cash_counter_release', {
+    var result = await client.rpc('mm_guest_cash_counter_release', addQrCredential({
       p_table_number: String(tableNumber || '').padStart(2, '0'),
       p_visit_id: String(visitId || ''),
       p_customer_session_id: String(customerSessionId || '')
-    });
+    }, tableNumber));
     if (result.error) {
       var detail = String(result.error.message || '');
       if (result.error.code === 'PGRST202' || result.error.code === '42883' || /mm_guest_cash_counter_release/i.test(detail)) {
@@ -1675,13 +1806,19 @@
     if (String(window.role || '') !== 'admin') {
       throw new Error('Only the Owner/Counter using the Admin login can confirm and record payment. Please direct the guest to the counter.');
     }
+    var payMethod = String(method || 'other');
+    var payNote = String(note || '').slice(0, 500);
+    var paySignature = ['visit', String(visitId || ''), Number(amount), payMethod, payNote].join('|');
+    var payAttempt = stableAttempt('payment', paySignature, 120000);
     var result = await client.rpc('mm_staff_record_visit_payment', {
       p_visit_id: String(visitId || ''),
       p_amount: Number(amount),
-      p_method: String(method || 'other'),
-      p_note: String(note || '').slice(0, 500)
+      p_method: payMethod,
+      p_note: payNote,
+      p_idempotency_key: 'pay-' + payAttempt.id
     });
     if (result.error) throw new Error(result.error.message || 'Could not record the payment for this visit.');
+    clearAttempt('payment', paySignature);
     var data = rpcPayload(result.data);
     await refreshStaffOrders();
     await refreshRoleNotifications();
@@ -1702,13 +1839,19 @@
     if (String(window.role || '') !== 'admin') {
       throw new Error('Only the Owner/Counter using the Admin login can confirm and record payment.');
     }
+    var payMethod = String(method || 'other');
+    var payNote = String(note || '').slice(0, 500);
+    var paySignature = ['table', String(tableNumber || ''), Number(amount), payMethod, payNote].join('|');
+    var payAttempt = stableAttempt('payment', paySignature, 120000);
     var result = await client.rpc('mm_staff_record_table_payment', {
       p_table_number: String(tableNumber || ''),
       p_amount: Number(amount),
-      p_method: String(method || 'other'),
-      p_note: String(note || '').slice(0, 500)
+      p_method: payMethod,
+      p_note: payNote,
+      p_idempotency_key: 'pay-' + payAttempt.id
     });
     if (result.error) throw new Error(result.error.message || 'Could not record the payment.');
+    clearAttempt('payment', paySignature);
     var data = rpcPayload(result.data);
     await refreshStaffOrders();
     await refreshTableVisits();
@@ -2468,6 +2611,16 @@
   }
 
   function start() {
+    if (!window.MM_CONFIG_OK || !ENV || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !RESTAURANT_ID) {
+      window.MM_SUPABASE_STATUS = 'config-invalid';
+      window.MM_SUPABASE_ENABLED = false;
+      window.MM_MENU_LOAD_ERROR = true;
+      window.placeOrder = function () { notifyError('Online ordering is disabled until this environment is configured.'); };
+      window.wSend = function () { notifyError('Online ordering is disabled until this environment is configured.'); };
+      window.doLogin = function () { notifyError('Staff login is disabled until this environment is configured.'); };
+      console.warn('[Mirch Masaala config] ' + (window.MM_ENV_ERROR || 'Environment configuration is missing or invalid.'));
+      return;
+    }
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
       window.MM_SUPABASE_STATUS = 'library-missing';
       window.MM_SUPABASE_ENABLED = false;
@@ -2482,7 +2635,7 @@
     // standard Supabase key and keeps sessions available when a staff URL changes
     // or the app is refreshed. Migrate existing role-specific keys before creating
     // the client so already-signed-in staff do not have to sign in again.
-    var projectRef = 'adbhxldsqwsyaqzdmxnf';
+    var projectRef = ENV.projectRef || '';
     try { projectRef = new URL(SUPABASE_URL).hostname.split('.')[0] || projectRef; } catch (e) {}
     var authStorageKey = 'sb-' + projectRef + '-auth-token';
     try {
@@ -2546,6 +2699,9 @@
     window.MM_CREATE_GUEST_NOTIFICATION = createGuestNotification;
     window.MM_REQUEST_PAYMENT_VERIFICATION = requestPaymentVerification;
     window.MM_GET_PUBLIC_TABLE_VISIT_STATUS = getPublicTableVisitStatus;
+    window.MM_ACTIVATE_PUBLIC_TABLE_VISIT = activatePublicTableVisit;
+    window.MM_AWAIT_TABLE_ACTIVATION = awaitPendingTableActivation;
+    if (typeof window.mmTriggerTableActivation === 'function') window.mmTriggerTableActivation();
     window.MM_REFRESH_TABLE_VISITS = refreshTableVisits;
     window.MM_SET_TABLE_VISIT_STATUS = setTableVisitStatus;
     window.MM_SET_TABLE_CAPACITY = setTableCapacity;
@@ -2602,6 +2758,11 @@
     window.MM_CANCEL_ADMIN_ORDER = cancelAdminOrder;
     window.MM_SET_ORDER_COMPLIMENTARY = setOrderComplimentary;
     window.MM_RECORD_TABLE_PAYMENT = recordTablePayment;
+    window.MM_ADMIN_QR_STATUS = adminQrStatus;
+    window.MM_ADMIN_GENERATE_ALL_QR = adminGenerateAllTableQR;
+    window.MM_ADMIN_GENERATE_TABLE_QR = adminGenerateTableQR;
+    window.MM_ADMIN_CONFIRM_TABLE_QR = adminConfirmTableQR;
+    window.MM_ADMIN_SET_QR_ENFORCEMENT = adminSetQrEnforcement;
     window.MM_GET_PUBLIC_TABLE_BILL = getPublicTableBill;
     window.MM_GET_PUBLIC_VISIT_BILL = getPublicVisitBill;
     window.MM_GET_STAFF_VISIT_BILL = getStaffVisitBill;
@@ -2674,7 +2835,7 @@
     setInterval(refreshRoleNotifications, 4000);
     setInterval(refreshCustomerOrders, 6000);
     setInterval(refreshPublicOrderBoard, 8000);
-    console.info('[Mirch Masaala] Supabase connected. Frontend is using shared menu and orders.');
+    console.info('[Mirch Masaala] Supabase connected (' + ENV_NAME + '). Frontend is using shared menu and orders.');
   }
 
   if (document.readyState === 'loading') {
