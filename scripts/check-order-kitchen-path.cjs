@@ -17,6 +17,7 @@ try { ({ chromium } = require('playwright')); }
 catch (e) { console.error('Needs Playwright: npm i playwright && npx playwright install chromium'); process.exit(2); }
 
 const indexUrl = 'file://' + path.resolve(process.cwd(), 'index.html');
+const TEST_QR_TOKEN = '0123456789abcdef'.repeat(4);
 const VISIT = '11111111-1111-4111-8111-111111111111';
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 let failures = 0, total = 0;
@@ -33,7 +34,7 @@ function installFakeSupabase(scenario) {
   const VISIT06 = '11111111-1111-4111-8111-111111111106';
   window.__rpc = [];
   window.__updates = [];
-  window.__sc = Object.assign({ status: 'open', place: 'success', placeDelay: 0, staffFail: false, statusDelay: 0, firstStatusDelay: 0 }, scenario || {});
+  window.__sc = Object.assign({ status: 'open', place: 'success', placeDelay: 0, staffFail: false, statusDelay: 0, firstStatusDelay: 0, autoActivate: true, activationDelay: 0 }, scenario || {});
   window.__db = { orders: [], items: [], seq: 0 };
   // Per-table visit state. Table 05 mirrors __sc.status so older scenarios keep working;
   // table 06 starts unseated so cross-table isolation can be proven.
@@ -127,6 +128,17 @@ function installFakeSupabase(scenario) {
         if (s.firstStatusDelay && !s.__firstStatusUsed) { ms = s.firstStatusDelay; s.__firstStatusUsed = true; }
         return new Promise((res) => setTimeout(() => res(payload), ms));
       }
+      if (name === 'mm_public_activate_table_visit') {
+        if (!validTable(tn)) return Promise.resolve({ data: null, error: { code: 'P0001', message: 'Choose a valid table number' } });
+        if (s.autoActivate === false) return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.mm_public_activate_table_visit' } });
+        return new Promise((res) => setTimeout(() => {
+          const existing = visitFor(tn);
+          if (existing) return res({ data: { table_number: tn, status: 'OPEN', can_order: true, visit_id: existing.visit_id, already_open: true, message: 'You are ready to order.' }, error: null });
+          window.__visits[tn] = { visit_id: visitIdFor(tn) };
+          if (tn === '05') window.__sc.status = 'open';
+          res({ data: { table_number: tn, status: 'OPEN', can_order: true, visit_id: visitIdFor(tn), already_open: false, message: 'You are ready to order.' }, error: null });
+        }, s.activationDelay || 0));
+      }
       if (name === 'mm_ensure_public_table_visit') {
         if (!validTable(tn)) return Promise.resolve({ data: null, error: { code: 'P0001', message: 'Choose a valid table number' } });
         const v = visitFor(tn);
@@ -183,7 +195,7 @@ function installFakeSupabase(scenario) {
           window.__db.seq++;
           const n = window.__db.seq;
           const row = {
-            id: 'db-order-' + n, restaurant_id: 'a3702d10-6673-4c06-9783-1d61c945ecd5',
+            id: 'db-order-' + n, restaurant_id: '99999999-9999-4999-8999-999999999999',
             ticket_id: a.p_ticket_id, table_id: 'tbl-' + tn, status: 'NEW',
             approval_status: 'APPROVED', notes: a.p_notes || '', total,
             public_token: 'cccccccc-0000-4000-8000-' + String(n).padStart(12, '0'),
@@ -254,9 +266,10 @@ function installFakeSupabase(scenario) {
       if (/^Failed to load resource/.test(t) || /^\[Mirch Masaala/.test(t)) return;
       unexpected.push('console.error: ' + t.slice(0, 160));
     });
+    await page.addInitScript({ path: path.join(__dirname, 'test-env-override.js') });
     await page.addInitScript(installFakeSupabase, scenario);
     await page.addInitScript(() => { ['05', '06', '99'].forEach((n) => sessionStorage.setItem('mm_sp_' + n, '1')); });
-    await page.goto(indexUrl + (opts.query === undefined ? '?table=05' : opts.query), { waitUntil: 'domcontentloaded' });
+    await page.goto(indexUrl + (opts.query === undefined ? '?table=05&qr=' + TEST_QR_TOKEN : opts.query), { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(4300);
     if (!opts.noCart) {
       await page.evaluate(() => {
@@ -447,20 +460,35 @@ function installFakeSupabase(scenario) {
   check((await s.page.evaluate(() => window.MM_ORDER_APPROVAL_SCHEMA_READY)) === true, 'staff sync recovers cleanly once the connection returns');
   await s.close();
 
-  // 6. Unseated table: the kitchen receives nothing until the waiter opens the visit.
+  // 6. Scanning a free table auto-opens the visit; the first tap orders without a waiter.
   s = await session({ status: 'available', place: 'success' });
+  const auto = await s.page.evaluate(() => ({
+    activateCalls: window.__rpc.filter((c) => c.name === 'mm_public_activate_table_visit').length,
+    visit: window.__visits['05'] && window.__visits['05'].visit_id,
+    blocked: document.getElementById('place-order-button').getAttribute('aria-disabled') === 'true',
+    state: mmCustomerGateState.status
+  }));
+  check(auto.activateCalls >= 1 && auto.visit === VISIT && !auto.blocked && auto.state === 'OPEN',
+    'a scanned free table auto-activates and unlocks ordering without a waiter', JSON.stringify(auto));
+  await s.tap(); await s.page.waitForTimeout(800);
+  db = await s.dbOrders();
+  check(db.length === 1 && db[0].visit === VISIT, 'the first tap after scanning orders against the auto-opened visit', JSON.stringify(db));
+  await s.close();
+
+  // 7. Fallback install without the activation RPC: nothing submits until staff seat the table.
+  s = await session({ status: 'available', place: 'success', autoActivate: false });
   await s.tap(); await s.page.waitForTimeout(600);
   db = await s.dbOrders();
-  check(db.length === 0 && (await s.placeCalls()).length === 0, 'an unseated table never submits an order to the database', JSON.stringify(db));
-  check(/waiter/i.test(await s.toast()), 'the customer is told to wait for the waiter', 'toast="' + await s.toast() + '"');
+  check(db.length === 0 && (await s.placeCalls()).length === 0, 'without the activation RPC an unseated table never submits an order', JSON.stringify(db));
+  check(/waiter/i.test(await s.toast()), 'the customer is told to wait for the waiter when activation is unavailable', 'toast="' + await s.toast() + '"');
   await s.page.evaluate(() => { window.__sc.status = 'open'; });
   await s.page.waitForFunction(() => { const b = document.getElementById('place-order-button'); return !b.disabled && b.getAttribute('aria-disabled') !== 'true'; }, null, { timeout: 7500 }).catch(() => {});
   await s.tap(); await s.page.waitForTimeout(800);
   db = await s.dbOrders();
-  check(db.length === 1, 'after the waiter seats the table, the next tap creates one kitchen order', JSON.stringify(db));
+  check(db.length === 1, 'after staff seat the table, the next tap creates one kitchen order', JSON.stringify(db));
   await s.close();
 
-  // 7. Rapid double taps while the server is slow still produce a single kitchen ticket.
+  // 8. Rapid double taps while the server is slow still produce a single kitchen ticket.
   s = await session({ status: 'open', place: 'success', placeDelay: 700 });
   await s.tap(); await s.tap(); await s.tap();
   await s.page.waitForTimeout(1500);
@@ -468,7 +496,7 @@ function installFakeSupabase(scenario) {
   check((await s.placeCalls()).length === 1 && db.length === 1, 'three rapid taps create exactly one database ticket', JSON.stringify(db));
   await s.close();
 
-  // 8. Archived/test tickets never appear in the live kitchen queue.
+  // 9. Archived/test tickets never appear in the live kitchen queue.
   s = await session({ status: 'open', place: 'success' });
   await s.tap(); await s.page.waitForTimeout(700);
   await s.page.evaluate(() => {
@@ -486,7 +514,7 @@ function installFakeSupabase(scenario) {
   check(k.cards === 1 && !/900/.test(k.text), 'archived test tickets are excluded from the live kitchen queue', JSON.stringify(k));
   await s.close();
 
-  // 9. Waiter activates an unseated table, orders immediately, then orders again on the
+  // 10. Waiter activates an unseated table, orders immediately, then orders again on the
   //    already-active table. The customer-only gate must never appear on the waiter device.
   s = await session({ status: 'available', place: 'success' }, { noCart: true, query: '' });
   await s.asRole('waiter');
@@ -530,8 +558,8 @@ function installFakeSupabase(scenario) {
   check(k === 2, 'the kitchen receives both waiter orders as NEW tickets', 'cards=' + k);
   await s.close();
 
-  // 10. A slow stale AVAILABLE reply must not re-lock a table that a fresh OPEN reply unlocked.
-  s = await session({ status: 'available', place: 'success', firstStatusDelay: 6000 });
+  // 11. A slow stale AVAILABLE reply must not re-lock a table that a fresh OPEN reply unlocked.
+  s = await session({ status: 'available', place: 'success', firstStatusDelay: 6000, autoActivate: false });
   await s.page.evaluate(() => { window.__sc.status = 'open'; window.refreshCustomerTableGate(true); });
   await s.page.waitForTimeout(500);
   let gate = await s.page.evaluate(() => ({
@@ -549,8 +577,8 @@ function installFakeSupabase(scenario) {
   check((await s.dbOrders()).length === 1, 'the customer order still reaches the kitchen after the stale-reply race', JSON.stringify(await s.dbOrders()));
   await s.close();
 
-  // 11. Customer blocked before activation, then orders on the very first tap after activation.
-  s = await session({ status: 'available', place: 'success' });
+  // 12. Customer blocked before staff activation, then orders on the very first tap after activation.
+  s = await session({ status: 'available', place: 'success', autoActivate: false });
   gate = await s.page.evaluate(() => ({
     blocked: document.getElementById('place-order-button').getAttribute('aria-disabled') === 'true',
     note: document.getElementById('cart-gate-note').textContent
@@ -561,7 +589,7 @@ function installFakeSupabase(scenario) {
   check((await s.dbOrders()).length === 1, 'the first tap after activation submits without waiting for the poll cycle', JSON.stringify(await s.dbOrders()));
   await s.close();
 
-  // 12. Reloading the page on an active table keeps ordering unlocked (no stale cached gate).
+  // 13. Reloading the page on an active table keeps ordering unlocked (no stale cached gate).
   s = await session({ status: 'open', place: 'success' });
   await s.page.evaluate(() => localStorage.setItem('mm_c_05', JSON.stringify(cart)));
   await s.page.reload({ waitUntil: 'domcontentloaded' });
@@ -578,25 +606,25 @@ function installFakeSupabase(scenario) {
   check((await s.dbOrders()).length === 1, 'ordering works after the refresh', JSON.stringify(await s.dbOrders()));
   await s.close();
 
-  // 13. Table 06 cannot ride on table 05's open visit; it unlocks only with its own visit.
+  // 14. Scanning table 06 activates only table 06; table 05 stays unseated.
   const VISIT06 = '11111111-1111-4111-8111-111111111106';
-  s = await session({ status: 'open', place: 'success' }, { query: '?table=06' });
+  s = await session({ status: 'available', place: 'success' }, { query: '?table=06&qr=' + TEST_QR_TOKEN });
   await s.page.waitForTimeout(600);
   gate = await s.page.evaluate(() => ({
     blocked: document.getElementById('place-order-button').getAttribute('aria-disabled') === 'true',
-    state: mmCustomerGateState.status
+    state: mmCustomerGateState.status,
+    visit06: window.__visits['06'] && window.__visits['06'].visit_id,
+    visit05: window.__visits['05'],
+    table05: window.__sc.status
   }));
-  check(gate.blocked && gate.state === 'AVAILABLE', 'table 06 stays blocked while only table 05 has an open visit', JSON.stringify(gate));
-  await s.tap(); await s.page.waitForTimeout(600);
-  check((await s.placeCalls()).length === 0, 'no order is submitted for a table without its own open visit');
-  await s.page.evaluate((v) => { window.__visits['06'] = { visit_id: v }; window.refreshCustomerTableGate(true); }, VISIT06);
-  await s.page.waitForTimeout(500);
+  check(!gate.blocked && gate.state === 'OPEN' && gate.visit06 === VISIT06, 'scanning table 06 auto-opens its own visit', JSON.stringify(gate));
+  check(!gate.visit05 && gate.table05 === 'available', 'table 05 stays unseated when table 06 is scanned', JSON.stringify(gate));
   await s.tap(); await s.page.waitForTimeout(800);
   db = await s.dbOrders();
-  check(db.length === 1 && db[0].visit === VISIT06, 'table 06 orders only against its own visit once the waiter opens it', JSON.stringify(db));
+  check(db.length === 1 && db[0].visit === VISIT06, 'table 06 orders only against its own auto-opened visit', JSON.stringify(db));
   await s.close();
 
-  // 14. Mobile cart layout: long names never squeeze the quantity controls at 375/390/430px.
+  // 15. Mobile cart layout: long names never squeeze the quantity controls at 375/390/430px.
   for (const width of [375, 390, 430]) {
     s = await session({ status: 'open', place: 'success' }, { noCart: true, width });
     await s.page.evaluate(() => {
