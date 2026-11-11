@@ -76,6 +76,7 @@ function installFakeSupabase() {
     if (/^\[Mirch Masaala Supabase\] Could not load shared menu\./.test(t)) return;           // same cause: the fake database holds no menu rows
     unexpected.push('console.error: ' + t.slice(0, 200));
   });
+  await page.addInitScript({ path: path.join(__dirname, 'test-env-override.js') });
   await page.addInitScript(installFakeSupabase);
   await page.addInitScript((s) => { window.__SUCCESS = s; }, REAL_SHAPED_SUCCESS);
   await page.goto(indexUrl, { waitUntil: 'domcontentloaded' });
