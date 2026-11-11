@@ -15,6 +15,7 @@ try { ({ chromium } = require('playwright')); }
 catch (e) { console.error('Needs Playwright: npm i playwright && npx playwright install chromium'); process.exit(2); }
 
 const indexUrl = 'file://' + path.resolve(process.cwd(), 'index.html');
+const TEST_QR_TOKEN = '0123456789abcdef'.repeat(4);
 let failures = 0, total = 0;
 function check(ok, name, detail) {
   total++;
@@ -56,6 +57,15 @@ function installFakeSupabase(scenario) {
           return res({ data: { table_number: tn, status: 'UNKNOWN', can_order: false, message: 'Table not found' }, error: null });
         }, 0));
       }
+      if (name === 'mm_public_activate_table_visit') {
+        return new Promise((res) => setTimeout(() => {
+          if (!validTable(tn)) return res({ data: null, error: { code: 'P0001', message: 'Choose a valid table number' } });
+          if (s.autoActivate === false) return res({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.mm_public_activate_table_visit' } });
+          if (s.status === 'unknown' || s.status === 'throw') return res({ data: null, error: { code: 'P0001', message: 'Active table not found' } });
+          s.status = 'open';
+          res({ data: { table_number: tn, status: 'OPEN', can_order: true, visit_id: VISIT, already_open: false, message: 'You are ready to order.' }, error: null });
+        }, 0));
+      }
       if (name === 'mm_ensure_public_table_visit') {
         if (!validTable(tn)) return Promise.resolve({ data: null, error: { code: 'P0001', message: 'Choose a valid table number' } });
         if (s.status === 'open') return Promise.resolve({ data: { table_number: tn, status: 'OPEN', visit_id: VISIT }, error: null });
@@ -88,11 +98,11 @@ const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
   const browser = await chromium.launch(launch);
   const unexpected = [];
 
-  // Opens the page the way a guest does (scanning the table QR = ?table=NN), waits for the table
-  // check, then fills the cart with three dishes (qty 1, total 1000) and opens it.
+  // Opens the page the way a guest does (scanning the table QR = ?table=NN&qr=...), waits for the
+  // table check, then fills the cart with three dishes (qty 1, total 1000) and opens it.
   async function session(scenario, opts) {
     opts = opts || {};
-    const context = await browser.newContext({ viewport: { width: 390, height: 800 }, hasTouch: true });
+    const context = await browser.newContext({ viewport: { width: opts.width || 390, height: opts.height || 800 }, hasTouch: true });
     await context.route(/^https?:/, (r) => r.abort('failed'));
     const page = await context.newPage();
     page.on('pageerror', (e) => unexpected.push('uncaught: ' + e.message));
@@ -102,10 +112,11 @@ const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
       if (/^Failed to load resource/.test(t) || /^\[Mirch Masaala/.test(t)) return; // blocked CDN + the app's own logged failures
       unexpected.push('console.error: ' + t.slice(0, 160));
     });
+    await page.addInitScript({ path: path.join(__dirname, 'test-env-override.js') });
     await page.addInitScript(installFakeSupabase, scenario);
     // The once-per-session chef's-special popup is covered by its own test below; silence it elsewhere.
     if (!opts.allowSpecial) await page.addInitScript(() => { ['05', '99', 'abc'].forEach((n) => sessionStorage.setItem('mm_sp_' + n, '1')); });
-    await page.goto(indexUrl + (opts.query === undefined ? '?table=05' : opts.query), { waitUntil: 'domcontentloaded' });
+    await page.goto(indexUrl + (opts.query === undefined ? '?table=05&qr=' + TEST_QR_TOKEN : opts.query), { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(4300); // startTable fires 2.9s after a QR scan, then the table check runs
     if (!opts.noCart) {
       await page.evaluate(() => {
@@ -191,24 +202,37 @@ const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
   check((await s.placeCalls()).length === 2 && (await s.state()).success, 'retrying after a rejection creates one more order (2 attempts, 1 accepted)');
   await s.close();
 
-  // 5. Table not seated yet: looks inactive, says why inside the cart, never submits, unlocks by itself.
+  // 5. A scanned free table auto-opens, so the first tap orders without a waiter.
   s = await session({ status: 'available', place: 'success' });
   st = await s.state();
-  check(!st.usable && (st.disabled || st.ariaDisabled), 'unseated table: Place order looks inactive', JSON.stringify(st));
-  check(st.noteVisible && /waiter/i.test(st.noteText), 'unseated table: the reason is shown inside the cart, next to the button', JSON.stringify({ noteVisible: st.noteVisible, noteText: st.noteText }));
+  const auto = await s.page.evaluate(() => ({
+    activateCalls: window.__rpc.filter((c) => c.name === 'mm_public_activate_table_visit').length,
+    status: window.__sc.status
+  }));
+  check(auto.activateCalls >= 1 && auto.status === 'open' && st.usable && !st.noteVisible,
+    'a scanned free table auto-activates so Place order is usable immediately', JSON.stringify({ auto, st }));
+  await s.tap(); await s.page.waitForTimeout(700);
+  check((await s.placeCalls()).length === 1, 'the first tap after scanning creates one order against the auto-opened visit');
+  await s.close();
+
+  // 6. Fallback install without the activation RPC: unlock only after staff seat the table.
+  s = await session({ status: 'available', place: 'success', autoActivate: false });
+  st = await s.state();
+  check(!st.usable && (st.disabled || st.ariaDisabled), 'unseated table without auto-activation: Place order looks inactive', JSON.stringify(st));
+  check(st.noteVisible && /waiter/i.test(st.noteText), 'unseated table without auto-activation: the reason is shown inside the cart, next to the button', JSON.stringify({ noteVisible: st.noteVisible, noteText: st.noteText }));
   await s.tap(); await s.page.waitForTimeout(500);
   const waitToast = await s.toast();
-  check(/waiter/i.test(waitToast), 'unseated table: tapping the button gives a visible explanation', 'toast="' + waitToast + '"');
-  check((await s.placeCalls()).length === 0, 'unseated table: tapping never submits an order');
+  check(/waiter/i.test(waitToast), 'unseated table without auto-activation: tapping the button gives a visible explanation', 'toast="' + waitToast + '"');
+  check((await s.placeCalls()).length === 0, 'unseated table without auto-activation: tapping never submits an order');
   await s.page.evaluate(() => { window.__sc.status = 'open'; });
   await s.page.waitForFunction(() => { const b = document.getElementById('place-order-button'); return !b.disabled && b.getAttribute('aria-disabled') !== 'true'; }, null, { timeout: 7500 }).catch(() => {});
   st = await s.state();
-  check(st.usable && !st.noteVisible, 'once the waiter seats the table the button unlocks by itself and the warning disappears', JSON.stringify(st));
+  check(st.usable && !st.noteVisible, 'once staff seat the table the button unlocks by itself and the warning disappears', JSON.stringify(st));
   await s.tap(); await s.page.waitForTimeout(700);
   check((await s.placeCalls()).length === 1, 'after being seated, one tap creates exactly one order');
   await s.close();
 
-  // 6. The table check itself fails (network blip): must not lock ordering; failure is visible.
+  // 7. The table check itself fails (network blip): must not lock ordering; failure is visible.
   s = await session({ status: 'throw', place: 'success' });
   st = await s.state();
   check(st.usable, 'a failed table check does not lock the button', JSON.stringify(st));
@@ -216,18 +240,30 @@ const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
   check(/waiter|table/i.test(await s.toast()) && (await s.state()).usable, 'tap after a failed table check shows a visible message and leaves the button usable');
   await s.close();
 
-  // 7. Invalid / unknown table numbers: visible error, nothing submitted, button not stuck.
-  for (const [query, label] of [['?table=abc', 'invalid table in the QR (abc)'], ['?table=99', 'table that does not exist (99)']]) {
-    s = await session({ status: label.includes('99') ? 'unknown' : 'open', place: 'success' }, { query });
-    await s.tap(); await s.page.waitForTimeout(700);
-    const t = await s.toast();
-    check(t.length > 0 && (await s.placeCalls()).length === 0, label + ': shows a visible error and submits nothing', 'toast="' + t + '"');
-    st = await s.state();
-    check(!st.disabled && /Place order/i.test(st.text), label + ': the button is not left stuck on "Sending order…"', JSON.stringify(st));
+  // 8. QR-only entry: a table is never opened without a valid QR credential.
+  for (const [query, label] of [
+    ['?table=05', 'table link without a QR credential'],
+    ['?table=05&qr=deadbeef', 'table link with a malformed QR credential'],
+    ['?table=99&qr=' + TEST_QR_TOKEN, 'QR link for a table that does not exist']
+  ]) {
+    s = await session({ status: 'open', place: 'success' }, { query, noCart: true });
+    const entry = await s.page.evaluate(() => {
+      const panel = document.getElementById('qr-entry-error');
+      const text = document.getElementById('qr-entry-error-text');
+      return {
+        customerOn: document.getElementById('customer').classList.contains('on'),
+        visible: !!(panel && getComputedStyle(panel).display !== 'none'),
+        message: text ? text.textContent : '',
+        activeTable: localStorage.getItem('mm_customer_active_table') || ''
+      };
+    });
+    check(!entry.customerOn && !entry.activeTable && entry.visible && /^Please scan the QR code placed on your table to view the menu\.$/.test(entry.message),
+      label + ': shows the Scan QR message and does not open a table', JSON.stringify(entry));
+    check((await s.placeCalls()).length === 0, label + ': submits nothing');
     await s.close();
   }
 
-  // 8. Missing session: no table at all.
+  // 9. Missing session: no table at all.
   s = await session({ status: 'open', place: 'success' }, { query: '', noCart: true });
   await s.page.evaluate(() => {
     table = ''; window.table = '';
@@ -239,20 +275,86 @@ const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
   check(/table is missing/i.test(await s.toast()) && (await s.placeCalls()).length === 0, 'no table session: shows "Table is missing" and submits nothing');
   await s.close();
 
-  // 9. Empty cart is never silent.
+  // 10. Empty cart is never silent.
   s = await session({ status: 'open', place: 'success' }, { noCart: true });
   await s.page.evaluate(() => { cart = []; window.cart = cart; updCart(); openCart(); window.placeOrder(); });
   await s.page.waitForTimeout(300);
   check(/cart is empty/i.test(await s.toast()) && (await s.placeCalls()).length === 0, 'empty cart: shows a visible message and submits nothing');
   await s.close();
 
-  // 10. The chef's-special popup must not cover the cart and swallow taps on Place order.
+  // 11. The chef's-special popup must not cover the cart and swallow taps on Place order.
   s = await session({ status: 'open', place: 'success' }, { allowSpecial: true }); // cart is opened ~1.4s before the popup timer fires
   await s.page.waitForTimeout(3600);
   st = await s.state();
   check(!st.special, 'the chef\'s-special popup does not open on top of the cart', JSON.stringify(st));
   await s.tap(); await s.page.waitForTimeout(700);
   check((await s.placeCalls()).length === 1, 'with the cart open, a tap on Place order reaches the button and creates one order');
+  await s.close();
+
+  // 12. Sticky cart bar: hidden while empty, appears after the first dish with the item count and
+  //     total, stays pinned to the bottom, and opens the existing cart drawer on a real tap.
+  for (const [width, label] of [[390, 'phone'], [1280, 'desktop']]) {
+    s = await session({ status: 'open', place: 'success' }, { noCart: true, width });
+    let bar = await s.page.evaluate(() => {
+      const b = document.getElementById('cart-bar');
+      const r = b.getBoundingClientRect();
+      return { shown: getComputedStyle(b).display !== 'none', width: Math.round(r.width), height: Math.round(r.height) };
+    });
+    check(!bar.shown && bar.width === 0 && bar.height === 0, label + ': the cart bar stays hidden while the cart is empty', JSON.stringify(bar));
+    await s.page.evaluate(() => {
+      const items = window.MENU.menu_items.slice(0, 2);
+      cart = items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: 1 }));
+      window.cart = cart; updCart();
+    });
+    await s.page.waitForTimeout(450);
+    bar = await s.page.evaluate(() => {
+      const b = document.getElementById('cart-bar');
+      const r = b.getBoundingClientRect();
+      const cs = getComputedStyle(b);
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return {
+        shown: cs.display !== 'none' && r.width > 0 && r.height > 0,
+        count: (b.querySelector('.cb-count') || {}).textContent || '',
+        label: (b.querySelector('.cb-label') || {}).textContent || '',
+        total: (b.querySelector('.cb-total') || {}).textContent || '',
+        pinned: Math.abs(window.innerHeight - r.bottom) <= 32,
+        hit: !!hit && b.contains(hit),
+        aria: b.getAttribute('aria-label')
+      };
+    });
+    check(bar.shown && bar.count === '2' && bar.total === '₹700' && bar.pinned,
+      label + ': one bar appears pinned at the bottom showing 2 items and ₹700', JSON.stringify(bar));
+    check(bar.hit && /2 items, ₹700/.test(bar.aria || ''), label + ': the bar is tappable and announces count plus total', JSON.stringify(bar));
+    await s.page.locator('#cart-bar').click();
+    await s.page.waitForTimeout(250);
+    const drawer = await s.page.evaluate(() => ({
+      open: document.getElementById('cart').classList.contains('on'),
+      placeInside: !!document.querySelector('#cart #place-order-button'),
+      placeVisible: document.getElementById('place-order-button').getBoundingClientRect().height > 0,
+      placeUsable: document.getElementById('place-order-button').getAttribute('aria-disabled') !== 'true'
+    }));
+    check(drawer.open && drawer.placeInside && drawer.placeVisible && drawer.placeUsable,
+      label + ': tapping the bar opens the existing drawer with Place order inside and usable', JSON.stringify(drawer));
+    check((await s.placeCalls()).length === 0, label + ': opening the cart from the bar submits no order');
+    await s.close();
+  }
+
+  // 13. The bar is only a shortcut: an unseated table must still be blocked by the gate.
+  s = await session({ status: 'available', place: 'success', autoActivate: false }, { noCart: true });
+  await s.page.evaluate(() => {
+    const item = window.MENU.menu_items[0];
+    cart = [{ id: item.id, name: item.name, price: item.price, qty: 1 }];
+    window.cart = cart; updCart();
+  });
+  await s.page.waitForTimeout(400);
+  await s.page.locator('#cart-bar').click();
+  await s.page.waitForTimeout(250);
+  st = await s.state();
+  check(!st.usable && st.noteVisible && /waiter/i.test(st.noteText),
+    'the cart bar opens the cart but an unseated table still blocks Place order with the waiter note', JSON.stringify(st));
+  await s.tap();
+  await s.page.waitForTimeout(500);
+  check((await s.placeCalls()).length === 0, 'tapping Place order on the unseated table still submits nothing');
   await s.close();
 
   check(unexpected.length === 0, 'no uncaught script errors during any scenario', unexpected.join(' | ').slice(0, 400));
