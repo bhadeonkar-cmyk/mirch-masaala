@@ -1,0 +1,9 @@
+.vercel
+.env*
+
+# Generated build output and dependencies
+dist/
+node_modules/
+
+# Local Vercel files
+.vercel/

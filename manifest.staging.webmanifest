@@ -1,0 +1,72 @@
+{
+  "id": "/staging/",
+  "name": "Mirch Masaala — Staging",
+  "short_name": "Mirch Staging",
+  "description": "Staging build for client testing. Test data only.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait",
+  "background_color": "#101012",
+  "theme_color": "#101012",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "./icons/mirch-masaala-garden-resto-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Waiter workspace (staging)",
+      "short_name": "Waiter",
+      "description": "Open the staging waiter workspace.",
+      "url": "./?staff=waiter",
+      "icons": [
+        {
+          "src": "./icons/mirch-masaala-garden-resto-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Kitchen display (staging)",
+      "short_name": "Kitchen",
+      "description": "Open the staging kitchen display.",
+      "url": "./?staff=kitchen",
+      "icons": [
+        {
+          "src": "./icons/mirch-masaala-garden-resto-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Owner dashboard (staging)",
+      "short_name": "Owner",
+      "description": "Open the staging owner dashboard.",
+      "url": "./?staff=admin",
+      "icons": [
+        {
+          "src": "./icons/mirch-masaala-garden-resto-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
