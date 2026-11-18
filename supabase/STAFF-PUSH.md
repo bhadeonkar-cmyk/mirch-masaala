@@ -55,11 +55,14 @@ Set these only after you have confirmed which key pair you hold the private key 
 
 | Name | Value |
 | --- | --- |
-| `VAPID_PUBLIC_KEY` | `BCGV3-RIkNT5dJfV96yuWS61iZe5Zf85s8CJWBgq-Q_pGJWCLEkMD-91IB7yvsZ6Z0mGebJCohhVJmUHcuNW1E0` (same as in `supabase-live.js`) |
+| `VAPID_PUBLIC_KEY` | The public key for this environment. Production's key is in `env-config.js`; staging must use its own pair and never reuse the production key. |
 | `VAPID_PRIVATE_KEY` | The private key of that same pair, from your locally saved VAPID file. Never commit, paste in chat, or screenshot it. |
-| `VAPID_SUBJECT` | `https://bhadeonkar-cmyk.github.io/mirch-masaala/` (or `mailto:you@example.com`) |
+| `VAPID_SUBJECT` | The environment's public site root (or `mailto:you@example.com`). Falls back to `MM_SITE_ROOT`. |
+| `MM_RESTAURANT_ID` | This project's own `public.restaurants` UUID. Never reuse the other environment's UUID. |
+| `MM_SITE_ROOT` | Public site root with a trailing slash, e.g. the production or staging URL. |
+| `MM_ALLOWED_ORIGIN` | Exact browser origin for this environment, no trailing slash. |
 
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected by Supabase. Never put the service-role key in the website or GitHub.
+The function returns `503` if `MM_RESTAURANT_ID`, `MM_SITE_ROOT`, or `MM_ALLOWED_ORIGIN` is missing. `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected by Supabase. Never put the service-role key in the website or GitHub.
 
 ### Which key pair is live? (known mismatch, resolve in a separate controlled step)
 
@@ -72,7 +75,7 @@ Set these only after you have confirmed which key pair you hold the private key 
 
 ```
 read -rs VAPID_PRIVATE_KEY && export VAPID_PRIVATE_KEY     # paste the private key; it stays hidden
-node scripts/verify-vapid-pair.cjs                         # checks it against the website key in supabase-live.js
+node scripts/verify-vapid-pair.cjs                         # checks it against the production key in env-config.js
 node scripts/verify-vapid-pair.cjs --public BH8rULqi...    # or against any public key you pass in full
 ```
 

@@ -1,12 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-const RESTAURANT_ID = "a3702d10-6673-4c06-9783-1d61c945ecd5";
-const SITE_ROOT = "https://bhadeonkar-cmyk.github.io/mirch-masaala/";
-const ALLOWED_ORIGIN = "https://bhadeonkar-cmyk.github.io";
+const RESTAURANT_ID = Deno.env.get("MM_RESTAURANT_ID") || "";
+const SITE_ROOT = Deno.env.get("MM_SITE_ROOT") || "";
+const ALLOWED_ORIGIN = Deno.env.get("MM_ALLOWED_ORIGIN") || "";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN || "null",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Vary": "Origin"
@@ -105,6 +105,9 @@ function makeMessage(row: Record<string, unknown>, role: string, language = "en"
 }
 
 Deno.serve(async (req: Request) => {
+  if (!RESTAURANT_ID || !SITE_ROOT || !ALLOWED_ORIGIN) {
+    return json(503, { error: "Push environment configuration is missing." });
+  }
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

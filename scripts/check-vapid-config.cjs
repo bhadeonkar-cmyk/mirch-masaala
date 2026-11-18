@@ -15,12 +15,17 @@ const check = (ok, name, detail) => { if (!ok) failed++; console.log((ok ? '✓ 
 const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
 
 const live = read('supabase-live.js');
+const envConfig = read('env-config.js');
 const doc = read('supabase/STAFF-PUSH.md');
 const edge = read('supabase/functions/send-staff-push/index.ts');
 
-const siteKeys = [...live.matchAll(/WEB_PUSH_VAPID_PUBLIC_KEY\s*=\s*'([^']+)'/g)].map((m) => m[1]);
-check(siteKeys.length === 1, 'the website defines exactly one public VAPID key', 'found ' + siteKeys.length);
+const siteKeys = [...envConfig.matchAll(/vapidPublicKey\s*:\s*'([^']+)'/g)].map((m) => m[1]);
+check(siteKeys.length === 1, 'the production environment defines exactly one public VAPID key', 'found ' + siteKeys.length);
 const siteKey = siteKeys[0] || '';
+check(/WEB_PUSH_VAPID_PUBLIC_KEY\s*=\s*\(ENV && ENV\.vapidPublicKey\)/.test(live),
+  'the website reads its VAPID public key from the environment');
+check(!/WEB_PUSH_VAPID_PUBLIC_KEY\s*=\s*'[A-Za-z0-9_-]{87}'/.test(live),
+  'the website contains no hard-coded VAPID public key');
 
 let validPoint = false;
 try {
@@ -30,7 +35,8 @@ try {
 } catch (e) { validPoint = false; }
 check(validPoint, 'the website public key is a valid uncompressed P-256 point');
 
-check(doc.includes(siteKey), 'STAFF-PUSH.md documents the same public key as the website (' + siteKey.slice(0, 8) + '…)');
+check(doc.includes('env-config.js') && /staging must use its own pair/i.test(doc),
+  'STAFF-PUSH.md points to the environment-specific public key instead of a single global key');
 
 check(/Deno\.env\.get\("VAPID_PUBLIC_KEY"\)/.test(edge) && /Deno\.env\.get\("VAPID_PRIVATE_KEY"\)/.test(edge) && /Deno\.env\.get\("VAPID_SUBJECT"\)/.test(edge),
   'the Edge Function reads VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT from secrets');
